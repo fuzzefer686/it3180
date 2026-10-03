@@ -1,9 +1,9 @@
 name: CI
 on:
   pull_request:
-    branches: [dev, staging, main, master]
+    branches: [dev, main]
   push:
-    branches: [dev, staging, main, master]
+    branches: [dev, main]
 permissions:
   contents: read
 concurrency:
@@ -32,10 +32,10 @@ jobs:
 
   deploy:
     needs: checks
-    if: github.event_name == 'push' && github.ref_name != 'master' && vars.ENABLE_FIREBASE_DEPLOY == 'true'
+    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main') && vars.ENABLE_FIREBASE_DEPLOY == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: ${{ github.ref_name == 'main' && 'production-demo' || github.ref_name == 'staging' && 'staging' || 'dev' }}
+    environment: ${{ github.ref_name == 'main' && 'production-demo' || 'dev' }}
     concurrency:
       group: firebase-deploy-${{ github.ref_name }}
       cancel-in-progress: false

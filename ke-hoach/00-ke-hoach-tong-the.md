@@ -73,7 +73,7 @@ Mỗi người làm FE+BE+test. Một repository, một ứng dụng; không mic
 - Chưa thêm Realtime Database, Storage/upload thật, FCM/push hoặc listener realtime. Dùng refresh dữ liệu khi thao tác để giảm việc tuần đầu.
 - Lead tạo admin đầu tiên qua script tin cậy/local seed; không có API công khai tự cấp ADMIN. Tài khoản cloud và demo dùng dữ liệu hư cấu.
 
-Deploy Cloud Functions cần **Blaze + billing**; có quota miễn phí nhưng có thể phát sinh phí. Emulator chạy local không cần bật billing. Ba môi trường cloud dùng ba Firebase project riêng, xem [hosting](06-hosting-cicd.md).
+Deploy Cloud Functions cần **Blaze + billing**; có quota miễn phí nhưng có thể phát sinh phí. Emulator chạy local không cần bật billing. Hai môi trường cloud dev/production-demo dùng hai Firebase project riêng, xem [hosting](06-hosting-cicd.md).
 
 ## 5. Trạng thái và ví điểm demo
 
@@ -103,7 +103,7 @@ V1 tạm bỏ cash, PayOS, công nợ và rút tiền. Sau này có thể bổ s
 | 04–05/10 | Repo chạy bằng Emulator; Firebase Auth/hồ sơ; VietMap; fixture cho Booking/Payment; deploy dev nếu đã có billing |
 | 06–07/10 | Đăng chuyến → hàng chờ → nhận một khách → đón/trả → trả điểm |
 | 08/10 | Nối ví điểm/lịch sử; kiểm tra thiếu điểm và bấm lặp; dừng thêm chức năng |
-| 09/10 | Kiểm thử staging; đưa bản ổn lên production-demo |
+| 09/10 | Kiểm thử luồng chung trên dev; PR dev → main để phát hành bản ổn lên production-demo nếu đã cấu hình cloud |
 | 10/10 | Demo và thời gian dự phòng |
 
 Nếu trễ, cắt dashboard/UI cầu kỳ và tìm địa chỉ nâng cao trước. Giữ luồng trả điểm hoàn chỉnh, RBAC, chống nhận hai khách và lịch sử giao dịch.
