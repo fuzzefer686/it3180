@@ -1,13 +1,13 @@
 # Checklist lead sau khi có scaffold
 
-Cập nhật 04/10/2026. Khung React/Firebase đã được tạo local; nghiệp vụ các module chưa triển khai. Chưa commit/push hoặc deploy cloud.
+Cập nhật 04/10/2026. Khung React/Firebase đã được merge vào dev/main; nghiệp vụ các module chưa triển khai. Chưa deploy cloud.
 
 ## Làm ngay hôm nay
 
 1. Chạy theo README: npm ci → npm run dev; terminal thứ hai npm run seed:local. Kiểm tra Firebase và đọc hồ sơ mẫu.
 2. Đọc shared/contracts.ts và docs/contracts.md; hiểu uid, role/status, callable, Firestore Rules và transaction. Hỏi Agent giải thích phần chưa hiểu trước khi giao nhóm.
-3. Review diff; đưa scaffold lên GitHub bằng feature branch/PR. Remote đã có dev/staging/main; local đang master, không force push hoặc ghi đè remote.
-4. Mời 4 người vào repo. Bảo vệ dev/staging/main: PR, một approval, resolve conversation, checks qua, không force push/xóa; áp dụng cho cả lead.
+3. Scaffold đã merge; mỗi task mới lấy origin/dev mới nhất và tạo feature branch riêng, review diff rồi mở PR vào dev. Không dùng lại nhánh đã merge, không force push hoặc ghi đè remote.
+4. Mời 4 người vào repo. Bảo vệ dev/main: PR, một approval, resolve conversation, checks qua, không force push/xóa; áp dụng cho cả lead.
 5. Gửi link README/kế hoạch; yêu cầu cả 5 người xác nhận chạy được local. Dừng Emulator dev trước khi chạy npm run check.
 
 ## Giao task đầu tiên
@@ -32,9 +32,9 @@ Mỗi Issue có owner, reviewer, input/output, điều kiện hoàn thành và p
 
 ## Hosting khi sẵn sàng
 
-Cloud chưa cấu hình. Nếu dùng web cloud hoàn chỉnh, chủ tài khoản cần quyết định bật Blaze/billing. Lead quản lý 3 Firebase projects, GitHub Environments/Variables/WIF và budget; không chia sẻ password hoặc đưa private key vào repo. Chưa có billing vẫn phát triển/demo local bằng Emulator.
+Cloud chưa cấu hình. Nếu dùng web cloud hoàn chỉnh, chủ tài khoản cần quyết định bật Blaze/billing. Lead quản lý 2 Firebase projects riêng cho dev/production-demo, GitHub Environments/Variables/WIF và budget; không chia sẻ password hoặc đưa private key vào repo. Chưa có billing vẫn phát triển/demo local bằng Emulator.
 
-Pipeline deploy tắt cho đến khi bật ENABLE_FIREBASE_DEPLOY sau khi cấu hình đủ. PR dev → staging, test chung; PR staging → main, kiểm tra sau release. Chưa cần mua domain.
+Pipeline deploy tắt cho đến khi bật ENABLE_FIREBASE_DEPLOY sau khi cấu hình đủ. Test chung trên dev, PR dev → main bằng merge commit, kiểm tra sau release. Chưa cần mua domain.
 
 ## Bạn không cần làm thay cả nhóm
 

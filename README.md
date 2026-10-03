@@ -58,11 +58,11 @@ Dừng `npm run dev` trước test integration/check vì Emulator test dùng cù
 
 ## Làm việc trên GitHub
 
-Remote hiện có `dev`, `staging`, `main`; dùng **dev**, không develop. Local hiện bắt đầu từ `master`; scaffold chưa commit/push. Local master có lịch sử riêng với origin/main. Cách đơn giản để bàn giao: clone remote vào thư mục mới, tạo feature branch từ origin/dev, copy scaffold sang (bỏ .git, node_modules, build output và .env), kiểm tra rồi mở PR vào dev. Không force push hoặc ghép lịch sử khác nhau chỉ để đưa baseline lên.
+Remote dùng hai nhánh môi trường: **dev** để tích hợp và kiểm thử, **main** cho production-demo. Scaffold đã được merge vào cả hai nhánh. Mỗi task mới tạo feature branch từ `origin/dev` mới nhất; không dùng các nhánh local cũ có lịch sử riêng để mở PR.
 
-Mỗi task: lấy dev mới → tạo feature branch → code/test → push feature → PR base dev → reviewer → lead merge. Bản ổn: PR dev → staging, test chung; PR staging → main. Không copy code của nhau hoặc push thẳng nhánh môi trường. Xem [workflow](ke-hoach/08-github-workflow.md).
+Mỗi task: lấy dev mới → tạo feature branch → code/test → push feature → PR base dev → reviewer → lead merge. Kiểm thử luồng chung trên dev; bản ổn mở PR **dev → main**, dùng merge commit để giữ lịch sử giữa hai nhánh môi trường. Không copy code của nhau hoặc push thẳng nhánh môi trường. Xem [workflow](ke-hoach/08-github-workflow.md).
 
-CI job **checks** chạy trên PR/push dev/staging/main (master hỗ trợ baseline hiện tại). Sau khi CI chạy lần đầu, chọn checks làm required status check cho ba nhánh.
+CI job **checks** chạy trên PR vào dev/main và push dev/main. Sau khi CI chạy lần đầu, chọn checks làm required status check cho hai nhánh.
 
 ## Cloud và deploy — chưa bật
 
@@ -70,10 +70,10 @@ Cloud Functions cần **Blaze + billing**, không bảo đảm free hoàn toàn.
 
 Pipeline deploy mặc định bị tắt. Khi lead quyết định triển khai:
 
-1. Tạo 3 Firebase projects và GitHub Environments: dev, staging, production-demo. Bật email/password Auth, Firestore và billing cho từng project; cùng Functions region asia-southeast1.
+1. Tạo 2 Firebase projects riêng và GitHub Environments: dev, production-demo. Bật email/password Auth, Firestore và billing cho từng project; cùng Functions region asia-southeast1.
 2. Mỗi GitHub Environment cấu hình Variables: FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_APP_ID, WIF_PROVIDER, DEPLOY_SERVICE_ACCOUNT. Web config không phải private credential; vẫn phải giữ quyền backend/Rules.
 3. Cấu hình Google Workload Identity Federation, giới hạn trust theo repo/nhánh/environment và quyền deploy cần thiết. Không lưu service-account private key trong repo. CI checks không cần Google credentials.
-4. Đặt budget/usage controls; rồi mới bật repository variable ENABLE_FIREBASE_DEPLOY=true. Test dev trước khi phát hành staging/main. Xem [hosting](ke-hoach/06-hosting-cicd.md).
+4. Đặt budget/usage controls; rồi mới bật repository variable ENABLE_FIREBASE_DEPLOY=true. Test dev trước khi phát hành main. Xem [hosting](ke-hoach/06-hosting-cicd.md).
 
 CI build web đúng Firebase project cloud, kiểm tra config trước deploy, dùng ADC và deploy Functions/Rules/indexes/Hosting. Workflow chưa được thử trên account cloud. Kiểm tra index readiness và smoke test sau release; rollback code không rollback dữ liệu.
 

@@ -1,6 +1,6 @@
 # Hosting và CI/CD — Firebase
 
-Kế hoạch cập nhật 03/10/2026, chưa tạo account/project hoặc triển khai cloud.
+Kế hoạch cập nhật 04/10/2026: dùng dev/main, chưa tạo account/project hoặc triển khai cloud.
 
 ## Stack chốt
 
@@ -15,22 +15,21 @@ FE gọi callable functions bằng Firebase SDK; function tự kiểm tra reques
 - Khi chủ tài khoản đồng ý bật billing: đặt budget alerts, giới hạn function instances, `minInstances=0`, theo dõi usage và dọn artifact cũ. Alerts không tự chặn chi phí; giới hạn instances cũng không bảo đảm hóa đơn bằng 0. Xem khả năng [spend caps](https://firebase.google.com/docs/projects/billing/spend-caps) của dịch vụ trước khi cấu hình.
 - VietMap có quota/chi phí riêng. Điểm demo không có giá trị tiền ở tất cả môi trường; không PayOS/webhook/bank account. V1 không Storage/upload thật, SMS login hoặc dịch vụ bổ sung.
 
-## Ba môi trường, một workflow
+## Hai môi trường, một workflow
 
 | Nhánh | Môi trường | Firebase project |
 |---|---|---|
 | dev | Dev | Project dev riêng |
-| staging | Staging | Project staging riêng |
 | main | Production-demo | Project prod riêng |
 
-Local dùng Emulator; ba môi trường cloud có Auth/Firestore/Functions/Hosting độc lập. Cùng code, khác Firebase config/VietMap keys; người demo đăng ký/seed riêng từng môi trường. Firebase khuyến nghị một project/môi trường. [Tài liệu](https://firebase.google.com/docs/projects/dev-workflows/general-best-practices)
+Local dùng Emulator; hai môi trường cloud có Auth/Firestore/Functions/Hosting độc lập. Cùng code, khác Firebase config/VietMap keys; người demo đăng ký/seed riêng từng môi trường. Firebase khuyến nghị một project/môi trường. [Tài liệu](https://firebase.google.com/docs/projects/dev-workflows/general-best-practices)
 
 Domain miễn phí: `<project-id>.web.app` hoặc `<project-id>.firebaseapp.com`; không cần mua domain.
 
-Feature branch → PR vào dev → review → merge. Lead đưa bản ổn sang staging, kiểm thử rồi merge main. GitHub Actions:
+Feature branch từ dev → PR vào dev → review → merge. Lead kiểm thử luồng chung trên dev, rồi mở PR dev → main bằng merge commit để phát hành bản ổn. GitHub Actions:
 
 1. PR: install từ lockfile, typecheck, build web/functions, Vitest và test Emulator; không cấp deploy credentials cho PR/fork.
-2. Push ba nhánh: chạy checks, chọn đúng Firebase project và build config môi trường; chỉ deploy nếu checks qua.
+2. Push dev/main: chạy checks, chọn đúng Firebase project và build config môi trường (dev → dev, main → production-demo); chỉ deploy nếu checks qua và ENABLE_FIREBASE_DEPLOY=true. Mặc định deploy vẫn tắt.
 3. Dùng Firebase CLI deploy Functions, Firestore Rules/indexes và Hosting với project ID rõ ràng. Chặn job deploy cùng môi trường chạy đè nhau. Chờ index cần thiết sẵn sàng rồi smoke test trước khi báo release xong.
 
 CI dùng Application Default Credentials; ưu tiên GitHub OIDC/Workload Identity Federation. Nếu dùng service-account JSON thì chỉ lưu trong GitHub Environment Secrets, dùng account deploy riêng, không commit hoặc chia sẻ password. Không dùng `firebase login:ci` token cho pipeline mới. [Firebase CLI CI](https://firebase.google.com/docs/cli#use_the_cli_with_ci_systems)
@@ -40,7 +39,7 @@ Lead giữ mapping project/config và owner Rules/indexes; module owner gửi th
 ## Thứ tự làm trong tuần
 
 1. 04–05/10: scaffold/Emulator, thử Auth → callable → Firestore; deploy dev nếu đủ điều kiện billing.
-2. 06–07/10: tích hợp module; tạo staging/prod và pipeline cùng code, dữ liệu riêng nếu đã được yêu cầu.
-3. 08–09/10: test staging, phát hành demo, ghi commit/version. Nếu chưa có billing thì ghi rõ demo local, chưa có web cloud hoàn chỉnh.
+2. 06–07/10: tích hợp module trên dev; tạo project production-demo và pipeline cùng code, dữ liệu riêng nếu đã được yêu cầu.
+3. 08–09/10: test dev, PR dev → main, phát hành demo và ghi commit/version. Nếu chưa có billing thì ghi rõ demo local, chưa có web cloud hoàn chỉnh.
 
 Không reset dữ liệu prod khi deploy. Firestore dùng thay đổi document có tương thích và version dữ liệu, không SQL migration. Rules/indexes phải review. Rollback code không hoàn tác dữ liệu; đọc logs và sửa cùng module owner.

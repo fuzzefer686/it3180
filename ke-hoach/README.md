@@ -27,4 +27,4 @@ Người 2 phụ trách đăng ký/login/logout, hồ sơ, duyệt sinh viên v�
 
 **Điều kiện hosting:** triển khai Cloud Functions cần Firebase Blaze và liên kết tài khoản billing. Có hạn mức miễn phí nhưng không bảo đảm tổng chi phí bằng 0. Chưa có billing thì phát triển/demo local bằng Firebase Emulator Suite; không tự bật billing hoặc triển khai cloud. Xem [hosting và CI/CD](06-hosting-cicd.md).
 
-Cập nhật 04/10/2026: scaffold local đã có. Đọc [README chạy app](../README.md); module nghiệp vụ và cloud deployment chưa triển khai.
+Cập nhật 04/10/2026: scaffold đã merge vào dev/main. Feature branch từ dev → PR dev → review/merge → kiểm thử tích hợp → PR dev → main. Đọc [README chạy app](../README.md); module nghiệp vụ và cloud deployment chưa triển khai.

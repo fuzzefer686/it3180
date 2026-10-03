@@ -7,7 +7,7 @@
 1. Dựng React/Vite/TypeScript/Tailwind ở `web/`, Cloud Functions TypeScript ở `functions/`; cấu hình Firebase SDK và Admin SDK.
 2. Tạo cấu hình Auth/Firestore/Functions Emulator và dữ liệu mẫu hư cấu; mọi người có cùng lệnh chạy/test.
 3. Chốt collections, trạng thái, contract callable và lỗi với nhóm. Dựng layout/component chung và wrapper gọi function, không làm thay module.
-4. Quản lý `firestore.rules` mặc định chặn client truy cập trực tiếp, indexes và CI build/test; deploy theo ba môi trường khi có billing.
+4. Quản lý `firestore.rules` mặc định chặn client truy cập trực tiếp, indexes và CI build/test; deploy theo hai môi trường dev/production-demo khi có billing.
 5. Tích hợp luồng từ đăng nhập đến trả điểm; thông báo V1 hiển thị trạng thái trong trang, chưa cần push/realtime.
 
 **Stack:** stack chung Firebase; công cụ riêng Firebase CLI, Emulator Suite, GitHub Actions. Test: Vitest + Emulator, checklist luồng toàn ứng dụng. Xem [giải thích tech stack](07-tech-stack.md).
@@ -28,7 +28,7 @@ Client không sửa trực tiếp roles/ví; Functions kiểm tra quyền vì Ad
 
 ## Mốc của bạn
 
-04–05/10: scaffold/Emulator/CI, smoke test Auth → callable → Firestore. 06–07/10: ghép module, dev/stage/prod nếu đủ điều kiện. 08–10/10: test, release và demo.
+04–05/10: scaffold/Emulator/CI, smoke test Auth → callable → Firestore. 06–07/10: ghép module, dev/production-demo nếu đủ điều kiện. 08–10/10: test trên dev, PR dev → main, release và demo.
 
 ## Prompt gửi Agent
 
