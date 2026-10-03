@@ -17,4 +17,4 @@
 - Có Java 21, Node 22. Chạy kiểm tra phù hợp thay đổi; sửa logic backend cần unit/integration. Dừng dev Emulator trước npm run check vì chung port.
 - Không thêm secrets/giấy tờ thật/build output vào Git. Chỉ push/deploy/tạo project/bật billing nếu nằm trong yêu cầu của người dùng.
 - Cloud deploy mặc định tắt; không bỏ guard để né config/billing.
-- Nhánh môi trường hiện là dev/staging/main. Owner feature branch → PR dev; reviewer khác tác giả. Không force push nhánh môi trường.
+- Nhánh môi trường hiện là dev/main. Owner feature branch từ dev → PR dev; reviewer khác tác giả. Kiểm thử bản ổn trên dev rồi PR dev → main bằng merge commit. Không force push nhánh môi trường.

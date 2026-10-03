@@ -6,8 +6,8 @@ Một repo public cho cả nhóm, mỗi task một nhánh. Tất cả code FE/BE
 
 1. Tạo repo public, mời 4 người vào Settings → Collaborators; không chia sẻ tài khoản GitHub.
 2. Push scaffold chạy được, tài liệu `ke-hoach/`, README, lockfile, `.gitignore` và `.env.example` không chứa secrets. Nếu chưa có scaffold thì chưa yêu cầu mọi người tự dựng app riêng.
-3. Tạo `dev`, `staging` từ bản khởi tạo trên `main`. `dev` nhận module; `staging` nghiệm thu; `main` là production-demo.
-4. Bật branch protection cho ba nhánh: yêu cầu PR, một approval của người khác tác giả, resolve conversations, CI check qua; chặn force push/xóa. Áp dụng cả admin nếu cấu hình cho phép. Chọn check sau khi workflow đã chạy lần đầu.
+3. Dùng hai nhánh môi trường `dev` và `main`. `dev` nhận module và kiểm thử tích hợp; `main` là production-demo. Scaffold đã được merge vào cả hai nhánh.
+4. Bật branch protection cho hai nhánh: yêu cầu PR, một approval của người khác tác giả, resolve conversations, CI check qua; chặn force push/xóa. Áp dụng cả admin nếu cấu hình cho phép. Chọn check sau khi workflow đã chạy lần đầu.
 5. Tạo Issues nhỏ, mỗi Issue có owner, yêu cầu, điều kiện hoàn thành và reviewer. Một task chính/người; Project board Todo/Doing/Review/Done nếu cần.
 6. Lead quản lý file chung/config, review tích hợp và bấm merge theo quy ước nhóm. PR của lead cũng phải được người khác review. Firebase project/secrets/CI do lead cấu hình; mỗi thành viên chạy local bằng Emulator.
 
@@ -37,9 +37,8 @@ Tên thư mục cụ thể do lead dựng và chốt. Tránh tất cả sửa c�
 Ví dụ người 2, sau khi clone và cài theo README:
 
 ```bash
-git switch dev
-git pull --ff-only origin dev
-git switch -c feat/2-login
+git fetch origin
+git switch -c feat/2-login origin/dev
 
 # Code, chạy app/test theo README trước khi commit.
 git status
@@ -59,8 +58,8 @@ Nếu dev thay đổi lúc bạn đang code: commit công việc của mình tr�
 - Xem PR và CI; reviewer chéo 1↔2, 3↔4; 1 review 5. Người 5 review CI/deploy của lead.
 - Review nghiệp vụ/quyền, contract, test và khả năng giải thích code; không chỉ thấy trang chạy là merge.
 - Merge từng PR vào dev, chạy luồng chung khi module phụ thuộc đã vào. Có lỗi thì tạo Issue/PR sửa, owner chịu trách nhiệm.
-- Bản ổn: mở PR dev → staging, test luồng toàn app; mở PR staging → main để phát hành. Dùng merge commit cho hai PR giữa nhánh môi trường để giữ lịch sử, không squash riêng từng đợt phát hành.
-- CI/CD chỉ deploy khi push dev/staging/main và checks qua, nếu đã cấu hình Firebase/billing; push feature chỉ lưu code/kiểm tra PR. Không copy code từng người thủ công và không push thẳng ba nhánh sau bước khởi tạo.
-- Cập nhật 04/10: scaffold và CI mẫu đã có local; remote có dev/staging/main. Lead review và đưa baseline qua PR. Firebase cloud/deploy chưa cấu hình.
+- Bản ổn: test luồng toàn app trên dev, mở PR dev → main để phát hành. Dùng merge commit cho PR giữa nhánh môi trường để giữ lịch sử, không squash riêng từng đợt phát hành.
+- CI/CD chỉ deploy khi push dev/main và checks qua, nếu đã cấu hình Firebase/billing và bật ENABLE_FIREBASE_DEPLOY; push feature lưu code, CI chạy khi có PR vào dev/main. Không copy code từng người thủ công và không push thẳng hai nhánh môi trường.
+- Cập nhật 04/10: scaffold đã merge vào dev/main; tạo feature branch mới từ origin/dev cho từng task. Firebase cloud/deploy chưa cấu hình.
 
 Xem [kế hoạch lead](01-lead.md), [tech stack](07-tech-stack.md) và [hosting/CI](06-hosting-cicd.md).
