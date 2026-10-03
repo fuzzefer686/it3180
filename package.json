@@ -1,0 +1,42 @@
+{
+  "name": "vecung",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "web",
+    "functions"
+  ],
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,emulators,functions \"npm:dev:web\" \"npm:emulators\" \"npm:watch:functions\"",
+    "dev:web": "npm run dev --workspace web",
+    "watch:functions": "npm run watch --workspace functions",
+    "emulators": "npm run build:functions && firebase emulators:start --project demo-vecung --only auth,firestore,functions",
+    "seed:local": "tsx scripts/seed-local.ts",
+    "build": "npm run build:functions && npm run build:web",
+    "build:web": "npm run build --workspace web",
+    "build:functions": "npm run build --workspace functions",
+    "preview": "npm run preview --workspace web",
+    "typecheck": "npm run typecheck --workspace web && npm run typecheck --workspace functions && tsc -p tsconfig.tools.json",
+    "test": "vitest run",
+    "test:integration": "npm run build:functions && firebase emulators:exec --project demo-vecung --only auth,firestore,functions \"vitest run --config vitest.integration.config.mts\"",
+    "check": "npm run typecheck && npm run build && npm test && npm run test:integration",
+    "deploy:check": "node scripts/check-deploy.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@types/node": "22.20.5",
+    "concurrently": "10.0.5",
+    "firebase": "12.19.0",
+    "firebase-admin": "14.5.0",
+    "firebase-tools": "15.32.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.5"
+  }
+}

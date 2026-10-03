@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /chuyen-di
+Disallow: /tai-khoan
+Disallow: /vi-diem
+Disallow: /dat-chuyen

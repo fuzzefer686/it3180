@@ -19,7 +19,7 @@ FE gọi callable functions bằng Firebase SDK; function tự kiểm tra reques
 
 | Nhánh | Môi trường | Firebase project |
 |---|---|---|
-| develop | Dev | Project dev riêng |
+| dev | Dev | Project dev riêng |
 | staging | Staging | Project staging riêng |
 | main | Production-demo | Project prod riêng |
 
@@ -27,7 +27,7 @@ Local dùng Emulator; ba môi trường cloud có Auth/Firestore/Functions/Hosti
 
 Domain miễn phí: `<project-id>.web.app` hoặc `<project-id>.firebaseapp.com`; không cần mua domain.
 
-Feature branch → PR vào develop → review → merge. Lead đưa bản ổn sang staging, kiểm thử rồi merge main. GitHub Actions:
+Feature branch → PR vào dev → review → merge. Lead đưa bản ổn sang staging, kiểm thử rồi merge main. GitHub Actions:
 
 1. PR: install từ lockfile, typecheck, build web/functions, Vitest và test Emulator; không cấp deploy credentials cho PR/fork.
 2. Push ba nhánh: chạy checks, chọn đúng Firebase project và build config môi trường; chỉ deploy nếu checks qua.
