@@ -11,6 +11,8 @@
 
 **Dữ liệu:** Booking và giá chốt. Dùng tuyến/stops của 3; giao bookingId, người trả/nhận, giá/phí bằng điểm, trạng thái cho 5; paymentMethod cố định DEMO_WALLET.
 
+**Stack:** React; callable Cloud Functions TypeScript + Admin SDK/Firestore; Vitest + Emulator. Collection `bookings`, khóa request đang hoạt động theo tripId/uid và `trips.confirmedBookingId`; không dùng constraint SQL. Xem [tech stack](07-tech-stack.md).
+
 ## Hàng chờ đã chốt
 
 - WAITING chưa giữ chỗ; xếp hiển thị theo lúc gửi, driver chọn thủ công.
@@ -29,7 +31,8 @@ WAITING → CONFIRMED → ONBOARD → COMPLETED; có REJECTED/CANCELLED/EXPIRED.
 
 ## Kiểm tra để hoàn thành
 
-- Hai lần confirm đồng thời chỉ một khách được nhận: dùng DB constraint/mutation nguyên tử, không chỉ kiểm tra FE.
+- Hai lần confirm đồng thời chỉ một khách được nhận: Firestore transaction đọc Trip/Booking, kiểm tra confirmedBookingId trống rồi ghi cả hai. Transaction cùng đọc trạng thái/giờ đi để start/cancel không chạy đua với confirm.
+- Gửi request/rút/hủy cũng dùng transaction với khóa hoạt động theo tripId/uid. Pickup đặt hasServedPassenger=true trên Trip; sau dropoff không xóa cờ này để nhận khách khác. Retry không tạo request trùng.
 - Khách hủy thì có thể chọn người dự phòng; không thể nhận sau khi đã phục vụ khách đầu.
 - Điểm trả phải sau điểm đón, đúng tuyến.
 - T−30/giờ đi được kiểm tra ở backend, không cần cron V1.
@@ -40,5 +43,5 @@ WAITING → CONFIRMED → ONBOARD → COMPLETED; có REJECTED/CANCELLED/EXPIRED.
 ## Prompt gửi Agent
 
 ```text
-Tôi là người 4, phụ trách Booking/hàng chờ/giá. Đọc ke-hoach/00-ke-hoach-tong-the.md và ke-hoach/04-dat-cho.md. Làm đúng queue đã chốt: WAITING không giữ chỗ, driver chọn thủ công, một khách mỗi chuyến, khách có thể đi một đoạn. Không làm FIFO tự động, ghép nối tiếp hoặc segment reservation nhiều khách. Dùng stops/distance của 3, chuyển giá/phí bằng điểm đã chốt và Booking completed cho người 5. Chỉ dùng DEMO_WALLET, không cash/PayOS hoặc kiểm tra công nợ. Giải thích ngắn state và cách chống hai confirm đồng thời trước code. Làm FE/BE/test cho cancel, cutoff và concurrent confirm, giúp tôi hiểu từng phần.
+Tôi là người 4, phụ trách Booking/hàng chờ/giá. Đọc ke-hoach/00-ke-hoach-tong-the.md, ke-hoach/04-dat-cho.md và ke-hoach/07-tech-stack.md. Dùng React, callable Cloud Functions TypeScript, Admin SDK/Firestore, Zod, Vitest + Emulator. uid/eligibility lấy từ người 2; client không ghi Booking trực tiếp. Queue: WAITING không giữ chỗ, driver chọn thủ công, một khách mỗi Trip, khách đi được một đoạn. Dùng transaction đọc Trip/Booking để confirm một khách, khóa request hoạt động theo tripId/uid, chống confirm/start/cancel đồng thời. Pickup lưu hasServedPassenger, không xóa khi dropoff. Dùng stops/distance của 3; giao giá/phí và COMPLETED cho 5; chỉ DEMO_WALLET. Không FIFO tự động/ghép nối tiếp/công nợ. Giải thích ngắn thiết kế trước code, test cancel/cutoff/concurrent bằng Emulator để tôi hiểu. Không tự đổi module khác hoặc deploy cloud.
 ```

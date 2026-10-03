@@ -1,38 +1,37 @@
-# Người 1 — Lead và nền tảng
+# Người 1 — Lead và nền tảng Firebase
 
-**Mục tiêu:** cả nhóm chạy cùng một app, đăng nhập đúng quyền và ghép code được trước 10/10.
+**Mục tiêu:** cả nhóm chạy cùng một app, ghép code và demo được trước 10/10. Auth/hồ sơ do người 2 làm.
 
 ## Việc cần làm
 
-1. Tạo repo/cấu trúc đơn giản, database và lệnh chạy chung.
-2. Làm đăng ký, đăng nhập, đăng xuất; kiểm tra ADMIN/DRIVER/USER ở backend.
-3. Chốt schema/API cùng nhóm; cung cấp thông tin user hiện tại cho các module.
-4. Tạo CI kiểm tra build/test; deploy dev, staging, production-demo theo nhánh.
-5. Ghép và chạy thử toàn bộ luồng. Thông báo V1 hiển thị trạng thái trong trang, chưa cần email/realtime.
+1. Dựng React/Vite/TypeScript/Tailwind ở `web/`, Cloud Functions TypeScript ở `functions/`; cấu hình Firebase SDK và Admin SDK.
+2. Tạo cấu hình Auth/Firestore/Functions Emulator và dữ liệu mẫu hư cấu; mọi người có cùng lệnh chạy/test.
+3. Chốt collections, trạng thái, contract callable và lỗi với nhóm. Dựng layout/component chung và wrapper gọi function, không làm thay module.
+4. Quản lý `firestore.rules` mặc định chặn client truy cập trực tiếp, indexes và CI build/test; deploy theo ba môi trường khi có billing.
+5. Tích hợp luồng từ đăng nhập đến trả điểm; thông báo V1 hiển thị trạng thái trong trang, chưa cần push/realtime.
 
-**Bàn giao:** app nền chạy được, auth/quyền, CI/deploy, README hướng dẫn chạy. 2 review auth; 5 review deploy. Xem [hosting](06-hosting-cicd.md).
+**Stack:** stack chung Firebase; công cụ riêng Firebase CLI, Emulator Suite, GitHub Actions. Test: Vitest + Emulator, checklist luồng toàn ứng dụng. Xem [giải thích tech stack](07-tech-stack.md).
+
+**Bàn giao:** repo chạy local, contract chung, CI/deploy, README. Người 2 review nền tảng; người 5 review deploy. Xem [hosting](06-hosting-cicd.md).
 
 ## Cách lead đơn giản
 
-- Trước code: thống nhất tên bảng, trạng thái và dữ liệu mỗi API nhận/trả.
-- Mỗi ngày 10 phút: từng người nói đã chạy được gì và đang kẹt chỗ nào.
-- Chia việc nhỏ, mỗi người một task chính; PR có một reviewer khác tác giả.
-- Xem demo chung ngày 05, 07, 09/10; sau 08/10 chỉ sửa lỗi.
-- Yêu cầu mỗi người giải thích được code AI viết. Nếu không hiểu, đọc/sửa trước khi merge.
-- Lead điều phối và giúp debug; owner vẫn chịu trách nhiệm sửa module của mình.
+- Trước code: thống nhất collection và input/output function; owner module chịu trách nhiệm FE/BE/test.
+- Mỗi ngày 10 phút: đã chạy được gì, đang kẹt gì, cần ai giúp.
+- Một task chính/người; mỗi PR có reviewer khác tác giả. Demo chung ngày 05, 07, 09/10; sau 08/10 chỉ sửa lỗi.
+- Mỗi người viết use case, contract và test ngắn; phải giải thích được code AI viết trước khi merge.
+- Review thay đổi Rules/indexes/config chung. Lead hỗ trợ debug và tích hợp, không sửa hộ toàn bộ module.
 
 ## Kiểm tra tối thiểu
 
-USER không gọi được API admin; người dùng không tự cấp DRIVER/ADMIN. Build/test lỗi không deploy. Ba môi trường không dùng chung DB/secrets. Không đưa key thật vào repo công khai.
+Client không sửa trực tiếp roles/ví; Functions kiểm tra quyền vì Admin SDK bỏ qua Rules. CI test không chạm cloud. Ba project không dùng chung tài khoản/dữ liệu/secrets. Không đưa service account/VietMap REST key vào repo. Không tự bật billing.
 
 ## Mốc của bạn
 
-04–05/10: scaffold/auth/dev. 06–07/10: stage/prod skeleton và tích hợp. 08–10/10: test, release và demo.
-
-Mỗi người chỉ cần tài liệu ngắn: chức năng làm gì, schema/API, test và kết quả. Không cần báo cáo dài trước khi có luồng chạy được; đối chiếu yêu cầu giảng viên khi có.
+04–05/10: scaffold/Emulator/CI, smoke test Auth → callable → Firestore. 06–07/10: ghép module, dev/stage/prod nếu đủ điều kiện. 08–10/10: test, release và demo.
 
 ## Prompt gửi Agent
 
 ```text
-Tôi là người 1/Lead của nhóm sinh viên. Đọc ke-hoach/00-ke-hoach-tong-the.md và ke-hoach/01-lead.md. Giúp tôi làm nền tảng, auth/RBAC, CI/deploy và tích hợp theo từng task nhỏ. Dùng stack cả nhóm đã chọn, một ứng dụng đơn giản. Trước khi code mỗi task, giải thích ngắn thiết kế và dữ liệu liên quan để tôi hiểu. Không tự sửa nghiệp vụ/module người khác. Viết test quyền quan trọng, hướng dẫn tôi chạy và giải thích code. Hosting theo ke-hoach/06-hosting-cicd.md; chỉ triển khai account/hosting khi tôi yêu cầu. V1 dùng ví điểm demo, không cash/PayOS/công nợ. Thống nhất việc cấp điểm ban đầu với người 5, tránh cấp lặp.
+Tôi là người 1/Lead. Đọc ke-hoach/00-ke-hoach-tong-the.md, ke-hoach/01-lead.md, ke-hoach/06-hosting-cicd.md và ke-hoach/07-tech-stack.md. Dựng một repo React/Vite/TypeScript/Tailwind + Firebase Auth/Firestore/Cloud Functions TypeScript/Firebase Hosting. Auth nghiệp vụ thuộc người 2; tôi làm scaffold, Emulator, wrapper callable, contract chung, Rules/indexes, CI và tích hợp. FE gọi callable bằng Firebase SDK; mặc định chặn client đọc/ghi Firestore trực tiếp, backend dùng Admin SDK và phải kiểm tra quyền. Test bằng Vitest + Auth/Firestore/Functions Emulator. Chia task nhỏ, giải thích thiết kế trước code để tôi học; không tự sửa module người khác. V1 chỉ ví điểm demo và VietMap. Không tạo project cloud, bật billing hoặc deploy nếu chưa được tôi yêu cầu; chuẩn bị cấu hình và README trước. Không commit credentials.
 ```
