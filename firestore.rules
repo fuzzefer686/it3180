@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // V1: dữ liệu nghiệp vụ chỉ qua callable Functions.
+    // Admin SDK bỏ qua Rules; từng function vẫn phải kiểm tra quyền.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
