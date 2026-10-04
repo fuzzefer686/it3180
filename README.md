@@ -2,6 +2,9 @@
 
 React + TypeScript + Firebase, dành cho nhóm 5 sinh viên HUST. **Đây là scaffold**, chưa có đặt chuyến, bản đồ VietMap hoặc thanh toán. Bộ [kế hoạch](ke-hoach/README.md) vẫn giữ trong repo.
 
+- **Thành viên mới:** [pull code, chạy local và task đầu tiên](docs/team-onboarding.md).
+- **Lead chuẩn bị cloud:** [runbook cấu hình/build/deploy Firebase](docs/firebase-deploy.md).
+
 ## Chạy local
 
 Cần Node **22** (từ 22.12), npm và Java **21**. Nếu dùng nvm: `nvm install` rồi `nvm use`. Mọi người chạy từ root repo.
@@ -17,6 +20,7 @@ npm run dev
 - Terminal thứ hai: `npm run seed:local`. Mở **Tài khoản**, nhập tài khoản mẫu bên dưới để thử đăng nhập, tải hồ sơ qua Functions và đăng xuất.
 - Không cần tài khoản Firebase, key thật hoặc billing để chạy Emulator. Lần đầu CLI cần internet tải emulator. Dữ liệu local mất khi dừng; chạy lại seed.
 - Không cần tạo `.env.local` cho local mặc định. Mẫu cấu hình ở `web/.env.example`; nếu có config local, giữ project `demo-vecung` và `VITE_USE_EMULATORS=true`.
+- `npm run dev` chặn config cloud. File `.env.firebase.*` chỉ dành cho lệnh cloud của lead, không tác động local của nhóm.
 
 Seed chỉ chạy localhost, tạo `user@student.example`, `driver@student.example`, `admin@student.example`, mật khẩu `DemoOnly!2026`. Đây là tài khoản hư cấu của Emulator, không dùng trên cloud. Chưa có điểm hoặc ví thực hiện nghiệp vụ.
 
@@ -68,10 +72,22 @@ CI job **checks** chạy trên PR vào dev/main và push dev/main. Sau khi CI ch
 
 Cloud Functions cần **Blaze + billing**, không bảo đảm free hoàn toàn. Hiện chưa tạo/cấu hình project cloud hoặc deploy. Firebase Hosting dùng domain `<project-id>.web.app`.
 
+Lệnh thủ công đã chuẩn bị (Node 22, từ root). Sau khi kiểm tra code bằng `npm run check`, copy mẫu và điền config thật:
+
+```bash
+cp .env.firebase.example .env.firebase.dev
+npm run cloud:check -- dev
+npm run build:cloud -- dev
+# Chỉ sau khi project/billing/quyền sẵn sàng và lead bật guard trong file:
+npm run deploy:cloud -- dev
+```
+
+Mẫu mặc định `ENABLE_FIREBASE_DEPLOY=false`; check/build không gọi cloud. File thật được gitignore, tách khỏi `web/.env.local`; build cloud không nhận config local. Production-demo dùng file và project riêng, tham số `production-demo`. Predeploy guard kiểm tra project/region/config/guard và dấu cấu hình trong Hosting build. Các kiểm tra này không xác nhận billing hoặc quyền IAM; Firebase kiểm tra khi deploy. Xem runbook để tạo tài khoản cloud đầu tiên (Auth + users), smoke test và WIF. Scaffold chưa có đăng ký/bootstrap nên tạo tài khoản Auth đơn thuần chưa đủ để tải hồ sơ.
+
 Pipeline deploy mặc định bị tắt. Khi lead quyết định triển khai:
 
 1. Tạo 2 Firebase projects riêng và GitHub Environments: dev, production-demo. Bật email/password Auth, Firestore và billing cho từng project; cùng Functions region asia-southeast1.
-2. Mỗi GitHub Environment cấu hình Variables: FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_APP_ID, WIF_PROVIDER, DEPLOY_SERVICE_ACCOUNT. Web config không phải private credential; vẫn phải giữ quyền backend/Rules.
+2. Mỗi GitHub Environment cấu hình Variables: FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_APP_ID, WIF_PROVIDER, DEPLOY_SERVICE_ACCOUNT; VIETMAP_MAP_KEY tùy chọn khi người 3 tích hợp. Web config không phải private credential; vẫn phải giữ quyền backend/Rules.
 3. Cấu hình Google Workload Identity Federation, giới hạn trust theo repo/nhánh/environment và quyền deploy cần thiết. Không lưu service-account private key trong repo. CI checks không cần Google credentials.
 4. Đặt budget/usage controls; rồi mới bật repository variable ENABLE_FIREBASE_DEPLOY=true. Test dev trước khi phát hành main. Xem [hosting](ke-hoach/06-hosting-cicd.md).
 

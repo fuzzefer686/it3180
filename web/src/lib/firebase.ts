@@ -1,20 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
+import { getFirebaseConfig } from './firebase-config';
 
-export const useEmulators = (import.meta.env.VITE_USE_EMULATORS ?? 'true') === 'true';
-export const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'demo-vecung';
-export const region = import.meta.env.VITE_FUNCTIONS_REGION ?? 'asia-southeast1';
-if (useEmulators && !projectId.startsWith('demo-')) {
-  throw new Error('Local phải dùng project ID demo-… để tránh chạm cloud.');
-}
-if (!useEmulators && projectId.startsWith('demo-')) {
-  throw new Error('Chưa cấu hình Firebase project cloud. Xem README.');
-}
+const config = getFirebaseConfig(import.meta.env);
+export const { useEmulators, projectId, region } = config;
 export const firebaseApp = initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? 'demo-api-key',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? 'demo-vecung.firebaseapp.com',
-  projectId, appId: import.meta.env.VITE_FIREBASE_APP_ID ?? 'demo-app-id',
+  apiKey: config.apiKey, authDomain: config.authDomain,
+  projectId, appId: config.appId,
 });
 export const auth = getAuth(firebaseApp);
 export const functions = getFunctions(firebaseApp, region);

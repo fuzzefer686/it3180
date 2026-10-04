@@ -2,6 +2,8 @@
 
 Owner file chung: người 1. Types/schema ở `shared/contracts.ts`, FE gọi wrapper `web/src/lib/callable.ts`. Chưa có handler Trip/Booking/Wallet.
 
+Nhóm bắt đầu từ [onboarding](team-onboarding.md). Config local thống nhất `demo-vecung`, region `asia-southeast1`; cloud config chỉ lead quản lý qua [runbook deploy](firebase-deploy.md). Thay đổi config/build guard không đổi CallableContracts, Rules hoặc indexes.
+
 ## Đã chạy được
 
 | Callable | Input | Quyền | Output |
