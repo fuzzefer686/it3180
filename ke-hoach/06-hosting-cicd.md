@@ -2,6 +2,8 @@
 
 Kế hoạch cập nhật 04/10/2026: dùng dev/main, chưa tạo account/project hoặc triển khai cloud.
 
+Scripts chuẩn bị/build/deploy và guard đã bổ sung. Lead làm theo [runbook cloud](../docs/firebase-deploy.md); cả nhóm theo [onboarding local](../docs/team-onboarding.md). Không cần đổi config local hoặc bỏ guard khi chuẩn bị project cloud.
+
 ## Stack chốt
 
 React/Vite/TypeScript/Tailwind + Firebase Authentication + Cloud Firestore + Cloud Functions TypeScript + Firebase Hosting. Một repo, một ứng dụng. VietMap giữ nguyên; không cần Hono/Workers/D1, Vercel hoặc Supabase.
