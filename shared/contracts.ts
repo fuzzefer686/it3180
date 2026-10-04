@@ -52,6 +52,10 @@ export interface CallableContracts {
   healthCheck: { input: Record<string, never>; output: HealthResponse };
   getMyProfile: { input: Record<string, never>; output: UserProfile };
   adminFoundationInfo: { input: Record<string, never>; output: { version: string } };
+  getMyWallet: { input: Record<string, never>; output: { wallet: Wallet; ledgerEntries: LedgerEntry[] } };
+  topUpDemo: { input: { requestId: string }; output: { balancePoints: number; entry: LedgerEntry } };
+  payBooking: { input: { bookingId: string }; output: { payment: Payment } };
+  getBookingPayment: { input: { bookingId: string }; output: { payment: Payment | null } };
 }
 
 // Các tên/input dự kiến dưới đây chưa có handler; owner chốt qua PR trước khi dùng.
