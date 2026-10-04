@@ -5,6 +5,7 @@ functions/lib/
 .env.*
 !.env.example
 !**/.env.example
+!.env.firebase.example
 *.local
 .firebase/
 .firebase-cache/

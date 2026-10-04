@@ -13,15 +13,18 @@
         "README.md"
       ],
       "predeploy": [
+        "npm run deploy:guard",
         "npm run build:functions"
       ]
     }
   ],
   "firestore": {
+    "predeploy": ["npm run deploy:guard"],
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "predeploy": ["npm run deploy:guard", "npm run deploy:hosting-check"],
     "public": "web/dist",
     "ignore": [
       "firebase.json",

@@ -43,13 +43,19 @@ jobs:
       contents: read
       id-token: write
     env:
+      ENABLE_FIREBASE_DEPLOY: ${{ vars.ENABLE_FIREBASE_DEPLOY }}
+      FIREBASE_DEPLOY_ENV: ${{ github.ref_name == 'main' && 'production-demo' || 'dev' }}
       FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
+      DEPLOY_SERVICE_ACCOUNT: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
+      VECUNG_CLOUD_BUILD: 'true'
       VITE_USE_EMULATORS: 'false'
       VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
       VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
       VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
       VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
       VITE_FUNCTIONS_REGION: asia-southeast1
+      VITE_VIETMAP_MAP_KEY: ${{ vars.VIETMAP_MAP_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
