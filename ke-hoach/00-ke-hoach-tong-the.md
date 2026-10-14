@@ -1,6 +1,6 @@
 # Kế hoạch chung — bản tối giản
 
-Mục tiêu: có web demo ngày 10/10/2026. Nhóm 5 người, số 1 là Lead. Đây là kế hoạch, chưa phải ứng dụng đã triển khai. Cập nhật stack Firebase ngày 03/10/2026.
+Nhóm 5 người, số 1 là Lead. Đây là kế hoạch, chưa phải ứng dụng đã triển khai. Cập nhật stack Supabase ngày 12/10/2026. Mốc demo 10/10 là mục tiêu lịch sử, nhóm cần chốt lịch tiếp theo. Đọc [workflow Supabase](../docs/supabase-workflow.md) để chọn cách chạy và gửi thay đổi database.
 
 ## 1. V1 làm gì?
 
@@ -39,41 +39,37 @@ Ví dụ: tuyến A→B→C→D; khách1 xin A→C, khách2 xin B→D. Driver nh
 
 Một yêu cầu bị hủy/từ chối được lưu lịch sử. Khách có thể gửi lại nếu chuyến còn mở và chưa có yêu cầu hoạt động của mình.
 
-Không cần cron cho V1: backend kiểm tra thời gian mỗi lần đọc/thao tác; yêu cầu quá hạn không thể được xác nhận. Kiểm tra cả giờ khởi hành lẫn trạng thái Trip.
+Không cần cron (tác vụ chạy theo lịch) cho V1: backend kiểm tra thời gian mỗi lần đọc/thao tác; yêu cầu quá hạn không thể được xác nhận. Kiểm tra cả giờ khởi hành lẫn trạng thái Trip.
 
 ## 3. Phân công
 
 | Người | Module | Bàn giao chính |
 |---|---|---|
-| 1 — Lead | Nền tảng | Cấu trúc repo, Firebase/Emulator, contract chung, CI/deploy, tích hợp |
+| 1 — Lead | Nền tảng | Cấu trúc repo, Supabase/config/local Docker, contract chung, CI/deploy, tích hợp |
 | 2 | Auth/hồ sơ/quản trị | Đăng ký/login/logout, phân quyền, sinh viên, xe, duyệt driver, khóa tài khoản |
 | 3 | Chuyến/VietMap | Đăng/tìm chuyến, điểm dừng, đường đi, bắt đầu/kết thúc/hủy |
 | 4 | Đặt chuyến | Giá đoạn đi, hàng chờ, xác nhận/hủy, đón/trả khách |
 | 5 | Ví điểm demo | Thanh toán bằng điểm, phí mô phỏng, thêm điểm thử và lịch sử |
 
-Mỗi người làm FE+BE+test. Một repository, một ứng dụng; không microservices, không bắt buộc tạo đủ 23 service trước đó.
+Mỗi người làm giao diện, xử lý backend và test phần mình. Một repo dùng chung cho cả nhóm, không tách thành nhiều hệ thống.
 
-## 4. Những điểm cần thống nhất khi bắt đầu
+## 4. Thống nhất trước khi code
 
-- Stack chốt: React + Vite + TypeScript + Tailwind CSS; Firebase Auth, Firestore, Cloud Functions TypeScript và Firebase Hosting. React Router cho điều hướng, Zod kiểm tra input; Vitest + Firebase Emulator Suite để test.
-- 1 dựng Firebase client/Admin SDK, Emulator, wrapper callable và cấu hình môi trường. 2 cung cấp uid/roles/status, driver đủ điều kiện và xe; login/logout dùng Firebase Auth, không tự ký JWT hay lưu mật khẩu.
-- 3 cung cấp tripId, stops có thứ tự và khoảng cách từng đoạn trên tuyến đã lưu.
-- 4 cung cấp bookingId, người trả/nhận, trạng thái, giá/phí bằng điểm đã chốt cho 5; chỉ dùng phương thức DEMO_WALLET.
-- 5 quản lý ví điểm và trạng thái thanh toán. Tạm bỏ số dư âm, công nợ, nộp phí và chặn driver vì nợ.
-- Contract function/collection dùng chung có một owner; sửa phải báo người dùng dữ liệu đó. Cả nhóm dùng callable functions cho API nghiệp vụ, FE gọi bằng Firebase SDK.
+1. Người 1 giữ cấu hình và code chung. Người 2 quản lý đăng nhập, quyền và điều kiện được tham gia.
+2. Người 3 giao điểm dừng/khoảng cách cho 4. Người 4 giao Booking đã hoàn thành và giá/phí đã chốt cho 5.
+3. Mỗi người mô tả API của mình gửi/nhận gì (contract), rồi team thống nhất bảng và quyền. Contract không tự quyết định cấu trúc bảng.
+4. Làm giao diện có thể dùng server dev, không Docker. Làm database/backend thì Docker local, migration và test trước PR. Lead cập nhật server sau review. Xem [workflow từng bước](../docs/supabase-workflow.md).
 
-### Cách dùng Firebase tối giản
+Các quy tắc không được bỏ khi làm đơn giản:
 
-- `web/` chứa React; `functions/` chứa backend theo module; root chứa `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json` và kế hoạch. Một repo, không microservices.
-- Firestore là database document, không dùng schema/constraint SQL. Collections dự kiến: users, studentVerifications, driverProfiles, vehicles, trips, bookings, wallets, payments, ledgerEntries; stops/route snapshot lưu trong Trip nếu nhỏ và có giới hạn.
-- Firebase Auth quản lý tài khoản email/mật khẩu và ID token. Function lấy uid từ `request.auth`, từ chối nếu thiếu; đọc roles/status từ users do backend quản lý. Người dùng không tự sửa quyền/trạng thái duyệt.
-- V1 đưa đọc/ghi nghiệp vụ qua callable functions. Firestore Rules mặc định chặn mọi truy cập trực tiếp từ client; Admin SDK ở Functions không chịu Rules, nên từng function phải kiểm tra quyền và Zod input.
-- Không trả số điện thoại/minh chứng qua API danh sách chuyến. Contact chỉ cấp cho hai bên có Booking xác nhận; admin có quyền xem hồ sơ duyệt.
-- Firestore transaction chống nhận hai khách và trả điểm trùng. Function transaction có thể chạy lại: đọc trước khi ghi, không gọi VietMap hoặc làm tác vụ bên ngoài trong transaction.
-- Chưa thêm Realtime Database, Storage/upload thật, FCM/push hoặc listener realtime. Dùng refresh dữ liệu khi thao tác để giảm việc tuần đầu.
-- Lead tạo admin đầu tiên qua script tin cậy/local seed; không có API công khai tự cấp ADMIN. Tài khoản cloud và demo dùng dữ liệu hư cấu.
+- SDK quản lý password/phiên; server kiểm tra ai đang login, quyền và trạng thái, không tin dữ liệu quyền do frontend gửi.
+- Tạo hồ sơ lần đầu chỉ cấp mặc định an toàn, không ADMIN. Nghiệp vụ kiểm tra ACTIVE và đủ điều kiện (eligibility).
+- Frontend không tự sửa role, giá hoặc ví. Luật truy cập bảng (RLS/grants) và quyền hàm backend phải được thiết kế/test cùng nhau.
+- Booking/ví cùng thành công hoặc cùng thất bại (transaction), gửi lại không ghi trùng (idempotency). Không gọi VietMap trong transaction.
+- Số điện thoại chỉ cho hai bên sau khi nhận khách; minh chứng mẫu chỉ chủ hồ sơ/admin xem.
+- Seed hiện chỉ tạo Auth user, chưa có hồ sơ/admin/ví. API thiếu phải báo chưa triển khai; không trả thành công giả.
 
-Deploy Cloud Functions cần **Blaze + billing**; có quota miễn phí nhưng có thể phát sinh phí. Emulator chạy local không cần bật billing. Hai môi trường cloud dev/production-demo dùng hai Firebase project riêng, xem [hosting](06-hosting-cicd.md).
+[Tài liệu công cụ](07-tech-stack.md) có ví dụ giải thích từng thuật ngữ. Team không cần dựng pipeline deploy database/backend tự động hoặc thêm Storage/realtime lúc bắt đầu. Pages có thể tự build/deploy frontend qua kết nối Git trên Dashboard.
 
 ## 5. Trạng thái và ví điểm demo
 
@@ -95,29 +91,25 @@ Chỉ trả sau Booking COMPLETED. Thiếu điểm thì báo lỗi, giữ nguyê
 
 V1 tạm bỏ cash, PayOS, công nợ và rút tiền. Sau này có thể bổ sung provider thanh toán thật, nhưng phải thiết kế luồng tiền thật riêng; không đổi trực tiếp điểm đã cấp thử thành tiền.
 
-## 6. Lịch một tuần
+## 6. Thứ tự triển khai tiếp theo
 
-| Mốc | Cả nhóm cần có |
-|---|---|
-| 03/10 | Đọc kế hoạch, chốt contract function/collections và thời gian mỗi người; kiểm tra điều kiện billing |
-| 04–05/10 | Repo chạy bằng Emulator; Firebase Auth/hồ sơ; VietMap; fixture cho Booking/Payment; deploy dev nếu đã có billing |
-| 06–07/10 | Đăng chuyến → hàng chờ → nhận một khách → đón/trả → trả điểm |
-| 08/10 | Nối ví điểm/lịch sử; kiểm tra thiếu điểm và bấm lặp; dừng thêm chức năng |
-| 09/10 | Kiểm thử luồng chung trên dev; PR dev → main để phát hành bản ổn lên production-demo nếu đã cấu hình cloud |
-| 10/10 | Demo và thời gian dự phòng |
+1. Cả nhóm chạy đúng cách, chốt dữ liệu API/bảng/quyền và biết phần mình cần dữ liệu của ai.
+2. Người 2 làm hồ sơ ban đầu/điều kiện tham gia; 3 làm tuyến/chuyến; 4/5 dùng dữ liệu mẫu ghi rõ là mẫu trong lúc chờ phần của bạn khác.
+3. Hoàn thiện hàng chờ → nhận một khách → đón/trả → điểm demo bằng transaction.
+4. Tích hợp migrations và module đã review lên server dev, kiểm thử luồng chung rồi PR dev → main.
 
-Nếu trễ, cắt dashboard/UI cầu kỳ và tìm địa chỉ nâng cao trước. Giữ luồng trả điểm hoàn chỉnh, RBAC, chống nhận hai khách và lịch sử giao dịch.
+Nhóm tự chốt ngày mới theo tiến độ; nếu trễ, cắt dashboard/UI cầu kỳ và tìm địa chỉ nâng cao trước. Giữ kiểm tra quyền, chống nhận hai khách và lịch sử điểm/chống trả trùng.
 
 ## 7. Hoàn thành khi nào?
 
-- Chạy được luồng chính, dữ liệu lưu ở DB, backend kiểm tra quyền.
+- Chạy được luồng chính, dữ liệu lưu ở database, backend kiểm tra quyền.
 - Hai thao tác nhận khách đồng thời chỉ một người thành công.
 - Khách xuống giữa tuyến có thể thanh toán; Trip chưa buộc kết thúc.
 - Thanh toán điểm không ghi trùng, không âm ví; thiếu điểm không làm thay đổi ví nào.
-- Mỗi người có use case ngắn, collection/contract function, test quan trọng và giải thích được code.
-- Client không tự đổi quyền, trạng thái chuyến/Booking hay số dư; Functions kiểm tra quyền cả khi dùng Admin SDK. Test chạy với Auth/Firestore/Functions Emulator.
+- Mỗi người có use case ngắn, mô tả bảng/dữ liệu API, test quan trọng và giải thích được code.
+- Client không tự đổi quyền, trạng thái chuyến/Booking hay số dư; backend kiểm tra quyền cả khi dùng service-role. Test chạy với Supabase local Docker.
 - Có một người khác review; build/test qua trước merge.
 
 Review chéo: 2↔1, 3↔4; 1 review 5, 5 review phần deploy của 1. Lead giúp gỡ vướng và tích hợp, không sửa hộ toàn bộ module.
 
-Nguồn kỹ thuật: [Callable functions](https://firebase.google.com/docs/functions/callable), [Firestore transactions](https://firebase.google.com/docs/firestore/manage-data/transactions), [Emulator Suite](https://firebase.google.com/docs/emulator-suite).
+Quy trình kỹ thuật: [Supabase workflow của team](../docs/supabase-workflow.md), [contracts](../docs/contracts.md).

@@ -1,65 +1,105 @@
-# GitHub — mỗi người làm và push như thế nào?
+# Git/GitHub — gửi code từng bước
 
-Một repo public cho cả nhóm, mỗi task một nhánh. Tất cả code FE/BE/test cùng nằm trong repo; không tạo 5 app hay 5 repo.
+Team dùng một repo. Mọi lệnh dưới đây chạy tại **gốc CNPM**. Đây là hướng dẫn để bạn tự làm, không phải lệnh cần chạy hết ngay khi đọc.
 
-## Lead chuẩn bị trước
+## 1. Các từ cần biết
 
-1. Tạo repo public, mời 4 người vào Settings → Collaborators; không chia sẻ tài khoản GitHub.
-2. Push scaffold chạy được, tài liệu `ke-hoach/`, README, lockfile, `.gitignore` và `.env.example` không chứa secrets. Nếu chưa có scaffold thì chưa yêu cầu mọi người tự dựng app riêng.
-3. Dùng hai nhánh môi trường `dev` và `main`. `dev` nhận module và kiểm thử tích hợp; `main` là production-demo. Scaffold đã được merge vào cả hai nhánh.
-4. Bật branch protection cho hai nhánh: yêu cầu PR, một approval của người khác tác giả, resolve conversations, CI check qua; chặn force push/xóa. Áp dụng cả admin nếu cấu hình cho phép. Chọn check sau khi workflow đã chạy lần đầu.
-5. Tạo Issues nhỏ, mỗi Issue có owner, yêu cầu, điều kiện hoàn thành và reviewer. Một task chính/người; Project board Todo/Doing/Review/Done nếu cần.
-6. Lead quản lý file chung/config, review tích hợp và bấm merge theo quy ước nhóm. PR của lead cũng phải được người khác review. Firebase project/secrets/CI do lead cấu hình; mỗi thành viên chạy local bằng Emulator.
+| Từ | Nghĩa |
+|---|---|
+| Repo | Thư mục code được Git quản lý |
+| Clone | Tải repo về máy, thường làm một lần |
+| Branch / nhánh | Bản làm việc riêng; feature branch là nhánh cho một task |
+| Commit | Lưu một mốc thay đổi trong lịch sử trên máy |
+| Push | Gửi các commit lên GitHub |
+| PR | Pull Request: đề nghị ghép nhánh của bạn vào nhánh chung |
+| Review | Người khác đọc code và test, góp ý hoặc đồng ý |
+| Merge | Ghép code của một nhánh vào nhánh khác |
+| Conflict | Hai nhánh sửa chỗ không tự ghép được; cần đọc và giải quyết |
 
-GitHub Free hỗ trợ branch protection cho repo public. [Tài liệu](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches)
+`dev` là nhánh ghép các phần đang phát triển; `main` giữ bản ổn. `origin/dev` là bản dev lấy từ GitHub. Không code rồi push thẳng vào dev/main.
 
-## Phần code từng người
+## 2. Bắt đầu một task mới
 
-| Người | Vùng code chính dự kiến | Ví dụ nhánh/task đầu |
-|---|---|---|
-| 1 — Lead | Layout/shared components, Firebase config, scripts, CI | feat/1-foundation |
-| 2 | web Auth/profile/admin; functions auth/profile/admin | feat/2-login |
-| 3 | web Trip/map; functions trips/VietMap | feat/3-create-trip |
-| 4 | web Booking/queue; functions bookings/fare | feat/4-request-ride |
-| 5 | web Wallet/payment/history; functions wallets/payments | feat/5-wallet |
+Clone/cài/chạy app theo [README](../README.md) trước. Nếu máy đang có sửa đổi chưa lưu, commit hoặc nhờ lead giúp trước khi đổi nhánh; không xóa chúng để bắt đầu task khác.
 
-Tên thư mục cụ thể do lead dựng và chốt. Tránh tất cả sửa cùng một file lớn: functions entrypoint/shared types do lead quản lý; module export handler riêng. Owner gửi đề xuất sửa contract/config chung trong PR, báo các người phụ thuộc.
-
-## Một vòng làm việc của thành viên
-
-1. Clone repo một lần; cài theo README, chạy app/Emulator. Lần làm task mới, lấy `dev` mới nhất rồi tạo nhánh riêng.
-2. Làm FE/BE/test của task. Commit từng phần rõ ràng; có thể push khi đang làm và mở Draft PR để nhóm thấy tiến độ.
-3. Trước review: chạy check, đọc diff, kiểm tra file định push; không đưa `.env`, service-account JSON, key REST, node_modules hay dữ liệu cá nhân lên repo.
-4. Push nhánh feature rồi mở PR **base=dev**. Gắn Issue, nêu thay đổi, cách chạy/test và ảnh giao diện nếu hữu ích; yêu cầu reviewer.
-5. Reviewer góp ý → owner sửa/test rồi push tiếp cùng nhánh; PR tự cập nhật. CI qua và được approve thì lead merge.
-6. Task đã merge: lấy dev mới, xóa nhánh cũ khi an toàn, tạo nhánh mới cho task kế tiếp. Không dùng nhánh cũ cho việc mới.
-
-Ví dụ người 2, sau khi clone và cài theo README:
+Ví dụ bạn 2 làm task login:
 
 ```bash
 git fetch origin
 git switch -c feat/2-login origin/dev
+```
 
-# Code, chạy app/test theo README trước khi commit.
+`fetch` lấy thông tin code mới từ GitHub; lệnh sau tạo nhánh riêng từ dev mới nhất. Mong đợi Git báo đang ở nhánh `feat/2-login`. Dùng tên mới phù hợp task, không dùng lại nhánh đã merge.
+
+Bạn viết code và thử trên máy. Làm giao diện có thể dùng `npm run dev:web` với server dev; làm bảng/backend dùng Docker local theo [workflow](../docs/supabase-workflow.md).
+
+## 3. Kiểm tra rồi lưu thay đổi
+
+Chạy các kiểm tra theo README; backend dùng `npm run check` với Docker. Sau đó xem đã sửa file nào:
+
+```bash
 git status
 git diff
-git add <cac-file-cua-task>
+```
+
+`status` liệt kê file thay đổi; `diff` cho thấy nội dung thêm/xóa. Đọc để chắc không sửa nhầm module hoặc đưa env/key/dữ liệu cá nhân vào Git.
+
+Ví dụ task chỉ sửa trang Auth, chọn đúng file đó:
+
+```bash
+git add web/src/modules/auth/AuthPage.tsx
 git diff --cached
-git commit -m "feat(auth): add Firebase login and logout"
+git commit -m "feat(auth): improve login form"
+```
+
+`add` chọn file đưa vào commit; `diff --cached` xem lại phần đã chọn; `commit` lưu mốc trên máy. Ví dụ trên chỉ chọn một file; nếu task có nhiều file thì chọn thêm từng đường dẫn thật của task. Không copy lệnh ví dụ nếu bạn làm file khác.
+
+Mong đợi Git báo tạo commit. Lưu code rồi chạy:
+
+```bash
 git push -u origin feat/2-login
 ```
 
-Thay `<cac-file-cua-task>` bằng đường dẫn thật; không chạy nguyên placeholder. Lead cung cấp lệnh `npm run check` ở root để chạy typecheck/build/test; test dùng Emulator, không cloud.
+Push lần đầu đưa nhánh lên GitHub. Những lần sửa tiếp trên nhánh này dùng `git push`. **Pages tự build/deploy frontend các nhánh đã bật trong Dashboard; push không tự sửa database/backend Supabase.**
 
-Nếu dev thay đổi lúc bạn đang code: commit công việc của mình trước, `git fetch origin`, rồi `git merge origin/dev` trên nhánh feature. Nếu conflict, owner cùng người sửa file liên quan giải quyết, chạy lại check rồi push; không ghi đè file hoặc force push để né conflict.
+## 4. Mở PR và nhận review
 
-## Lead làm gì với code mọi người?
+1. Trên GitHub mở Pull requests → New pull request.
+2. Chọn **base: dev**, **compare: nhánh task của bạn**.
+3. Ghi đã làm gì, cách thử, kết quả test và phần chưa làm. Nếu có migration, ghi file/thay đổi bảng/quyền và ai bị ảnh hưởng.
+4. Mời reviewer khác tác giả. Reviewer đọc code, hỏi cách làm và test; bạn cần giải thích được code mình gửi.
+5. Nếu có góp ý, sửa trên cùng nhánh, test lại, commit rồi push. PR tự cập nhật.
+6. CI (test tự động GitHub) phải qua và review được đồng ý thì lead mới merge.
 
-- Xem PR và CI; reviewer chéo 1↔2, 3↔4; 1 review 5. Người 5 review CI/deploy của lead.
-- Review nghiệp vụ/quyền, contract, test và khả năng giải thích code; không chỉ thấy trang chạy là merge.
-- Merge từng PR vào dev, chạy luồng chung khi module phụ thuộc đã vào. Có lỗi thì tạo Issue/PR sửa, owner chịu trách nhiệm.
-- Bản ổn: test luồng toàn app trên dev, mở PR dev → main để phát hành. Dùng merge commit cho PR giữa nhánh môi trường để giữ lịch sử, không squash riêng từng đợt phát hành.
-- CI/CD chỉ deploy khi push dev/main và checks qua, nếu đã cấu hình Firebase/billing và bật ENABLE_FIREBASE_DEPLOY; push feature lưu code, CI chạy khi có PR vào dev/main. Không copy code từng người thủ công và không push thẳng hai nhánh môi trường.
-- Cập nhật 04/10: scaffold đã merge vào dev/main; tạo feature branch mới từ origin/dev cho từng task. Firebase cloud/deploy chưa cấu hình.
+Gợi ý mô tả ngắn:
 
-Xem [kế hoạch lead](01-lead.md), [tech stack](07-tech-stack.md) và [hosting/CI](06-hosting-cicd.md).
+```text
+Làm gì: hiện lỗi dễ hiểu khi mật khẩu sai.
+Thử thế nào: nhập sai → thấy lỗi; nhập đúng → login được.
+Kiểm tra: typecheck/build/unit test đã qua.
+Database: không thay đổi.
+Chưa làm: đăng ký tài khoản.
+```
+
+UI owner chưa có Docker chạy kiểm tra không Docker trên máy; CI vẫn phải qua integration local trước merge. Backend owner tự chạy test Supabase local để dễ tìm lỗi.
+
+## 5. Nếu dev có code mới khi bạn đang làm
+
+Commit công việc hiện tại trước, rồi trên nhánh task chạy:
+
+```bash
+git fetch origin
+git merge origin/dev
+```
+
+Nếu tự ghép được thì test lại. Nếu Git báo conflict, đọc các chỗ cùng bị sửa và nhờ lead/người sửa file đó giải quyết; không chọn xóa một bên hoặc force push khi chưa hiểu. Chạy lại kiểm tra trước khi push tiếp.
+
+## 6. Lead làm gì?
+
+- Mời các thành viên vào repo bằng tài khoản riêng.
+- Bảo vệ dev/main: bắt buộc PR, review khác tác giả, các kiểm tra qua; chặn force push/xóa nhánh. PR lead cũng cần review.
+- Review chéo: 1↔2, 3↔4; 1 review 5, 5 review CI/deploy của 1.
+- Merge từng task nhỏ vào dev, cập nhật database server khi có migration đã duyệt, thử luồng cùng team. Lệnh server ở [phần lead](../docs/supabase-lead.md).
+- Bản dev ổn mới mở PR dev → main bằng merge commit, tức ghép giữ lịch sử hai nhánh. Không force push dev/main.
+
+Sau khi task merge, task mới lại tạo nhánh mới từ origin/dev. Không cần copy code của bạn khác thủ công; Git giữ lịch sử và ghép code chung. GitHub Actions chỉ test; Pages tự build/deploy frontend theo cấu hình Dashboard. Database/backend Supabase cập nhật riêng sau review.

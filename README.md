@@ -1,102 +1,85 @@
-# Về Cùng — khung web ghép xe sinh viên
+# Về Cùng — project CNPM
 
-React + TypeScript + Firebase, dành cho nhóm 5 sinh viên HUST. **Đây là scaffold**, chưa có đặt chuyến, bản đồ VietMap hoặc thanh toán. Bộ [kế hoạch](ke-hoach/README.md) vẫn giữ trong repo.
+Team gồm 5 sinh viên năm 3. Tài liệu được viết để có thể làm từng bước, hiểu lý do và giải thích lại cho nhau.
 
-- **Thành viên mới:** [pull code, chạy local và task đầu tiên](docs/team-onboarding.md).
-- **Lead chuẩn bị cloud:** [runbook cấu hình/build/deploy Firebase](docs/firebase-deploy.md).
+App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**. **Hiện đã có login/logout. Chưa có bảng và API cho hồ sơ, chuyến đi, đặt chuyến hoặc ví điểm.**
 
-## Chạy local
+## 1. Bắt đầu theo cách đơn giản nhất
 
-Cần Node **22** (từ 22.12), npm và Java **21**. Nếu dùng nvm: `nvm install` rồi `nvm use`. Mọi người chạy từ root repo.
+Cả team sửa code trên máy. Khi làm giao diện, dùng Supabase server dev chung của nhóm. “Dev” là nơi thử nghiệm; dữ liệu trên server này dùng chung. Cách này **không cần Docker**.
 
-```bash
-npm ci
-npm run dev
+Làm tại thư mục gốc `CNPM`, nơi có README này và `package.json`, không phải thư mục `web/`.
+
+1. Cài Node 22 (từ 22.12). Nếu đã dùng nvm để quản lý phiên bản Node, chạy `nvm install 22` rồi `nvm use`.
+2. Chạy `npm ci` một lần để cài các thư viện đúng phiên bản của repo.
+3. Nhận URL và publishable key từ lead, điền vào `web/.env.local`:
+
+```dotenv
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
 ```
 
-- Web: http://127.0.0.1:5173
-- Emulator UI: http://127.0.0.1:4000
-- Auth 9099, Firestore 8080, Functions 5001. Chờ Functions báo khởi tạo xong.
-- Terminal thứ hai: `npm run seed:local`. Mở **Tài khoản**, nhập tài khoản mẫu bên dưới để thử đăng nhập, tải hồ sơ qua Functions và đăng xuất.
-- Không cần tài khoản Firebase, key thật hoặc billing để chạy Emulator. Lần đầu CLI cần internet tải emulator. Dữ liệu local mất khi dừng; chạy lại seed.
-- Không cần tạo `.env.local` cho local mặc định. Mẫu cấu hình ở `web/.env.example`; nếu có config local, giữ project `demo-vecung` và `VITE_USE_EMULATORS=true`.
-- `npm run dev` chặn config cloud. File `.env.firebase.*` chỉ dành cho lệnh cloud của lead, không tác động local của nhóm.
+Thay phần `YOUR_…` bằng giá trị lead cung cấp. URL là địa chỉ server; publishable key là key được phép dùng ở frontend. Không điền secret/service-role key. File env là file cấu hình; không đưa `.env.local` lên Git.
 
-Seed chỉ chạy localhost, tạo `user@student.example`, `driver@student.example`, `admin@student.example`, mật khẩu `DemoOnly!2026`. Đây là tài khoản hư cấu của Emulator, không dùng trên cloud. Chưa có điểm hoặc ví thực hiện nghiệp vụ.
+4. Chạy:
 
-## Giao diện người dùng
+```bash
+npm run dev:web
+```
 
-Chỉ có bốn trang: **Tìm chuyến** `/chuyen-di`, **Chuyến của tôi** `/dat-chuyen`, **Ví điểm** `/vi-diem`, **Tài khoản** `/tai-khoan`. `/` chuyển sang trang tìm chuyến; các URL module cũ được giữ lại. Thông tin owner, contract, Emulator, CI và tài khoản mẫu chỉ nằm trong tài liệu, không xuất hiện trên UI.
+Khi terminal hiện địa chỉ web, mở http://127.0.0.1:5173/tai-khoan. Đăng nhập bằng tài khoản test riêng mà lead tạo **trên server**. Thử đăng nhập, tải lại trang và đăng xuất. Nhấn Ctrl+C tại terminal để dừng web.
 
-Form login/logout dùng Firebase Auth thật; hồ sơ dùng `getMyProfile`. Form tìm chuyến, bộ lọc chuyến, giao diện ví đã có nhưng chưa có handler nghiệp vụ; UI báo chưa khả dụng, không tạo chuyến/số dư/thanh toán giả. Font và ảnh được phục vụ cùng ứng dụng. Xem [thiết kế và bàn giao UI](docs/ui-redesign.md).
+Nếu hồ sơ báo “chưa triển khai” sau khi login, phần hồ sơ còn thiếu backend; không phải login thất bại. Đổi env thì dừng và chạy lại web để đọc cấu hình mới.
 
-## Kiểm tra
+## 2. Khi nào cần Docker?
+
+Docker cần khi muốn chạy **cả Supabase trên máy mình**, thường là lúc làm bảng dữ liệu hoặc xử lý backend. Docker giúp chạy bộ dịch vụ Supabase mà không phải tự cài từng dịch vụ.
+
+| Bạn đang làm gì? | Lệnh tại gốc CNPM | Docker |
+|---|---|---|
+| Làm giao diện, dùng server dev của team | `npm run dev:web` | Không cần |
+| Làm database/backend, dùng dữ liệu riêng trên máy | `npm run dev` | Cần |
+| Chạy unit test: kiểm tra từng phần code nhỏ | `npm test` | Không cần |
+| Chạy cả unit và Auth test với Supabase local | `npm run test:local` | Cần |
+
+Local nghĩa là chạy trên máy mình. Hai dòng đầu đều có web local, nhưng dòng thứ hai còn có Supabase local. Xem [các bước thực hành local](docs/supabase-local.md) khi bắt đầu làm backend; chưa cần cài Docker chỉ để làm giao diện.
+
+## 3. Mỗi người giao code như thế nào?
+
+Tạo nhánh riêng từ `dev` → làm một việc nhỏ → test → gửi PR vào `dev` → người khác đọc/review → lead ghép code. PR là yêu cầu ghép nhánh của bạn vào nhánh chung. Sau đó lead cập nhật server nếu có thay đổi database và team thử cùng nhau.
+
+**Push lên GitHub chỉ gửi code, không tự sửa database server.** Không tự thử thay đổi bảng trên server chung vì có thể làm phần của người khác bị lỗi. Bản ổn trên dev mới được đưa vào main bằng PR.
+
+Đọc theo thứ tự:
+
+1. [Quy trình Supabase cho cả team](docs/supabase-workflow.md).
+2. [Cách dùng Git/PR từng bước](ke-hoach/08-github-workflow.md).
+3. [Kế hoạch đúng phần của mình](ke-hoach/README.md).
+
+Lead đọc thêm [cách cập nhật server](docs/supabase-lead.md) khi cần; mọi người không phải chạy các lệnh đó mỗi ngày.
+
+## 4. Kiểm tra trước khi gửi code
+
+Nếu đang làm giao diện và chưa có Docker, chạy lần lượt:
 
 ```bash
 npm run typecheck
 npm run build
 npm test
-npm run test:integration
-# Hoặc toàn bộ:
-npm run check
 ```
 
-Dừng `npm run dev` trước test integration/check vì Emulator test dùng cùng port. Tests chứng minh callable đọc DB, token uid, phân quyền, khóa user hiện tại và Rules chặn client. Test chỉ dùng Emulator, không VietMap/cloud. `npm run preview` phục vụ bản build web; để kiểm tra backend vẫn cần `npm run emulators`.
+`typecheck` tìm lỗi kiểu TypeScript; `build` kiểm tra app có đóng gói được; `test` chạy các ca kiểm tra nhỏ. Kết quả mong đợi là lệnh kết thúc không lỗi, tests đều passed.
 
-## Cấu trúc và phân công
+Nếu có Docker, chạy `npm run check` để kiểm tra thêm đăng nhập với Supabase local. GitHub Actions cũng chạy lệnh này tự động khi có PR; phải qua trước merge. GitHub Actions chỉ kiểm tra code; Cloudflare Pages tự build/deploy frontend qua kết nối Git đã cấu hình trên Dashboard. Database Supabase được cập nhật riêng.
 
-| Người | Frontend | Backend / phần chung |
-|---|---|---|
-| 1 — Lead | App/layout, components, lib | Foundation, shared, scripts, config, CI |
-| 2 | web/src/modules/auth | functions/src/modules/auth |
-| 3 | web/src/modules/trips | functions/src/modules/trips |
-| 4 | web/src/modules/bookings | functions/src/modules/bookings |
-| 5 | web/src/modules/wallets | functions/src/modules/wallets |
+## 5. Tài liệu và code để đọc khi cần
 
-- `shared/contracts.ts`: types/schema chung; báo lead trước khi đổi.
-- `functions/src/index.ts`: nơi đăng ký/export callable; handler nằm riêng từng module.
-- `functions/lib/`: code build gồm Functions và shared contract; Firebase deploy lấy main `lib/functions/src/index.js`. Không commit build output.
-- `tests/unit`, `tests/integration`: test nghiệp vụ/luồng/permission của các owner.
-- `docs/contracts.md`: API nền và hướng dẫn thêm chức năng.
-- Firestore Rules chặn client; FE đọc/ghi nghiệp vụ qua Functions. Đây là lựa chọn kiến trúc V1, chưa dùng realtime listeners.
+- [Giải thích thuật ngữ và công cụ](ke-hoach/07-tech-stack.md).
+- [Contract: frontend gửi gì, backend trả gì](docs/contracts.md).
+- [Kết quả kiểm chứng](docs/validation.md).
+- [Cấu hình Pages, chuyển domain và xóa Worker cũ](docs/cloudflare-pages.md).
+- `web/src/lib/supabase.ts`: kết nối Supabase dùng chung.
+- `web/src/modules/auth/`: màn hình và phiên đăng nhập.
+- `supabase/config.toml`: cấu hình Supabase trên máy.
 
-## Làm việc trên GitHub
-
-Remote dùng hai nhánh môi trường: **dev** để tích hợp và kiểm thử, **main** cho production-demo. Scaffold đã được merge vào cả hai nhánh. Mỗi task mới tạo feature branch từ `origin/dev` mới nhất; không dùng các nhánh local cũ có lịch sử riêng để mở PR.
-
-Mỗi task: lấy dev mới → tạo feature branch → code/test → push feature → PR base dev → reviewer → lead merge. Kiểm thử luồng chung trên dev; bản ổn mở PR **dev → main**, dùng merge commit để giữ lịch sử giữa hai nhánh môi trường. Không copy code của nhau hoặc push thẳng nhánh môi trường. Xem [workflow](ke-hoach/08-github-workflow.md).
-
-CI job **checks** chạy trên PR vào dev/main và push dev/main. Sau khi CI chạy lần đầu, chọn checks làm required status check cho hai nhánh.
-
-## Cloud và deploy — chưa bật
-
-Cloud Functions cần **Blaze + billing**, không bảo đảm free hoàn toàn. Hiện chưa tạo/cấu hình project cloud hoặc deploy. Firebase Hosting dùng domain `<project-id>.web.app`.
-
-Lệnh thủ công đã chuẩn bị (Node 22, từ root). Sau khi kiểm tra code bằng `npm run check`, copy mẫu và điền config thật:
-
-```bash
-cp .env.firebase.example .env.firebase.dev
-npm run cloud:check -- dev
-npm run build:cloud -- dev
-# Chỉ sau khi project/billing/quyền sẵn sàng và lead bật guard trong file:
-npm run deploy:cloud -- dev
-```
-
-Mẫu mặc định `ENABLE_FIREBASE_DEPLOY=false`; check/build không gọi cloud. File thật được gitignore, tách khỏi `web/.env.local`; build cloud không nhận config local. Production-demo dùng file và project riêng, tham số `production-demo`. Predeploy guard kiểm tra project/region/config/guard và dấu cấu hình trong Hosting build. Các kiểm tra này không xác nhận billing hoặc quyền IAM; Firebase kiểm tra khi deploy. Xem runbook để tạo tài khoản cloud đầu tiên (Auth + users), smoke test và WIF. Scaffold chưa có đăng ký/bootstrap nên tạo tài khoản Auth đơn thuần chưa đủ để tải hồ sơ.
-
-Pipeline deploy mặc định bị tắt. Khi lead quyết định triển khai:
-
-1. Tạo 2 Firebase projects riêng và GitHub Environments: dev, production-demo. Bật email/password Auth, Firestore và billing cho từng project; cùng Functions region asia-southeast1.
-2. Mỗi GitHub Environment cấu hình Variables: FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_APP_ID, WIF_PROVIDER, DEPLOY_SERVICE_ACCOUNT; VIETMAP_MAP_KEY tùy chọn khi người 3 tích hợp. Web config không phải private credential; vẫn phải giữ quyền backend/Rules.
-3. Cấu hình Google Workload Identity Federation, giới hạn trust theo repo/nhánh/environment và quyền deploy cần thiết. Không lưu service-account private key trong repo. CI checks không cần Google credentials.
-4. Đặt budget/usage controls; rồi mới bật repository variable ENABLE_FIREBASE_DEPLOY=true. Test dev trước khi phát hành main. Xem [hosting](ke-hoach/06-hosting-cicd.md).
-
-CI build web đúng Firebase project cloud, kiểm tra config trước deploy, dùng ADC và deploy Functions/Rules/indexes/Hosting. Workflow chưa được thử trên account cloud. Kiểm tra index readiness và smoke test sau release; rollback code không rollback dữ liệu.
-
-Không dùng `firebase init` để ghi đè scaffold. Không seed admin mẫu lên cloud. VietMap map client key do người 3 bổ sung; VietMap REST key giữ backend/Secret Manager. Điểm demo không có giá trị tiền.
-
-Kết quả kiểm chứng và giới hạn dependency xem [báo cáo](docs/validation.md).
-
-## Việc của lead
-
-Đọc [checklist lead](ke-hoach/09-checklist-lead.md) và [tech stack](ke-hoach/07-tech-stack.md). Đầu tiên cho cả 5 người chạy cùng scaffold thành công; sau đó giao task nhỏ và chốt contract trước khi code.
+File `.env.firebase.dev` thuộc stack cũ, không được Supabase client hiện tại dùng. Báo cáo UI cũ được đánh dấu lịch sử; dùng hướng dẫn Supabase trên đây để chạy app.

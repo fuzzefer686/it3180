@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import type { UserProfile } from '../../../../shared/contracts';
-import { auth } from '../../lib/firebase';
+import { supabase } from '../../lib/supabase';
 import { callFunction, errorMessage } from '../../lib/callable';
 interface Session {
   user: User | null; profile: UserProfile | null;
@@ -17,15 +17,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [revision, setRevision] = useState(0);
-  useEffect(() => onAuthStateChanged(auth, nextUser => {
-    setUser(nextUser); setProfile(null); setProfileError(''); setLoading(false);
-  }), []);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null); setProfile(null); setProfileError(''); setLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   useEffect(() => {
     let active = true;
     setProfile(null); setProfileError(''); setProfileLoading(Boolean(user));
     if (user) {
       callFunction('getMyProfile', {}).then(value => {
-        if (active && value.uid === user.uid) setProfile(value);
+        if (active && value.uid === user.id) setProfile(value);
       }).catch(error => {
         if (active) setProfileError(errorMessage(error));
       }).finally(() => {
