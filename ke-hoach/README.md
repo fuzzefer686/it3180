@@ -1,11 +1,14 @@
 # Kế hoạch tối giản — nhóm 5 người
 
-Cập nhật 03/10/2026. Mục tiêu demo V1: 10/10/2026. Thành viên 1 là Lead; repository công khai.
+Cập nhật lịch ngày 14/10/2026: đọc [kế hoạch 3 tuần 15/10–04/11](10-ke-hoach-3-tuan.md) để biết task, mốc bàn giao và cách phối hợp. Tuần 1 các owner thiết kế bảng và code module; tuần 2 lead chủ trì tích hợp, owner sửa phần mình; tuần 3 kiểm thử và demo.
+
+Mốc demo 10/10 và hướng dẫn Firebase bên dưới là lịch sử. Nền Supabase đang ở bản làm việc local; lead cần đưa qua PR/review vào dev và đồng bộ hướng dẫn trước khi nhóm code nghiệp vụ. PR kế hoạch không tự chuyển stack. Thành viên 1 là Lead; repository công khai.
 
 Bản này thay thế kế hoạch dài trước đó. V1 chỉ nhận một khách mỗi chuyến; khách có thể đi một phần tuyến. Ghép nhiều khách nối tiếp để sau.
 
 | Tài liệu | Ai đọc |
 |---|---|
+| [Lịch 3 tuần và checklist bàn giao](10-ke-hoach-3-tuan.md) | Cả nhóm — đọc trước |
 | [Kế hoạch chung và hàng chờ](00-ke-hoach-tong-the.md) | Cả nhóm |
 | [1 — Lead](01-lead.md) | Thành viên 1 |
 | [2 — Đăng nhập, hồ sơ và quản trị](02-ho-so-quan-tri.md) | Thành viên 2 |
