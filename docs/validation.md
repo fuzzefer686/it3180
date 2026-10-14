@@ -1,23 +1,43 @@
-# Kiểm chứng scaffold — 04/10/2026
+# Kiểm chứng phần Supabase Auth — 08/10/2026
 
-- Runtime kiểm tra phần chuẩn bị deploy/bàn giao: Node 22.23.3, Java 21; phiên bản dependency đã cố định trong package-lock.json.
-- `npm run check`: PASS (typecheck, build frontend/backend, 26 unit tests + 8 integration tests).
-- Emulator thật xác nhận health đọc Firestore, token uid, input giả quyền, USER bị chặn admin, ADMIN được phép, khóa user theo trạng thái DB, thiếu profile và Rules chặn client.
-- Giao diện đã làm lại thành 4 trang; bỏ các khối kiểm tra Firebase/tài khoản mẫu/phân công khỏi UI. Login bằng form email/mật khẩu vẫn đọc được hồ sơ từ server. Chi tiết kiểm tra giao diện ở [ui-redesign.md](ui-redesign.md).
-- Seed local chạy xong; chỉ tạo fixture trong localhost demo project. `npm run deploy:check` chặn cấu hình cloud thiếu như thiết kế.
-- Chưa chạy CI trên GitHub, deploy cloud, VietMap thật hoặc nghiệm thu nghiệp vụ Trip/Booking/ví; các phần đó chưa triển khai.
+## Supabase và Cloudflare Pages — 14/10/2026
 
-## Chuẩn bị deploy và bàn giao nhóm
+- Chuẩn bị bản Supabase local trên nhánh mới từ dev hiện tại; bỏ `wrangler.jsonc` và các công cụ Firebase còn sót trên dev. Frontend dùng Cloudflare Pages qua kết nối Git trên Dashboard.
+- `npm ci` và `npm run check` PASS trên Node 22.23.3: typecheck, build frontend, 4 unit tests, 3 integration tests Auth với Supabase local Docker. Build còn cảnh báo bundle trên 500 kB.
+- `npm run deploy:check` vẫn kết thúc với mã 1 đúng chủ ý; đường deploy thủ công từ repo vẫn bị chặn.
+- Đã kiểm tra liên kết tài liệu, output có `index.html`, không có `404.html` ở gốc gây mất hành vi SPA mặc định của Pages; không còn cấu hình Workers hoặc import Firebase trong code đang chạy. Kế hoạch 3 tuần đã merge được giữ và đồng bộ trạng thái nền.
+- Không tạo schema/bảng ứng dụng, không sửa env server, không gọi Supabase cloud/VietMap trong test. Stack local do integration khởi động đã được script dừng sau test; dữ liệu local được giữ.
+- Bỏ cấu hình trong Git không tự xóa Worker trên Cloudflare. Cấu hình Pages, chuyển domain và xóa dịch vụ Worker cần làm trong Dashboard theo [hướng dẫn Pages](cloudflare-pages.md). Chưa kiểm thử đăng nhập trên website Pages hoặc Supabase server trong lần này.
+- Thay đổi chung ảnh hưởng mọi owner: Supabase SDK dùng `user.id`; `CallableContracts` thành `ApiContracts`, health environment thành `local/cloud`; wrapper giữ tên `callFunction` nhưng gọi RPC dự kiến. Backend hồ sơ/Trip/Booking/ví còn chưa triển khai.
 
-- `cloud:check`, `build:cloud`, `deploy:cloud` nhận dev/production-demo và file config riêng; mẫu deploy tắt mặc định. Predeploy guard kiểm tra project cloud, Web config, region, ENABLE_FIREBASE_DEPLOY và project CLI chọn. Hosting kiểm tra dấu config của artifact để chặn build Emulator/khác app.
-- Unit regression tests xác nhận config thiếu/placeholder, sai project/region, thiếu WIF, guard tắt và Hosting build sai môi trường đều bị chặn trước upload. Hai file môi trường local dùng cùng project cũng bị chặn.
-- Thử `npm run cloud:check -- dev` và `npm run build:cloud -- dev` với config **hư cấu**, đồng thời web/.env.local trỏ Emulator: build thành công, manifest là cloud project/app fixture. Hosting hook chấp nhận đúng artifact; deploy:cloud với guard false bị từ chối. Không gọi Firebase cloud. Fixture config đã xóa, build cuối khôi phục local bằng npm run check.
-- `npm ci` thành công; config cloud thật và build output được gitignore, mẫu .env.firebase.example được phép commit. Không thêm dependency, không đổi shared/contracts.ts/Rules/indexes hoặc handler nghiệp vụ.
-- [Runbook cloud](firebase-deploy.md) gồm Auth + users đầu tiên, smoke test, WIF/GitHub Environments và giới hạn nghiệm thu. [Onboarding](team-onboarding.md) gồm clone/pull, branch, chạy local, task đầu từng owner và PR dev.
-- Emulator integration tests đã chạy với quyền mở port localhost (sandbox mặc định chặn listen); tiến trình test dừng sau khi hoàn tất. Không có deploy, tạo project hoặc thay billing trong lần kiểm chứng này.
+## Kiểm tra lại và đơn giản hóa ngày 12/10/2026
 
-## Dependency audit
+- Docker Desktop ban đầu chưa chạy; đã mở và kiểm thử bằng Node 22.23.3 (terminal mặc định đang dùng Node 26.7.0).
+- `npm run check` PASS: typecheck, build, 4 unit tests, 3 integration tests Supabase Auth local thật. Build vẫn có cảnh báo bundle >500 kB.
+- `npm run dev` PASS tới Vite ready: khởi động Supabase, sinh `web/.env.local`, tự tạo tài khoản Auth demo. Chạy lại `npm run seed:local` thành công.
+- `npm run test:local` PASS với 4 unit + 3 integration tests trong lúc stack dev chạy. Script giữ stack phục vụ dev.
+- Hướng dẫn tối giản ở [supabase-local.md](supabase-local.md): một lệnh dev, một lệnh test; các bước kết nối frontend tới project server và quay về local. Chưa kết nối/kiểm thử server vì chưa có URL/key public của project team.
+- Không thay schema/contracts/quyền. Việc gộp seed vào dev áp dụng chung cho mọi owner; chỉ tạo Auth user local, không tạo dữ liệu nghiệp vụ. Không push/deploy hoặc gọi cloud/VietMap trong test.
 
-Đã chốt override @grpc/grpc-js 1.14.5 để sửa dependency gRPC cũ của Firebase client SDK; chạy lại toàn bộ check thành công.
+## Kết quả kiểm chứng trước đó (08/10/2026)
 
-`npm audit --omit=dev` còn 2 cảnh báo moderate trong chuỗi gaxios/uuid. Audit đầy đủ còn cảnh báo ở dependency gián tiếp của Firebase CLI, trong đó có high. Không chạy audit fix --force vì npm đề xuất downgrade Firebase/CLI và có thể phá API. Lead kiểm tra bản cập nhật upstream trước khi phát hành cloud; đây không phải chứng nhận ứng dụng đã được kiểm toán bảo mật.
+Phạm vi: SDK Supabase, phiên/login/logout và cấu hình local. Không có migration/bảng ứng dụng hoặc handler RPC; thiết kế database/API để team làm.
+
+- `npm run check` PASS trên Node 22.23.3: typecheck, build, 4 unit tests và 3 integration tests Auth với Supabase local thật.
+- Integration xác nhận login, Auth server trả đúng uid, từ chối mật khẩu sai và logout xóa phiên client. Tài khoản test tạm được dọn sau khi chạy.
+- Giao diện `/tai-khoan`: mật khẩu sai có thông báo; tài khoản mẫu đăng nhập được; reload vẫn giữ phiên; logout trở lại form đăng nhập. Hồ sơ báo chưa triển khai, không có dữ liệu/quyền giả.
+- Supabase local đã chạy đủ 7 thành phần; schema public chưa có bảng ứng dụng. Không gọi cloud/VietMap thật trong kiểm thử.
+- Build có cảnh báo bundle lớn hơn 500 kB; chưa tối ưu bundle trong phạm vi migration Auth này.
+- CI đã đổi sang kiểm thử Supabase local, chưa chạy trên GitHub cho bản sửa này. Cloud deploy tắt; chưa push/deploy hoặc di chuyển dữ liệu thật.
+
+## Thay đổi shared/config cần team biết
+
+Firebase SDK/config/backend cũ được bỏ; CLI local chuyển sang Supabase + Docker. Tất cả owner dùng cùng `supabase/config.toml` và client `web/src/lib/supabase.ts`. Mỗi máy có dữ liệu local riêng.
+
+`CallableContracts` đổi tên thành `ApiContracts`; HealthResponse.environment dùng local/cloud; Auth User.uid đổi thành User.id, nhưng DTO UserProfile.uid giữ tên cũ. Wrapper callFunction giữ tên API, ánh xạ sang RPC dự kiến trong shared/api.ts. Các handler đó chưa triển khai; việc này không quyết định schema SQL cho team.
+
+Cập nhật tài liệu 12/10/2026: kế hoạch ke-hoach/ đã đồng bộ Supabase; [workflow team](supabase-workflow.md) phân biệt frontend/server không Docker và toàn bộ local cần Docker, có quy trình migration/review/lead cập nhật server. Các quy tắc nghiệp vụ được giữ; schema do team thiết kế. Lần cập nhật tài liệu không chạy server, không thay env, không triển khai migration/backend và không kiểm thử cloud.
+
+## Đơn giản hóa tài liệu cho team sinh viên năm 3
+
+Hướng dẫn bắt đầu đã đổi sang bước cụ thể, có nơi chạy lệnh và kết quả mong đợi. Thuật ngữ có ví dụ Về Cùng; phần cập nhật server tách vào [supabase-lead.md](supabase-lead.md). AGENTS.md ghi nguyên tắc giải thích cho team ít kinh nghiệm để dùng cho các lần làm tiếp. Không thay code, env, database hoặc khởi động server trong lần chỉnh tài liệu này.

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
-import { auth } from '../../lib/firebase';
+import { supabase } from '../../lib/supabase';
 import { errorMessage } from '../../lib/callable';
 import { useSession } from './SessionProvider';
 const verificationLabels = { VERIFIED: 'Đã xác thực sinh viên', PENDING: 'Đang chờ xác thực', REJECTED: 'Chưa được xác thực' };
@@ -15,13 +14,13 @@ export function AuthPage() {
   const [error, setError] = useState('');
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await signInWithEmailAndPassword(auth, email.trim(), password); setPassword(''); }
+    try { const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password }); if (error) throw error; setPassword(''); }
     catch (err) { setError(errorMessage(err)); }
     finally { setBusy(false); }
   }
   async function logout() {
     setBusy(true); setError('');
-    try { await signOut(auth); }
+    try { const { error } = await supabase.auth.signOut(); if (error) throw error; }
     catch (err) { setError(errorMessage(err)); }
     finally { setBusy(false); }
   }

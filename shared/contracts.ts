@@ -16,7 +16,7 @@ export const bookingStatusSchema = z.enum(['WAITING', 'CONFIRMED', 'ONBOARD', 'C
 export type TripStatus = z.infer<typeof tripStatusSchema>;
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
 
-// API dùng milliseconds; Firestore dùng Timestamp, chuyển ở backend boundary.
+// API dùng milliseconds; PostgreSQL dùng timestamptz, chuyển ở backend boundary.
 export interface RouteStop {
   id: string; label: string; order: number;
   latitude: number; longitude: number;
@@ -46,9 +46,9 @@ export interface LedgerEntry {
 }
 export interface HealthResponse {
   status: 'ok'; database: 'connected'; sampleMessage: string | null;
-  environment: 'emulator' | 'cloud';
+  environment: 'local' | 'cloud';
 }
-export interface CallableContracts {
+export interface ApiContracts {
   healthCheck: { input: Record<string, never>; output: HealthResponse };
   getMyProfile: { input: Record<string, never>; output: UserProfile };
   adminFoundationInfo: { input: Record<string, never>; output: { version: string } };

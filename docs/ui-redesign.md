@@ -1,5 +1,7 @@
 # Giao diện Về Cùng
 
+> Báo cáo thiết kế/kiểm chứng lịch sử ngày 04/10/2026 trên stack Firebase trước khi chuyển Supabase. Các kết quả backend/hồ sơ, số lượng test và thuật ngữ callable/Rules bên dưới không mô tả bản Supabase hiện tại. Chạy app theo [README](../README.md), [workflow Supabase](supabase-workflow.md) và xem [validation hiện tại](validation.md).
+
 ## Thiết kế
 
 Áp dụng skill `design-taste-frontend` theo chế độ overhaul cho web ghép xe sinh viên. Dials: variance 6, motion 3, density 4. Bản cũ dùng sidebar, font hệ thống, nhiều card nhiệm vụ; có 5 trang và lộ owner/đường dẫn code/Emulator/CI. Các khối này được bỏ khỏi UI, tài liệu và callable nền vẫn giữ.
@@ -10,7 +12,7 @@ Bản mới dùng navigation ngang trên desktop và navigation đáy trên mobi
 
 | Trang | URL | Owner và việc nối tiếp |
 |---|---|---|
-| Tìm chuyến | /chuyen-di | 3: nối callable tìm tuyến và VietMap; state form hiện ở TripsPage |
+| Tìm chuyến | /chuyen-di | 3: nối API tìm tuyến và VietMap; state form hiện ở TripsPage |
 | Chuyến của tôi | /dat-chuyen | 4: nối Booking theo trạng thái; phối hợp 3 cho tab cầm lái/đăng chuyến |
 | Ví điểm | /vi-diem | 5: nối balance/ledger và giao dịch điểm, không tiền thật |
 | Tài khoản | /tai-khoan | 2: login/logout đã nối Auth; bổ sung bootstrap/đăng ký/hồ sơ/quản trị |

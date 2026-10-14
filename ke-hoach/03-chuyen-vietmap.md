@@ -1,6 +1,17 @@
 # Người 3 — Chuyến đi và VietMap
 
+Team là sinh viên năm 3. Làm từng task nhỏ, đọc [workflow](../docs/supabase-workflow.md) để biết chạy app và giao code. Đây là kế hoạch cần triển khai; chưa có bảng/API ứng dụng.
+
 **Mục tiêu:** driver đăng chuyến xe máy, app vẽ đường và cho khách chọn các điểm dừng.
+
+## Từ cần hiểu cho phần này
+
+- Trip: một chuyến; `tripId` là ID chuyến.
+- Stops: các điểm dừng có thứ tự. Route snapshot: tuyến đã lưu để dùng lại, không đổi giá vì tuyến tính lại khác.
+- `confirmedBookingId`: ID yêu cầu đã được nhận. `hasServedPassenger`: đánh dấu chuyến đã đón khách, không được xóa để nhận khách tiếp.
+- Lifecycle: vòng đời chuyến, tức các bước mở → đang đi → hoàn thành hoặc hủy.
+
+Xem thêm [thuật ngữ chung](07-tech-stack.md) nếu gặp RLS, RPC hoặc migration.
 
 ## Việc cần làm
 
@@ -12,7 +23,7 @@
 
 **Dữ liệu:** Trip, RouteStop, RouteSnapshot; khoảng cách giữa các stops. Không cần bộ máy tối ưu tuyến.
 
-**Stack:** React + VietMap GL JS ở FE; callable Cloud Functions TypeScript + Admin SDK/Firestore ở BE. Lưu `trips/{tripId}` với stops/route snapshot có giới hạn; API nghiệp vụ đi qua Functions, không cho FE ghi trực tiếp. Xem [tech stack](07-tech-stack.md).
+**Cách làm:** Dùng React/VietMap cho bản đồ và Supabase để lưu chuyến, kiểm tra thao tác. Team chốt bảng/quyền và migration trước. VietMap REST key giữ ở backend; nếu cần Edge Function (code chạy trên Supabase), cùng lead bổ sung vì repo chưa có. Không để frontend tự sửa trạng thái chuyến.
 
 **Bàn giao cho 4:** tripId, điểm dừng có thứ tự, khoảng cách từng đoạn và giờ đi. Giá khách đi A→C dựa trên khoảng cách AB+BC của tuyến đã lưu.
 
@@ -24,19 +35,30 @@
 - Đã có Booking confirmed thì không sửa tuyến/giờ.
 - Chỉ chủ chuyến được start/cancel/complete. Không kết thúc khi khách chưa được xử lý.
 - Kiểm tra uid, roles/status/VERIFIED từ người 2. Lưu `confirmedBookingId` và `hasServedPassenger` ở Trip để người 4 chống nhận trùng; không tự xóa cờ đã phục vụ khi khách xuống xe.
-- Start/cancel/complete dùng Firestore transaction cùng người 4 để không chạy đua với confirm/pickup. Hủy/expire yêu cầu dựa trên Trip là nguồn quyết định; không cần cập nhật mọi WAITING trong một transaction lớn.
+- Start/cancel/complete dùng transaction database cùng người 4 để không chạy đua với confirm/pickup. Hủy/expire yêu cầu dựa trên Trip là nguồn quyết định; không cần cập nhật mọi WAITING trong một transaction lớn.
 - API map lỗi thì báo rõ, không lưu khoảng cách giả. Fixture phải có nhãn nếu chưa kiểm tra API thật.
 
-**Demo xong:** đăng A→B→C→D, vẽ được đường,4 chọn A→C và tính đúng khoảng cách. Khách xuống C nhưng driver vẫn có thể đi đến D.
+**Demo xong:** đăng A→B→C→D, vẽ được đường, 4 chọn A→C và tính đúng khoảng cách. Khách xuống C nhưng driver vẫn có thể đi đến D.
 
 ## Mốc của bạn
 
-04–05/10: VietMap và contract điểm dừng. 06–07/10: đăng/tìm/lifecycle Trip. 08–10/10: tích hợp/test; nhờ2 hỗ trợ form/seed nếu cần.
+Thứ tự: bản đồ/điểm dừng → đăng/tìm/bắt đầu/kết thúc chuyến → nối Booking và test. Nhờ 2 hỗ trợ hồ sơ/tài khoản mẫu nếu cần; nhóm tự chốt ngày theo tiến độ.
 
-Reviewer: 4. Test bằng Vitest + Emulator, mock VietMap và thử một tuyến thật có xe máy. Viết ngắn collection/contract và test lỗi; giải thích được tọa độ và khoảng cách.
+Reviewer: 4. Test bằng Vitest + Supabase local Docker, mock VietMap và thử một tuyến thật có xe máy. Viết ngắn schema/contract và test lỗi; giải thích được tọa độ và khoảng cách.
 
 ## Prompt gửi Agent
 
 ```text
-Tôi là người 3, phụ trách Trip/VietMap. Đọc ke-hoach/00-ke-hoach-tong-the.md, ke-hoach/03-chuyen-vietmap.md và ke-hoach/07-tech-stack.md. Dùng React + VietMap GL JS, callable Cloud Functions TypeScript, Admin SDK/Firestore; không cho client ghi trips trực tiếp. uid/eligibility lấy từ người 2. Làm map, đăng/tìm, stops và lifecycle; dùng tài liệu VietMap chính thức, Route v4 motorcycle, không đoán API. Lưu tuyến/khoảng cách cho người 4; cùng chốt confirmedBookingId/hasServedPassenger và transaction chống start/cancel chạy đua confirm. Không gọi VietMap trong transaction. V1 một khách mỗi chuyến, có thể xuống dọc đường; không tối ưu tuyến/GPS/ghép nối tiếp. Giải thích ngắn trước từng task, test Vitest/Emulator và mock map, giúp tôi hiểu tọa độ/đơn vị. Không tự sửa Booking/ví hoặc deploy cloud.
+Team tôi là sinh viên năm 3, ít kinh nghiệm.
+Chỉ làm task nhỏ được giao; giải thích từ lạ, mục đích, cách làm và kết quả test để tôi hiểu.
+Tôi là người 3.
+Đọc README.md, docs/contracts.md, docs/supabase-workflow.md và ke-hoach/03-chuyen-vietmap.md.
+Với task tôi giao tiếp theo, làm giao diện/backend/test Trip/VietMap bằng React và Supabase; bảng, luật truy cập và hàm API phải thống nhất với team rồi đưa vào migration.
+Client không ghi lifecycle/giá trực tiếp; uid/eligibility lấy từ Auth đã xác minh và dữ liệu server của 2.
+REST key ở backend; nếu dùng Edge Function thì cùng lead bổ sung runtime/config/test vì hiện chưa có.
+Đối chiếu tài liệu VietMap chính thức cho motorcycle/đơn vị/tọa độ.
+Bàn giao route/stops/distance cho 4; cùng thiết kế transaction chống start/cancel/confirm chạy đua.
+Một khách/Trip, có thể xuống sớm, không nhận khách kế tiếp.
+Mock VietMap trong test/CI, không gọi ngoài trong transaction.
+Giải thích ngắn để tôi học; không sửa Booking/ví hoặc deploy cloud.
 ```

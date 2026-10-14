@@ -1,6 +1,17 @@
 # Người 5 — Ví điểm demo và giao dịch
 
+Team là sinh viên năm 3. Làm từng task nhỏ, đọc [workflow](../docs/supabase-workflow.md) để biết chạy app và giao code. Đây là kế hoạch cần triển khai; chưa có bảng/API ứng dụng.
+
 **Mục tiêu:** làm đầy đủ luồng trả chuyến, thu nhập và lịch sử bằng điểm ảo; không đụng đến tiền thật.
+
+## Từ cần hiểu cho phần này
+
+- Wallet: ví điểm. Payment: một lần trả điểm. LedgerEntry: một dòng lịch sử tăng/giảm điểm.
+- `farePoints`/`feePoints`/`driverPoints`: tổng điểm trả/phí demo/điểm driver nhận, lấy từ giá server đã chốt của 4.
+- Transaction: trừ khách, cộng driver và ghi lịch sử phải cùng xong hoặc cùng hủy.
+- Idempotency/retry: gửi lại cùng yêu cầu không trả/cấp điểm thêm lần nữa. `requestId` giúp nhận diện yêu cầu đó.
+
+Xem thêm [thuật ngữ chung](07-tech-stack.md) nếu gặp RLS, RPC hoặc migration.
 
 ## Việc cần làm
 
@@ -11,7 +22,7 @@
 
 **Dữ liệu:** Wallet, Payment, LedgerEntry. Nhận bookingId, passengerId, driverId, farePoints, feePoints, driverPoints và Booking COMPLETED từ người 4. Một ví/user, DRIVER vẫn dùng ví đó khi làm hành khách.
 
-**Stack:** React; callable Cloud Functions TypeScript + Admin SDK/Firestore; Zod + Vitest/Emulator. Collections `wallets/{uid}`, `payments/{bookingId}`, `ledgerEntries`; dùng ví phí hệ thống tách biệt. FE không đọc/ghi ví trực tiếp, gọi function lấy ví mình. Xem [tech stack](07-tech-stack.md).
+**Cách làm:** Dùng React cho trang ví, Supabase database/API cho thay đổi điểm. Team chốt bảng/quyền, cách chống trùng và transaction rồi viết migration/test local. Frontend chỉ yêu cầu thao tác, không tự ghi số dư. Cùng 4 xác nhận giá và trạng thái Booking.
 
 ## Quy tắc đơn giản
 
@@ -28,9 +39,9 @@
 - Một Booking chỉ trả thành công một lần, dù bấm lặp hoặc retry.
 - Trừ/cộng/ghi phí, Payment và ledger phải nguyên tử. Kiểm tra đủ điểm cũng nằm trong thao tác nguyên tử để hai giao dịch không làm âm ví.
 - Cấp ban đầu/thêm điểm thử có loại giao dịch riêng; backend cố định mức cấp, kiểm tra người đăng nhập và chống retry ghi trùng.
-- Dùng Firestore transaction: đọc Booking/Payment/các ví trước, kiểm tra quyền/COMPLETED/đủ điểm rồi ghi tất cả. Payment document có ID bookingId; ledger ID xác định theo loại và bookingId để retry không ghi trùng. Không gọi dịch vụ bên ngoài trong transaction.
+- Dùng transaction database: kiểm tra quyền/COMPLETED/đủ điểm và khóa dữ liệu cần thiết, rồi trừ/cộng điểm, ghi payment/ledger nguyên tử. Team thiết kế khóa idempotency/unique constraints để một Booking chỉ trả thành công một lần và retry không ghi trùng. Không gọi dịch vụ bên ngoài trong transaction.
 - Bootstrap ví dùng uid và ledger cấp ban đầu cố định để chỉ cấp một lần. Top-up có requestId: cùng requestId chỉ cấp một lần, lần bấm mới được thêm 100.000 điểm; không tin số cấp từ FE.
-- Giữ Wallet.balance nhất quán với ledger bằng transaction, không dùng constraint SQL. Lịch sử không sửa/xóa tùy ý.
+- Giữ balance nhất quán với ledger bằng transaction và constraints phù hợp do team thiết kế; không tách thành các calls SDK độc lập. Lịch sử không sửa/xóa tùy ý.
 
 V1 bỏ cash, PayOS, công nợ, số dư âm và rút tiền. Có thể thêm provider thật sau này nhưng không quy đổi điểm test thành tiền thật.
 
@@ -38,12 +49,23 @@ V1 bỏ cash, PayOS, công nợ, số dư âm và rút tiền. Có thể thêm p
 
 Test đủ điểm, thiếu điểm, bấm hai lần, hai giao dịch đồng thời, sai người trả và cấp điểm ban đầu bị gọi lại. Nếu lỗi giữa chừng, không ví nào bị thay đổi một phần. Driver chỉ xem ví mình; admin xem phí demo nếu còn thời gian.
 
-04–05/10: ví/cấp điểm và fixture. 06–07/10: trả chuyến và nối Booking. 08–10/10: lịch sử, test và sửa lỗi. Reviewer: người 1; người 4 kiểm tra giá và trạng thái Booking.
+Thứ tự: ví/cấp điểm mẫu → trả điểm theo Booking → lịch sử và test. Reviewer: người 1; người 4 kiểm tra giá/trạng thái. Nhóm tự chốt ngày theo tiến độ.
 
 Viết ngắn sơ đồ chuyển điểm và test đã chạy. Cần giải thích được số dư, transaction và chống trả hai lần.
 
 ## Prompt gửi Agent
 
 ```text
-Tôi là người 5, phụ trách ví điểm demo. Đọc ke-hoach/00-ke-hoach-tong-the.md, ke-hoach/05-thanh-toan.md và ke-hoach/07-tech-stack.md. Dùng React, callable Cloud Functions TypeScript, Admin SDK/Firestore, Zod và Vitest/Emulator; không cho client ghi ví/ledger trực tiếp. Làm wallets/payments/ledgerEntries: cấp 1.000.000 điểm/uid đúng một lần, thêm cố định 100.000 điểm theo requestId idempotent, trả Booking COMPLETED, cộng driver sau phí và ghi phí hệ thống. Firestore transaction đọc Booking/Payment/các ví trước khi ghi, kiểm tra đủ điểm trong transaction; payments ID=bookingId, ledger ID cố định cho retry. uid lấy request.auth, quyền/status từ người 2, giá/phí từ người 4. Chỉ DEMO_WALLET, không tiền thật/nợ/rút. Giải thích trước từng task để tôi học; test thiếu điểm, concurrent payments, gọi lại bootstrap/top-up, sai quyền, lỗi giữa transaction. Không tự sửa module khác hoặc deploy cloud.
+Team tôi là sinh viên năm 3, ít kinh nghiệm.
+Chỉ làm task nhỏ được giao; giải thích từ lạ, mục đích, cách làm và kết quả test để tôi hiểu.
+Tôi là người 5.
+Đọc README.md, docs/contracts.md, docs/supabase-workflow.md và ke-hoach/05-thanh-toan.md.
+Với task tôi giao tiếp theo, làm giao diện/backend/test ví điểm demo bằng Supabase Postgres/RPC.
+Thống nhất bảng và quyền truy cập và ranh giới transaction/constraints/idempotency rồi viết migration, không để client ghi balance/ledger.
+Cấp 1.000.000 điểm/user đúng một lần; thêm 100.000 điểm theo requestId, cùng request chỉ cấp một lần.
+Chỉ khách đã xác minh của Booking COMPLETED được trả; quyền/status từ 2, giá/phí server từ 4.
+Transaction kiểm tra đủ điểm và trừ/cộng/ghi phí/payment/ledger nguyên tử; concurrent/retry không âm ví hoặc thanh toán trùng.
+Không tiền thật/PayOS/rút điểm.
+Test thiếu điểm, sai quyền, retry, concurrent và rollback trên Supabase local Docker; không cloud thật trong CI.
+Giải thích ngắn để tôi học, không tự sửa module khác hoặc deploy cloud.
 ```

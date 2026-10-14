@@ -20,7 +20,7 @@ export function TripsPage() {
     if (!origin.trim() || !destination.trim() || !date) { setError('Vui lòng chọn điểm đi, điểm đến và ngày đi.'); return; }
     if (origin.trim().toLocaleLowerCase('vi') === destination.trim().toLocaleLowerCase('vi')) { setError('Điểm đi và điểm đến cần khác nhau.'); return; }
     if (date < today()) { setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.'); return; }
-    // Chưa có callable tìm chuyến. Không dựng danh sách hoặc trạng thái đặt giả.
+    // Chưa có RPC tìm chuyến. Không dựng danh sách hoặc trạng thái đặt giả.
     setSearched(true);
     requestAnimationFrame(() => result.current?.focus());
   }
