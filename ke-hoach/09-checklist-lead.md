@@ -1,41 +1,37 @@
-# Checklist lead sau khi có scaffold
+# Checklist lead — làm từng bước
 
-Cập nhật 04/10/2026. Khung React/Firebase đã được merge vào dev/main; nghiệp vụ các module chưa triển khai. Chưa deploy cloud.
+Có login/logout và test Auth. Chưa có backend ứng dụng. Mục tiêu là cả nhóm hiểu và thực hành được, không chỉ chạy code do Agent viết.
 
-## Làm ngay hôm nay
+## Trước khi giao task
 
-1. Chạy theo README: npm ci → npm run dev; terminal thứ hai npm run seed:local. Kiểm tra Firebase và đọc hồ sơ mẫu.
-2. Đọc shared/contracts.ts và docs/contracts.md; hiểu uid, role/status, callable, Firestore Rules và transaction. Hỏi Agent giải thích phần chưa hiểu trước khi giao nhóm.
-3. Scaffold đã merge; mỗi task mới lấy origin/dev mới nhất và tạo feature branch riêng, review diff rồi mở PR vào dev. Không dùng lại nhánh đã merge, không force push hoặc ghi đè remote.
-4. Mời 4 người vào repo. Bảo vệ dev/main: PR, một approval, resolve conversation, checks qua, không force push/xóa; áp dụng cho cả lead.
-5. Gửi link README/kế hoạch; yêu cầu cả 5 người xác nhận chạy được local. Dừng Emulator dev trước khi chạy npm run check.
+- [ ] Gửi README; mỗi người mở được web với env server dev, không cần Docker.
+- [ ] Tạo tài khoản test riêng trên server; không chia sẻ tài khoản quản trị.
+- [ ] Ai làm database/backend thì cùng thử Docker local và `npm run test:local`.
+- [ ] Mỗi task ghi owner (người làm), reviewer (người đọc lại), kết quả cần đạt và test cần thử.
+- [ ] Cùng owner chốt bảng và dữ liệu API trước khi viết phần phụ thuộc nhau.
 
-## Giao task đầu tiên
+## Task đầu phù hợp
 
-| Người | Task đầu | Hoàn thành khi |
+| Người | Bắt đầu nhỏ | Sau đó |
 |---|---|---|
-| 1 — Lead | Baseline, CI checks, contract chung | Cả nhóm chạy local và PR có CI xanh |
-| 2 | Auth email/password và bootstrap users | Register/login/logout; USER không gọi admin |
-| 3 | VietMap motorcycle và form tuyến | Một tuyến thật với stops/distance lưu được |
-| 4 | Request/confirm Booking với fixture | Hai confirm đồng thời chỉ một người thành công |
-| 5 | Bootstrap ví và ledger cấp điểm | Một ví/user, cấp 1.000.000 điểm đúng một lần |
+| 1 | Team chạy đúng cách, biết tạo PR | Hỗ trợ code chung và cập nhật server |
+| 2 | Hiểu login/logout đang có | Đăng ký, tạo hồ sơ ban đầu và quyền |
+| 3 | Form tuyến, hiểu điểm đón/trả | Lưu tuyến và xử lý vòng đời chuyến |
+| 4 | Hiểu các trạng thái yêu cầu đi cùng | Backend nhận khách, chống nhận trùng |
+| 5 | Hiểu sơ đồ chuyển điểm | Tạo ví, lịch sử và trả điểm đúng một lần |
 
-Mỗi Issue có owner, reviewer, input/output, điều kiện hoàn thành và phần chưa làm. Một task chính/người; dùng fixture có nhãn nếu đang chờ module khác.
+Dữ liệu mẫu để thử phải ghi rõ là mẫu; không trả success giả khi backend chưa có.
 
-## Trong tuần
+## Mỗi PR
 
-- 10 phút mỗi ngày: đã chạy được gì, tiếp theo làm gì, cần ai hỗ trợ.
-- Review code/quyền/contracts/test; yêu cầu owner giải thích được code AI. PR lead cũng có reviewer.
-- Merge từng task nhỏ vào dev, thử luồng tích hợp và giao lỗi lại đúng owner.
-- Demo chung 05/10 và 07/10. Sau 08/10 dừng thêm chức năng; 09/10 nghiệm thu, 10/10 demo.
-- Giữ scope: xe máy, một khách mỗi chuyến, trả điểm demo. Không thêm GPS, tiền thật hoặc nhiều khách nối tiếp.
+- [ ] Owner giải thích được đã thay gì và vì sao.
+- [ ] Có kết quả test; GitHub Actions (CI) đã qua.
+- [ ] Reviewer khác tác giả đọc code và quyền; PR lead cũng có review.
+- [ ] Nếu có migration, thử tái tạo database local; xem module nào bị ảnh hưởng.
+- [ ] Merge vào dev; cập nhật server nếu cần rồi thử chung với owner.
 
-## Hosting khi sẵn sàng
+## Khi cần cập nhật server
 
-Cloud chưa cấu hình. Nếu dùng web cloud hoàn chỉnh, chủ tài khoản cần quyết định bật Blaze/billing. Lead quản lý 2 Firebase projects riêng cho dev/production-demo, GitHub Environments/Variables/WIF và budget; không chia sẻ password hoặc đưa private key vào repo. Chưa có billing vẫn phát triển/demo local bằng Emulator.
+Đọc [hướng dẫn riêng cho lead](../docs/supabase-lead.md): chọn đúng project → đối chiếu migration → xem trước → áp dụng → thử nhanh → ghi lại phiên bản. Không reset remote hoặc chạy lệnh sửa history để né lỗi.
 
-Pipeline deploy tắt cho đến khi bật ENABLE_FIREBASE_DEPLOY sau khi cấu hình đủ. Test chung trên dev, PR dev → main bằng merge commit, kiểm tra sau release. Chưa cần mua domain.
-
-## Bạn không cần làm thay cả nhóm
-
-Bạn giữ khung/config/contract, gỡ vướng, review và ghép code. Owner tự làm FE/BE/test và sửa lỗi module mình. Khi kẹt, giải quyết dependency và scope trước khi viết hộ.
+Bản dev ổn mới PR sang main bằng merge commit; Pages tự build/deploy frontend từ các nhánh đã bật; database/backend Supabase cập nhật riêng. Deadline cũ 10/10 đã qua, nhóm tự chốt lịch mới. Giữ scope một khách/chuyến và điểm demo, không thêm tiền thật.

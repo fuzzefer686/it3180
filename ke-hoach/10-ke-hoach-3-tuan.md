@@ -6,9 +6,9 @@
 
 ## 1. Điểm xuất phát và việc cần làm trước
 
-Ngày 14/10, bản làm việc local đã chuyển sang Supabase và có login/logout; chưa có bảng ứng dụng hoặc API nghiệp vụ. Kiểm thử Auth local gần nhất được ghi ngày 12/10, không chứng minh các module đã xong. Nhánh `dev` trên GitHub vẫn là nền Firebase. Vì vậy **lead phải đưa bản chuyển Supabase qua PR/review trước khi các bạn tạo nhánh code nghiệp vụ từ dev**.
+Khi lập lịch ngày 14/10, nền Supabase đang ở local. Bản nền được chuẩn bị trong PR Supabase/Pages: đã có login/logout, chưa có bảng ứng dụng hoặc API nghiệp vụ. **Sau khi PR nền được review và merge vào dev**, các owner lấy dev mới để tạo nhánh nghiệp vụ. Việc test nền/Auth không chứng minh các module đã xong.
 
-PR kế hoạch này chỉ bổ sung tài liệu; không đưa bản chuyển Supabase, bảng dữ liệu hoặc backend lên dev. Không chạy các lệnh Supabase bên dưới trên bản Firebase cũ. Sau khi PR nền Supabase được merge, lead cập nhật hướng dẫn chạy và kế hoạch module cho cả nhóm.
+PR kế hoạch ban đầu chỉ bổ sung tài liệu; bản chuyển Supabase/Pages được gửi qua PR nền riêng. README, workflow và kế hoạch module đã được đồng bộ trong PR nền. Không có bảng nghiệp vụ mới; nhóm còn phải chốt schema/quyền trước khi code.
 
 Trong ngày đầu, lead đối chiếu các nhánh/PR module đã có với tác giả. Ví dụ đã có nhánh ví `feat/5-wallet`: người 5 kiểm tra phần nào dùng lại được với Supabase, không mặc định nhánh cũ đã đáp ứng kế hoạch hoặc cần viết lại tất cả.
 
@@ -159,7 +159,7 @@ Mỗi owner gửi PR hoặc commit liên quan, cách thử, kết quả test, d�
 
 Nếu trễ, cắt giao diện cầu kỳ, dashboard thống kê, tìm địa chỉ nâng cao và lọc phụ. Có thể cho chọn địa điểm/điểm dừng đơn giản trên bản đồ, nhưng vẫn phải tính/lưu tuyến xe máy và khoảng cách đúng. Không cắt kiểm tra quyền, một khách/chuyến, transaction, chống trùng hoặc lịch sử điểm. Không tính chức năng chưa có backend là hoàn thành. Nếu cắt phần phụ vẫn không đủ, ghi rõ phần thiếu và dời mốc nghiệm thu.
 
-Chưa làm trong đợt này: rating, GPS trực tiếp, upload giấy tờ thật, ô tô, ghép khách nối tiếp, tiền thật/PayOS/rút điểm và deploy tự động. Điểm demo không quy đổi thành tiền. Kiểm thử/CI không gọi Supabase cloud hoặc VietMap thật; người 3 thử một tuyến thật có xe máy riêng khi được cấu hình, không đưa key vào Git.
+Chưa làm trong đợt này: rating, GPS trực tiếp, upload giấy tờ thật, ô tô, ghép khách nối tiếp, tiền thật/PayOS/rút điểm và deploy tự động database/backend Supabase. Pages tự build/deploy frontend theo Dashboard. Điểm demo không quy đổi thành tiền. Kiểm thử/CI không gọi Supabase cloud hoặc VietMap thật; người 3 thử một tuyến thật có xe máy riêng khi được cấu hình, không đưa key vào Git.
 
 ## 9. Kịch bản demo cuối đợt
 
@@ -177,4 +177,4 @@ Giữ video/ảnh minh họa nếu nhóm cần, chỉ dùng dữ liệu hư cấ
 
 [Kế hoạch chung](00-ke-hoach-tong-the.md), [người 1](01-lead.md), [người 2](02-ho-so-quan-tri.md), [người 3](03-chuyen-vietmap.md), [người 4](04-dat-cho.md), [người 5](05-thanh-toan.md).
 
-Các file module trên dev tại thời điểm mở PR này còn mô tả stack Firebase và lịch cũ. Dùng chúng để đối chiếu phạm vi đã giao; lịch 3 tuần và cách phối hợp Supabase theo tài liệu này. Lead đồng bộ hướng dẫn kỹ thuật của các file đó trong PR nền Supabase trước khi nhóm thực hành.
+Các file module đã được đồng bộ Supabase trong PR nền. Lịch 3 tuần và phạm vi người 1–5 giữ nguyên; cách chạy app theo README/workflow, cách cấu hình Pages theo [hướng dẫn Pages](../docs/cloudflare-pages.md).

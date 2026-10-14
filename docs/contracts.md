@@ -1,43 +1,44 @@
-# Contract và cách mở rộng khung
+# Contract — frontend gửi gì, backend trả gì?
 
-Owner file chung: người 1. Types/schema ở `shared/contracts.ts`, FE gọi wrapper `web/src/lib/callable.ts`. Chưa có handler Trip/Booking/Wallet.
+Contract là quy ước giữa người viết giao diện và người viết backend. Ví dụ khi hỏi “hồ sơ của tôi”, frontend gửi gì, backend trả những trường nào? Chốt trước giúp các bạn không đoán tên field của nhau.
 
-Nhóm bắt đầu từ [onboarding](team-onboarding.md). Config local thống nhất `demo-vecung`, region `asia-southeast1`; cloud config chỉ lead quản lý qua [runbook deploy](firebase-deploy.md). Thay đổi config/build guard không đổi CallableContracts, Rules hoặc indexes.
+**Contract không phải cấu trúc bảng database.** Team còn phải thiết kế bảng, quyền và viết phần xử lý. Hiện các API dưới đây chưa triển khai trên Supabase.
 
-## Đã chạy được
+## 1. API nền dự kiến
 
-| Callable | Input | Quyền | Output |
-|---|---|---|---|
-| healthCheck | `{}` | Public | Kết nối DB, thông điệp fixture không nhạy cảm |
-| getMyProfile | `{}` | Auth + users.status ACTIVE | Hồ sơ cơ bản của uid trong token |
-| adminFoundationInfo | `{}` | Auth + ACTIVE + ADMIN | Phiên bản scaffold; chưa phải nghiệp vụ admin |
+| Tên dùng trong code | Hàm database dự kiến (RPC) | Gửi lên | Nhận về | Hiện trạng |
+|---|---|---|---|---|
+| healthCheck | health_check | `{}` | HealthResponse | Chưa có backend |
+| getMyProfile | get_my_profile | `{}` | UserProfile | Chưa có backend |
+| adminFoundationInfo | admin_foundation_info | `{}` | version | Chưa có backend |
 
-## Dữ liệu mẫu
+`{}` nghĩa là không gửi field nghiệp vụ nào. RPC là gọi hàm trong database qua Supabase. Ví dụ getMyProfile không nhận uid để user tự chọn người khác; backend tự xác định user đang login.
 
-`users/{uid}` có uid, displayName, roles, status, studentVerificationStatus. Firebase Auth quản lý email/password; không lưu password trong Firestore.
+## 2. Code chung ở đâu?
 
-`appMeta/foundation` chứa message mẫu để chứng minh Functions đọc dữ liệu đã lưu. Seed local tạo 3 user hư cấu và appMeta; không cấp điểm ví.
+- `shared/contracts.ts`: kiểu và quy tắc kiểm tra dữ liệu trả về.
+- `shared/api.ts`: tên API/RPC, kiểu dữ liệu gửi và nhận. PlannedInputs là input dự kiến cho Trip/Booking/ví, chưa có handler.
+- `web/src/lib/callable.ts`: hàm `callFunction` dùng chung để gọi API. Tên file còn là callable, nhưng hiện gọi Supabase RPC.
 
-## Cách thêm một chức năng
+Wrapper (hàm gọi chung) gửi `{ input: … }`, dùng Zod kiểm tra kết quả. API chưa có thì hiện lỗi “chưa triển khai”, không trả hồ sơ/quyền/số dư giả để làm như đã hoàn thành.
 
-1. Owner đề xuất input/output/error trong Issue/PR. Lead cập nhật CallableContracts trong shared file; PlannedInputs mới là dự kiến.
-2. Backend handler trong `functions/src/modules/<module>/`; parseInput(Zod), requireActiveUser, requireRole/eligibility rồi xử lý. Riêng bootstrap tài khoản mới dùng requireUid trước khi có users document. Export qua `functions/src/index.ts`.
-3. FE trong `web/src/modules/<module>/` gọi callFunction; không thêm Firestore SDK để sửa trực tiếp dữ liệu nghiệp vụ.
-4. Test trong tests/unit hoặc tests/integration. Index mới khai báo firestore.indexes.json; báo lead và các module phụ thuộc.
+## 3. Quy tắc cả team phải thống nhất
 
-## Quy ước
+| Nội dung | Quy ước |
+|---|---|
+| ID user | SDK dùng `user.id`; hồ sơ API vẫn dùng tên `uid`, đều nhận diện user đó |
+| Thời gian API | Milliseconds, tức mili giây |
+| Khoảng cách | Mét |
+| Điểm ví | Số nguyên, chỉ là điểm demo |
+| DRIVER | Được dùng chức năng USER |
+| ACTIVE/LOCKED | Tài khoản hoạt động/bị khóa; khác trạng thái duyệt sinh viên |
 
-- uid người thao tác chỉ lấy từ request.auth. DRIVER kế thừa USER; ADMIN không tự thành DRIVER.
-- ACTIVE/LOCKED tách khỏi PENDING/VERIFIED/REJECTED. Khi đăng chuyến còn phải kiểm tra hồ sơ driver/xe.
-- DB dùng Timestamp; API trả `…Ms` dưới dạng milliseconds. Tọa độ latitude/longitude, khoảng cách mét, điểm số nguyên.
-- Input không có fare, roles hay balance do FE quyết định. List API có pagination/limit và chỉ trả trường phù hợp quyền.
-- Lỗi dùng HttpsError: unauthenticated, permission-denied, invalid-argument, failed-precondition, not-found, already-exists.
-- Firestore Rules chặn tất cả client; Admin SDK bỏ qua Rules, từng function phải kiểm tra quyền.
+Auth SDK quản lý password/token. Backend lấy uid từ phiên đã xác minh; quyền/status đọc từ dữ liệu server. Không tin role trong user_metadata, giá hoặc số dư frontend gửi. Bootstrap (tạo hồ sơ lần đầu) phải kiểm tra uid, cấp mặc định an toàn; không tự cấp ADMIN. Nghiệp vụ còn phải kiểm tra ACTIVE và điều kiện tham gia.
 
-## Transaction bắt buộc khi triển khai module
+Khi sửa contract, báo các bạn đang dùng nó. Ví dụ người 3 đổi dữ liệu khoảng cách tuyến thì người 4 tính giá phải biết. Thay contract không tự đổi bảng server; cần migration nếu schema cũng thay đổi.
 
-- Booking: đọc Trip và khóa yêu cầu đang hoạt động theo tripId/uid; confirm ghi confirmedBookingId cùng Booking. Start/cancel đọc/ghi cùng Trip. Pickup đặt hasServedPassenger, không xóa sau dropoff.
-- Ví: đọc Booking, Payment và các ví trước khi ghi; payments/{bookingId}, ledger IDs xác định và top-up requestId chống retry. Kiểm tra đủ điểm trong transaction.
-- Transaction có thể retry: đọc trước khi ghi, không gọi VietMap hoặc dịch vụ bên ngoài trong callback.
+## 4. Khi triển khai backend
 
-Các quy tắc hàng chờ/giá đầy đủ ở [kế hoạch](../ke-hoach/00-ke-hoach-tong-the.md). Không triển khai toàn bộ nghiệp vụ trong scaffold.
+Cùng team chốt bảng, RLS (quyền từng dòng), grants (quyền bảng/hàm), indexes và test trước. Backend RPC/Edge Function phải dùng phiên Auth đã xác minh và kiểm tra quyền. Edge Functions hiện chưa có.
+
+Booking/ví cần transaction (cùng thành công hoặc cùng thất bại) và idempotency (gửi lại không ghi trùng). Không gọi VietMap/dịch vụ ngoài trong transaction. Dùng user thường để test quyền, không chỉ key quản trị. Xem [ví dụ thuật ngữ](../ke-hoach/07-tech-stack.md) và [quy trình migration](supabase-workflow.md).

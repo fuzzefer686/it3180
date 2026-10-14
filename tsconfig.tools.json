@@ -19,7 +19,6 @@
     "scripts/**/*.ts",
     "tests/**/*.ts",
     "vitest*.mts",
-    "shared/**/*.ts",
-    "functions/src/**/*.ts"
+    "shared/**/*.ts"
   ]
 }

@@ -1,6 +1,18 @@
 # Người 4 — Đặt chuyến và hàng chờ
 
+Team là sinh viên năm 3. Làm từng task nhỏ, đọc [workflow](../docs/supabase-workflow.md) để biết chạy app và giao code. Đây là kế hoạch cần triển khai; chưa có bảng/API ứng dụng.
+
 **Mục tiêu:** khách gửi yêu cầu, driver nhận một người, theo dõi đón/trả. V1 không cần thuật toán xếp hàng hoặc giữ chỗ theo nhiều đoạn.
+
+## Từ cần hiểu cho phần này
+
+- Booking: một yêu cầu đi cùng; queue là danh sách yêu cầu đang chờ tài xế chọn.
+- WAITING/CONFIRMED/ONBOARD/COMPLETED: đang chờ/đã nhận/đã lên xe/đã trả khách.
+- REJECTED/CANCELLED/EXPIRED: bị từ chối/đã hủy/hết hạn.
+- Cutoff hoặc T−30: mốc khóa yêu cầu mới, trước giờ đi 30 phút; server kiểm tra giờ.
+- Concurrent: hai thao tác xảy ra đồng thời. Transaction/khóa bảo vệ để driver không nhận hai khách cùng lúc.
+
+Xem thêm [thuật ngữ chung](07-tech-stack.md) nếu gặp RLS, RPC hoặc migration.
 
 ## Việc cần làm
 
@@ -11,7 +23,7 @@
 
 **Dữ liệu:** Booking và giá chốt. Dùng tuyến/stops của 3; giao bookingId, người trả/nhận, giá/phí bằng điểm, trạng thái cho 5; paymentMethod cố định DEMO_WALLET.
 
-**Stack:** React; callable Cloud Functions TypeScript + Admin SDK/Firestore; Vitest + Emulator. Collection `bookings`, khóa request đang hoạt động theo tripId/uid và `trips.confirmedBookingId`; không dùng constraint SQL. Xem [tech stack](07-tech-stack.md).
+**Cách làm:** Dùng React cho giao diện, Supabase database/API để nhận khách và tính giá. Cùng 3/5 chốt bảng/quyền trước. Backend dùng transaction và ràng buộc dữ liệu để chống nhận trùng; lưu thay đổi bằng migration và test Supabase local. Xem ví dụ transaction trong tài liệu công cụ.
 
 ## Hàng chờ đã chốt
 
@@ -31,17 +43,28 @@ WAITING → CONFIRMED → ONBOARD → COMPLETED; có REJECTED/CANCELLED/EXPIRED.
 
 ## Kiểm tra để hoàn thành
 
-- Hai lần confirm đồng thời chỉ một khách được nhận: Firestore transaction đọc Trip/Booking, kiểm tra confirmedBookingId trống rồi ghi cả hai. Transaction cùng đọc trạng thái/giờ đi để start/cancel không chạy đua với confirm.
+- Hai lần confirm đồng thời chỉ một khách được nhận: transaction database đọc Trip/Booking, kiểm tra confirmedBookingId trống rồi ghi cả hai. Transaction cùng đọc trạng thái/giờ đi để start/cancel không chạy đua với confirm.
 - Gửi request/rút/hủy cũng dùng transaction với khóa hoạt động theo tripId/uid. Pickup đặt hasServedPassenger=true trên Trip; sau dropoff không xóa cờ này để nhận khách khác. Retry không tạo request trùng.
 - Khách hủy thì có thể chọn người dự phòng; không thể nhận sau khi đã phục vụ khách đầu.
 - Điểm trả phải sau điểm đón, đúng tuyến.
 - T−30/giờ đi được kiểm tra ở backend, không cần cron V1.
 - Chỉ driver chủ Trip đón/trả khách; contact chỉ hiện sau confirmed.
 
-04–05/10: contract/giá. 06–07/10: queue/confirm/đón/trả. 08–10/10: test cùng 3/5. Reviewer:3. Viết ngắn state Booking và test nhận trùng.
+Thứ tự: thống nhất dữ liệu/giá → hàng chờ/nhận khách/đón/trả → test cùng 3/5. Reviewer: 3. Viết lại bằng lời các trạng thái Booking và kết quả test nhận trùng.
 
 ## Prompt gửi Agent
 
 ```text
-Tôi là người 4, phụ trách Booking/hàng chờ/giá. Đọc ke-hoach/00-ke-hoach-tong-the.md, ke-hoach/04-dat-cho.md và ke-hoach/07-tech-stack.md. Dùng React, callable Cloud Functions TypeScript, Admin SDK/Firestore, Zod, Vitest + Emulator. uid/eligibility lấy từ người 2; client không ghi Booking trực tiếp. Queue: WAITING không giữ chỗ, driver chọn thủ công, một khách mỗi Trip, khách đi được một đoạn. Dùng transaction đọc Trip/Booking để confirm một khách, khóa request hoạt động theo tripId/uid, chống confirm/start/cancel đồng thời. Pickup lưu hasServedPassenger, không xóa khi dropoff. Dùng stops/distance của 3; giao giá/phí và COMPLETED cho 5; chỉ DEMO_WALLET. Không FIFO tự động/ghép nối tiếp/công nợ. Giải thích ngắn thiết kế trước code, test cancel/cutoff/concurrent bằng Emulator để tôi hiểu. Không tự đổi module khác hoặc deploy cloud.
+Team tôi là sinh viên năm 3, ít kinh nghiệm.
+Chỉ làm task nhỏ được giao; giải thích từ lạ, mục đích, cách làm và kết quả test để tôi hiểu.
+Tôi là người 4.
+Đọc README.md, docs/contracts.md, docs/supabase-workflow.md và ke-hoach/04-dat-cho.md.
+Với task tôi giao tiếp theo, làm giao diện/backend/test Booking/queue/giá trên Supabase Postgres/RPC; chốt bảng và quyền truy cập, transaction/khóa/constraints với 3/5 rồi viết migration.
+uid từ phiên đã xác minh, eligibility từ dữ liệu server của 2; client không sửa Booking/giá trực tiếp.
+WAITING chưa giữ chỗ, driver chọn thủ công, một khách/Trip.
+Transaction bảo vệ confirm/start/cancel đồng thời, request hoạt động tripId/uid và retry; pickup đánh dấu đã phục vụ, không xóa khi dropoff.
+Server quyết định cutoff/giá.
+Nhận route của 3, bàn giao COMPLETED/giá/phí cho 5, chỉ DEMO_WALLET.
+Test quyền/cutoff/cancel/concurrent trên Supabase local Docker, không cloud thật trong CI.
+Giải thích ngắn để tôi hiểu, không sửa module khác hoặc deploy cloud.
 ```

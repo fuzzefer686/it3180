@@ -1,47 +1,36 @@
-# Hosting và CI/CD — Firebase
+# Hosting và kiểm tra tự động — phần dành cho lead
 
-Kế hoạch cập nhật 04/10/2026: dùng dev/main, chưa tạo account/project hoặc triển khai cloud.
+Hosting là nơi đưa frontend lên cho người khác mở bằng URL. CI là bộ kiểm tra code tự động. Deploy là đưa thay đổi lên nơi đang chạy. Thành viên làm task hằng ngày chỉ cần [workflow](../docs/supabase-workflow.md); đọc file này khi cần hiểu việc phát hành.
 
-Scripts chuẩn bị/build/deploy và guard đã bổ sung. Lead làm theo [runbook cloud](../docs/firebase-deploy.md); cả nhóm theo [onboarding local](../docs/team-onboarding.md). Không cần đổi config local hoặc bỏ guard khi chuẩn bị project cloud.
+## 1. Ba nơi chạy app
 
-## Stack chốt
+| Nơi chạy | Dùng để làm gì? |
+|---|---|
+| Supabase local trong Docker | Mỗi bạn thử database/backend với dữ liệu riêng |
+| Server Supabase dev chung | Ghép các phần đã review và thử luồng cả team |
+| Bản demo ổn định khi được cấu hình | Dùng code main và dữ liệu/config riêng để trình bày |
 
-React/Vite/TypeScript/Tailwind + Firebase Authentication + Cloud Firestore + Cloud Functions TypeScript + Firebase Hosting. Một repo, một ứng dụng. VietMap giữ nguyên; không cần Hono/Workers/D1, Vercel hoặc Supabase.
+Frontend vẫn viết React trên máy; hosting dùng **Cloudflare Pages**, không dùng Worker để phục vụ frontend. Cách cấu hình, thử Pages và xóa Worker cũ ở [hướng dẫn Pages](../docs/cloudflare-pages.md). Git dev/main là nhánh code, không tự tạo server Supabase. Nhóm không cần mỗi module một project.
 
-FE gọi callable functions bằng Firebase SDK; function tự kiểm tra request.auth, quyền/trạng thái trong users và input. React SPA dùng Firebase Hosting. [Callable](https://firebase.google.com/docs/functions/callable), [Hosting](https://firebase.google.com/docs/hosting)
+## 2. Repo tự kiểm tra gì?
 
-## Chi phí cần biết
+GitHub Actions trong `.github/workflows/ci.yml` chạy trên PR/push dev/main: cài thư viện → typecheck → build → unit test → test Auth với Supabase local Docker → dừng Supabase. Không dùng server chung hoặc VietMap thật cho test tự động.
 
-- Spark có hạn mức miễn phí cho Auth/Firestore/Hosting, nhưng **deploy Cloud Functions cần Blaze và liên kết Cloud Billing**. Có quota miễn phí, có thể phát sinh phí; không cam kết free hoàn toàn. [Điều kiện Functions](https://firebase.google.com/docs/functions/get-started), [Pricing plans](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans)
-- Chưa có billing: chạy toàn bộ local bằng Auth/Firestore/Functions Emulator với project ID `demo-...`. Không đưa ví/confirm về FE để né điều kiện backend. Emulator không dùng làm production server. [Emulator](https://firebase.google.com/docs/emulator-suite)
-- Khi chủ tài khoản đồng ý bật billing: đặt budget alerts, giới hạn function instances, `minInstances=0`, theo dõi usage và dọn artifact cũ. Alerts không tự chặn chi phí; giới hạn instances cũng không bảo đảm hóa đơn bằng 0. Xem khả năng [spend caps](https://firebase.google.com/docs/projects/billing/spend-caps) của dịch vụ trước khi cấu hình.
-- VietMap có quota/chi phí riêng. Điểm demo không có giá trị tiền ở tất cả môi trường; không PayOS/webhook/bank account. V1 không Storage/upload thật, SMS login hoặc dịch vụ bổ sung.
+CI qua và một người khác review thì mới merge. PR của lead cũng cần review. GitHub Actions không có job deploy; Cloudflare Pages tự build/deploy frontend qua kết nối Git trên Dashboard. `npm run deploy:check` vẫn chặn đường deploy thủ công từ repo; không sửa guard để né cấu hình. Việc cập nhật database/backend Supabase là bước riêng sau review.
 
-## Hai môi trường, một workflow
+## 3. Khi cần đưa bản đã duyệt lên server
 
-| Nhánh | Môi trường | Firebase project |
-|---|---|---|
-| dev | Dev | Project dev riêng |
-| main | Production-demo | Project prod riêng |
+1. Nếu có thay đổi database, lead làm theo [Supabase dành cho lead](../docs/supabase-lead.md). Đọc trước và xem thay đổi sẽ chạy trên đúng project dev.
+2. Nếu có thay đổi frontend, build với URL/publishable key của project cần kết nối rồi đưa lên Cloudflare khi được giao. Đổi env phải build lại; thử cả URL sâu như `/tai-khoan`.
+3. Tạo user test/cấu hình Auth của server riêng khi cần. Migration không tự mang tài khoản local lên server.
+4. Nhờ owner thử chức năng, ghi lại bản code và migration đang chạy. Bản dev ổn mới PR dev → main bằng merge commit (giữ lịch sử hai nhánh); cập nhật bản demo là bước sau khi được yêu cầu.
 
-Local dùng Emulator; hai môi trường cloud có Auth/Firestore/Functions/Hosting độc lập. Cùng code, khác Firebase config/VietMap keys; người demo đăng ký/seed riêng từng môi trường. Firebase khuyến nghị một project/môi trường. [Tài liệu](https://firebase.google.com/docs/projects/dev-workflows/general-best-practices)
+Edge Function là code backend chạy trên Supabase; repo hiện chưa có, local runtime tắt. Nếu sau này chọn dùng cho VietMap REST thì phải bổ sung cách test, secrets và deploy riêng.
 
-Domain miễn phí: `<project-id>.web.app` hoặc `<project-id>.firebaseapp.com`; không cần mua domain.
+## 4. Giữ dữ liệu và quyền đúng
 
-Feature branch từ dev → PR vào dev → review → merge. Lead kiểm thử luồng chung trên dev, rồi mở PR dev → main bằng merge commit để phát hành bản ổn. GitHub Actions:
+Không reset database online để phát hành; reset local mới là bước thực hành tái tạo trên máy. Sửa server bằng migration tiếp theo đã review. Quay lại code trước không tự khôi phục dữ liệu trước.
 
-1. PR: install từ lockfile, typecheck, build web/functions, Vitest và test Emulator; không cấp deploy credentials cho PR/fork.
-2. Push dev/main: chạy checks, chọn đúng Firebase project và build config môi trường (dev → dev, main → production-demo); chỉ deploy nếu checks qua và ENABLE_FIREBASE_DEPLOY=true. Mặc định deploy vẫn tắt.
-3. Dùng Firebase CLI deploy Functions, Firestore Rules/indexes và Hosting với project ID rõ ràng. Chặn job deploy cùng môi trường chạy đè nhau. Chờ index cần thiết sẵn sàng rồi smoke test trước khi báo release xong.
+Frontend chỉ dùng key public. Database password, token quản trị, service-role và VietMap REST key phải ở nơi riêng, không trong Git/frontend. Owner gửi thay đổi bảng/quyền qua PR; lead quản lý việc cập nhật server.
 
-CI dùng Application Default Credentials; ưu tiên GitHub OIDC/Workload Identity Federation. Nếu dùng service-account JSON thì chỉ lưu trong GitHub Environment Secrets, dùng account deploy riêng, không commit hoặc chia sẻ password. Không dùng `firebase login:ci` token cho pipeline mới. [Firebase CLI CI](https://firebase.google.com/docs/cli#use_the_cli_with_ci_systems)
-
-Lead giữ mapping project/config và owner Rules/indexes; module owner gửi thay đổi qua PR. Repo public bật branch protection, một review và CI qua. Firebase web config/API key dùng ở browser không phải Admin credential; service-account private key và VietMap REST key là secret, giữ ở backend. Quyền truy cập vẫn phải do Functions/Rules kiểm soát.
-
-## Thứ tự làm trong tuần
-
-1. 04–05/10: scaffold/Emulator, thử Auth → callable → Firestore; deploy dev nếu đủ điều kiện billing.
-2. 06–07/10: tích hợp module trên dev; tạo project production-demo và pipeline cùng code, dữ liệu riêng nếu đã được yêu cầu.
-3. 08–09/10: test dev, PR dev → main, phát hành demo và ghi commit/version. Nếu chưa có billing thì ghi rõ demo local, chưa có web cloud hoàn chỉnh.
-
-Không reset dữ liệu prod khi deploy. Firestore dùng thay đổi document có tương thích và version dữ liệu, không SQL migration. Rules/indexes phải review. Rollback code không hoàn tác dữ liệu; đọc logs và sửa cùng module owner.
+Supabase/Cloudflare/VietMap có gói và hạn mức riêng. Không tự tạo project, nâng cấp gói, bật billing hoặc deploy khi chưa được giao. Không áp dụng hướng dẫn Firebase Blaze cũ. Ví chỉ là điểm demo ở mọi môi trường.

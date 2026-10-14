@@ -1,8 +1,10 @@
 # Kế hoạch tối giản — nhóm 5 người
 
-Cập nhật lịch ngày 14/10/2026: đọc [kế hoạch 3 tuần 15/10–04/11](10-ke-hoach-3-tuan.md) để biết task, mốc bàn giao và cách phối hợp. Tuần 1 các owner thiết kế bảng và code module; tuần 2 lead chủ trì tích hợp, owner sửa phần mình; tuần 3 kiểm thử và demo.
+Team đều là sinh viên năm 3, chưa có nhiều kinh nghiệm. Mỗi người chỉ cần đọc README → workflow → kế hoạch của mình; làm từng task nhỏ. Không cần đọc hết tài liệu vận hành server ngay.
 
-Mốc demo 10/10 và hướng dẫn Firebase bên dưới là lịch sử. Nền Supabase đang ở bản làm việc local; lead cần đưa qua PR/review vào dev và đồng bộ hướng dẫn trước khi nhóm code nghiệp vụ. PR kế hoạch không tự chuyển stack. Thành viên 1 là Lead; repository công khai.
+Cập nhật nền Supabase/Pages ngày 14/10/2026. Thành viên 1 là Lead; repository công khai. Lịch hiện tại là [15/10–04/11 theo kế hoạch 3 tuần](10-ke-hoach-3-tuan.md); mốc demo 10/10 là lịch sử.
+
+**Cả nhóm đọc trước:** [README chạy app](../README.md) và [quy trình Supabase](../docs/supabase-workflow.md). Làm UI với server dev không cần Docker; làm database/backend và integration local cần Docker.
 
 Bản này thay thế kế hoạch dài trước đó. V1 chỉ nhận một khách mỗi chuyến; khách có thể đi một phần tuyến. Ghép nhiều khách nối tiếp để sau.
 
@@ -24,10 +26,8 @@ Mỗi bản riêng có việc cần làm, điều kiện hoàn thành và prompt
 
 Mặc định demo: 5.000 điểm/km, phí mô phỏng 10%. Mỗi tài khoản được cấp 1.000.000 điểm ảo và có nút thêm điểm thử. Điểm không mua bằng tiền, không rút hoặc quy đổi ra tiền. V1 dùng ví điểm demo; tạm bỏ tiền mặt, PayOS và công nợ. Đây là cấu hình mô phỏng, không phải biểu giá Grab/Be.
 
-Stack đã đổi sang **React + Vite + TypeScript + Tailwind CSS; Firebase Authentication + Cloud Firestore + Cloud Functions + Firebase Hosting**. Cả nhóm dùng chung stack, một repo. VietMap giữ nguyên.
+Stack hiện tại: **React/Vite/TypeScript/Tailwind; Supabase Auth/Postgres; Cloudflare Pages frontend; VietMap**. Một repo, một client/config chung. Chưa có bảng hoặc backend nghiệp vụ; các kế hoạch module mô tả việc phải làm, không phải schema đã chốt.
 
-Người 2 phụ trách đăng ký/login/logout, hồ sơ, duyệt sinh viên và phân quyền. Lead phụ trách scaffold, contract chung, Emulator, CI/deploy và tích hợp.
+Người 2 phụ trách Auth/hồ sơ/admin; lead phụ trách nền tảng/config/shared/CI và tích hợp. Mỗi người viết code/test và file thay đổi database (migration) nếu cần. Gửi yêu cầu ghép code (PR) vào dev, một người khác đọc lại và bộ test tự động (CI) phải qua. Lead ghép code, cập nhật server và team thử chung. Bản ổn mới đưa từ dev vào main; Pages tự build/deploy frontend theo cấu hình Dashboard; database/backend Supabase cập nhật riêng.
 
-**Điều kiện hosting:** triển khai Cloud Functions cần Firebase Blaze và liên kết tài khoản billing. Có hạn mức miễn phí nhưng không bảo đảm tổng chi phí bằng 0. Chưa có billing thì phát triển/demo local bằng Firebase Emulator Suite; không tự bật billing hoặc triển khai cloud. Xem [hosting và CI/CD](06-hosting-cicd.md).
-
-Cập nhật 04/10/2026: scaffold đã merge vào dev/main. Feature branch từ dev → PR dev → review/merge → kiểm thử tích hợp → PR dev → main. Đọc [README chạy app](../README.md); module nghiệp vụ và cloud deployment chưa triển khai.
+Không sửa schema trực tiếp trên server để thử; thực hành bằng migrations local rồi review. Không tạo thêm project, bật billing hoặc deploy khi chưa được giao. Xem [hosting/CI](06-hosting-cicd.md) và [GitHub workflow](08-github-workflow.md).
