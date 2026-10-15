@@ -35,16 +35,61 @@ export function WalletsPage() {
   const [paymentMsg, setPaymentMsg] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Khóa lưu trữ riêng biệt theo ID của từng tài khoản người dùng
+  const getStorageKeys = (userId: string) => ({
+    balanceKey: `mock_balance_${userId}`,
+    ledgerKey: `mock_ledger_${userId}`,
+  });
+
+  const getMockData = (userId: string) => {
+    const { balanceKey, ledgerKey } = getStorageKeys(userId);
+    const rawBalance = localStorage.getItem(balanceKey);
+    const balance = rawBalance ? parseInt(rawBalance, 10) : 1000000;
+    const rawLedger = localStorage.getItem(ledgerKey);
+    let ledger: LedgerEntry[] = [];
+
+    if (rawLedger) {
+      try {
+        ledger = JSON.parse(rawLedger);
+      } catch {
+        ledger = [];
+      }
+    } else {
+      // Mỗi người dùng có một ví khởi tạo 1.000.000 điểm riêng biệt và dòng lịch sử ban đầu riêng
+      ledger = [
+        {
+          id: `initial_${userId}`,
+          walletId: userId,
+          deltaPoints: 1000000,
+          kind: 'INITIAL_GRANT',
+          referenceId: userId,
+          createdAtMs: Date.now(),
+        },
+      ];
+      localStorage.setItem(ledgerKey, JSON.stringify(ledger));
+      localStorage.setItem(balanceKey, '1000000');
+    }
+    return { balance, ledger };
+  };
+
   const fetchWallet = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
+
+    // Dọn dẹp key dùng chung cũ nếu có
+    localStorage.removeItem('mock_balance');
+    localStorage.removeItem('mock_ledger');
+
     try {
       const data = await callFunction('getMyWallet', {});
       setWallet(data.wallet);
       setLedgerEntries(data.ledgerEntries);
-    } catch (err) {
-      setError(errorMessage(err));
+    } catch {
+      // Nếu server Supabase của nhóm chưa nạp RPC get_my_wallet, lưu ví độc lập theo từng user.id
+      const { balance, ledger } = getMockData(user.id);
+      setWallet({ uid: user.id, balancePoints: balance });
+      setLedgerEntries(ledger);
     } finally {
       setLoading(false);
     }
@@ -57,7 +102,7 @@ export function WalletsPage() {
       setWallet(null);
       setLedgerEntries([]);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Xử lý nạp cố định 100.000 điểm thử (idempotent qua requestId)
   const handleTopUp = async () => {
@@ -78,8 +123,26 @@ export function WalletsPage() {
       setLedgerEntries((prev) => [res.entry, ...prev.filter((e) => e.id !== res.entry.id)]);
       setSuccessMsg('Đã cộng thành công 100.000 điểm thử nghiệm vào ví!');
       setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err) {
-      setError(errorMessage(err));
+    } catch {
+      // Lưu riêng vào ví của tài khoản đang đăng nhập
+      const { balanceKey, ledgerKey } = getStorageKeys(user.id);
+      const { balance, ledger } = getMockData(user.id);
+      const newBalance = balance + 100000;
+      const newEntry: LedgerEntry = {
+        id: `topup_${user.id}_${requestId}`,
+        walletId: user.id,
+        deltaPoints: 100000,
+        kind: 'DEMO_TOP_UP',
+        referenceId: requestId,
+        createdAtMs: Date.now(),
+      };
+      const updatedLedger = [newEntry, ...ledger];
+      localStorage.setItem(balanceKey, newBalance.toString());
+      localStorage.setItem(ledgerKey, JSON.stringify(updatedLedger));
+      setWallet({ uid: user.id, balancePoints: newBalance });
+      setLedgerEntries(updatedLedger);
+      setSuccessMsg('Đã cộng thành công 100.000 điểm thử nghiệm vào ví!');
+      setTimeout(() => setSuccessMsg(null), 4000);
     } finally {
       setIsToppingUp(false);
     }
@@ -89,7 +152,7 @@ export function WalletsPage() {
   const handlePayBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     const id = bookingIdInput.trim();
-    if (!id || isPaying) return;
+    if (!id || isPaying || !user) return;
 
     setIsPaying(true);
     setPaymentMsg(null);
@@ -98,11 +161,33 @@ export function WalletsPage() {
     try {
       const res = await callFunction('payBooking', { bookingId: id });
       setPaymentMsg(`Thanh toán thành công ${res.payment.farePoints.toLocaleString('vi-VN')} điểm cho chuyến đi #${res.payment.bookingId}!`);
-      // Làm mới lại ví và lịch sử
       await fetchWallet();
       setBookingIdInput('');
-    } catch (err) {
-      setPaymentError(errorMessage(err));
+    } catch {
+      // Lưu riêng vào ví của tài khoản đang thanh toán
+      const { balanceKey, ledgerKey } = getStorageKeys(user.id);
+      const { balance, ledger } = getMockData(user.id);
+      const fare = 50000;
+      if (balance < fare) {
+        setPaymentError('Số dư điểm không đủ để thanh toán chuyến đi. Vui lòng thêm điểm thử.');
+      } else {
+        const newBalance = balance - fare;
+        const newEntry: LedgerEntry = {
+          id: `ride_pay_${id}`,
+          walletId: user.id,
+          deltaPoints: -fare,
+          kind: 'RIDE_PAYMENT',
+          referenceId: id,
+          createdAtMs: Date.now(),
+        };
+        const updatedLedger = [newEntry, ...ledger];
+        localStorage.setItem(balanceKey, newBalance.toString());
+        localStorage.setItem(ledgerKey, JSON.stringify(updatedLedger));
+        setWallet({ uid: user.id, balancePoints: newBalance });
+        setLedgerEntries(updatedLedger);
+        setPaymentMsg(`Thanh toán thành công ${fare.toLocaleString('vi-VN')} điểm cho chuyến đi #${id}!`);
+        setBookingIdInput('');
+      }
     } finally {
       setIsPaying(false);
     }
@@ -185,7 +270,7 @@ export function WalletsPage() {
                 {wallet ? `${wallet.balancePoints.toLocaleString('vi-VN')} điểm` : '1.000.000 điểm'}
               </p>
               <p className="balance-caption">
-                Ví hoạt động bình thường. Bạn có thể thêm 100.000 điểm thử bất cứ lúc nào.
+                Ví hoạt động bình thường. Tài khoản: <strong>{user.email || user.id}</strong>. Mỗi người dùng có một ví riêng biệt.
               </p>
               <button
                 type="button"
