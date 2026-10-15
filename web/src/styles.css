@@ -169,6 +169,20 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .transaction-empty > svg { color: var(--muted); }
 .transaction-empty h3 { font-size: 14px; font-weight: 500; }
 .transaction-empty p { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.transaction-list { display: flex; flex-direction: column; gap: 12px; }
+.transaction-item { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; transition: border-color .15s; }
+.transaction-item:hover { border-color: var(--accent); }
+.transaction-details { display: flex; align-items: center; gap: 14px; }
+.transaction-icon-box { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+.transaction-icon-box.positive { background: var(--tint); color: var(--accent-text); }
+.transaction-icon-box.negative { background: #fee2e2; color: #dc2626; }
+.transaction-text h3 { font-size: 14px; font-weight: 600; margin: 0; }
+.transaction-text p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.transaction-amount { text-align: right; }
+.transaction-amount .delta { font-size: 15px; font-weight: 600; }
+.transaction-amount .delta.positive { color: #16a34a; }
+.transaction-amount .delta.negative { color: #dc2626; }
+.payment-box .form-input input { width: 100%; border: 0; background: transparent; color: var(--text); font-size: 14px; outline: none; }
 .account-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
 .account-panel { padding: 34px 36px; border: 1px solid var(--line); background: var(--surface); border-radius: 24px; }
 .account-panel > h2 { font-size: 25px; font-weight: 600; letter-spacing: -.7px; }
