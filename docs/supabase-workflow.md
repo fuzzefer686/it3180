@@ -92,7 +92,7 @@ npm run seed:local
 npm run check
 ```
 
-Mong đợi: các bảng/hàm được tạo lại đúng và test qua. `seed` nghĩa là tạo dữ liệu mẫu; script hiện chỉ tạo tài khoản Auth, chưa tạo hồ sơ/Booking/ví. Dữ liệu mẫu cho phần nghiệp vụ phải được owner bổ sung khi bảng đã có.
+Mong đợi: các bảng/hàm được tạo lại đúng và test qua. `seed` nghĩa là tạo dữ liệu mẫu; script tạo tài khoản Auth và trigger tự tạo hồ sơ USER/ACTIVE. Không cấp ADMIN hoặc tạo Booking/ví. Dữ liệu mẫu cho phần nghiệp vụ phải được owner bổ sung khi bảng đã có.
 
 Gửi migration, code và test cùng một PR. Không sửa file migration đã merge/đã chạy trên server; muốn sửa tiếp thì tạo migration mới. Nếu bị lỗi thứ tự file, trao đổi với lead, không tự bỏ qua lịch sử.
 

@@ -9,6 +9,7 @@ const email = `auth-${crypto.randomUUID()}@integration.example`;
 const password = 'IntegrationOnly!2026';
 let uid: string | undefined;
 let signupUid: string | undefined;
+let unconfirmedUid: string | undefined;
 const signupClient = createClient(url, publicKey, options);
 beforeAll(async () => {
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -26,17 +27,33 @@ afterAll(async () => {
     const { error } = await admin.auth.admin.deleteUser(signupUid);
     if (error) throw error;
   }
+  if (unconfirmedUid) {
+    const { error } = await admin.auth.admin.deleteUser(unconfirmedUid);
+    if (error) throw error;
+  }
 });
 describe('Supabase Auth local', () => {
-  it('đăng ký qua Auth SDK và tạo hồ sơ an toàn sau khi có phiên', async () => {
+  it('đăng ký qua Auth SDK tạo ngay hồ sơ trước khi frontend gọi bootstrap', async () => {
     const result = await signupClient.auth.signUp({ email: `signup-${crypto.randomUUID()}@integration.example`, password,
       options: { data: { roles: ['ADMIN'] } } });
     signupUid = result.data.user?.id;
     expect(result.error).toBeNull(); expect(signupUid).toBeTruthy();
     // Local tắt xác nhận email trong config.toml; cloud có thể trả session null.
     expect(result.data.session).not.toBeNull();
+    const inserted = await admin.from('users').select('id,roles,status').eq('id', signupUid!).single();
+    expect(inserted.error).toBeNull(); expect(inserted.data).toMatchObject({ id: signupUid, roles: ['USER'], status: 'ACTIVE' });
     const profile = await signupClient.rpc('get_my_profile', { input: {} });
     expect(profile.error).toBeNull(); expect(profile.data.roles).toEqual(['USER']);
+  });
+  it('Auth user chưa xác nhận email cũng có public.users mà không cần session frontend', async () => {
+    const created = await admin.auth.admin.createUser({ email: `unconfirmed-${crypto.randomUUID()}@integration.example`, password,
+      email_confirm: false, user_metadata: { roles: ['ADMIN'] } });
+    unconfirmedUid = created.data.user?.id;
+    expect(created.error).toBeNull(); expect(unconfirmedUid).toBeTruthy();
+    expect(created.data.user?.email_confirmed_at ?? null).toBeNull();
+    const inserted = await admin.from('users').select('id,roles,status,student_verification_status').eq('id', unconfirmedUid!).single();
+    expect(inserted.error).toBeNull();
+    expect(inserted.data).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'PENDING' });
   });
   it('đăng nhập và xác minh đúng user trên Auth server', async () => {
     const login = await client.auth.signInWithPassword({ email, password });

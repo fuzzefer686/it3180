@@ -185,6 +185,9 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .login-form .form-error { padding: 0; }
 .signup-note { font-size: 12px; color: var(--muted); margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
 .form-notice { font-size: 13px; color: var(--accent-text); line-height: 1.8; }
+.signup-feedback { margin-bottom: 28px; align-items: flex-start; }
+.signup-feedback p { overflow-wrap: anywhere; }
+.signup-feedback .text-button { margin-left: 0; }
 .field-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 .profile-editor { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 28px; }
 .profile-editor h2 { font-size: 20px; font-weight: 600; }

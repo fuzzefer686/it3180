@@ -2,6 +2,8 @@
 
 Ngày rà soát: **20/10/2026**. Người review dự kiến: **lead/người 1**, khác người viết code.
 
+**Bản sửa sau phản hồi test:** [SUPABASE_SIGNUP_FIX.md](./SUPABASE_SIGNUP_FIX.md) hướng dẫn thông báo xác minh, URL cụ thể của website preview và migration trigger/backfill mới `20261020130000_auth_signup_profile.sql`. Hồ sơ nay được tạo ngay khi Auth insert, trước cả xác minh email/login; `get_my_profile` vẫn là bootstrap dự phòng. Kết quả mới được cập nhật bên dưới và trong `docs/validation.md`. Lỗi P2 duyệt hồ sơ vẫn chưa được sửa.
+
 ## 1. Kết luận và bằng chứng kiểm tra lại
 
 **Code đã có các chức năng Auth/hồ sơ/admin theo kế hoạch, nhưng chưa đủ điều kiện nghiệm thu: Bugbot xác minh 1 lỗi P2 trong luồng duyệt hồ sơ; Docker integration và schema server còn chưa kiểm chứng.** Cần sửa lỗi này và hoàn tất các bước Supabase bên dưới trước khi xác nhận đáp ứng đầy đủ yêu cầu project.
@@ -10,11 +12,11 @@ Ngày rà soát: **20/10/2026**. Người review dự kiến: **lead/người 1*
 
 - `typecheck`: **PASS**.
 - `build`: **PASS**; có cảnh báo bundle JavaScript khoảng **607 kB**, chưa tối ưu trong phạm vi này.
-- `npm test`: **45 test / 4 file PASS**: 8 contract/config/validation, 7 phiên, 17 giao diện, 13 SQL/quyền.
-- `test:integration`: **BLOCKED**, kết thúc mã 1 vì Docker Desktop/daemon chưa khả dụng. **10 test Supabase local chưa được thực thi**.
+- `npm test`: **57 test / 5 file PASS**: 8 contract/config/validation, 7 phiên, 22 giao diện, 20 SQL/quyền.
+- `test:integration`: **BLOCKED**, kết thúc mã 1 vì Docker Desktop/daemon chưa khả dụng. **11 test Supabase local chưa được thực thi**.
 - `git diff --check`: **PASS**, chỉ có thông báo chuẩn hóa LF/CRLF trên Windows.
 
-13 test SQL chạy migration/RPC bằng PostgreSQL nhúng PGlite, với fixture mô phỏng `auth.uid()`. Chúng kiểm tra logic và quyền SQL, **không thay cho kiểm thử Supabase Auth, PostgREST, token thật hoặc tranh chấp giữa nhiều kết nối**.
+20 test SQL chạy migration/RPC/trigger bằng PostgreSQL nhúng PGlite, với fixture mô phỏng `auth.uid()`. Chúng kiểm tra logic và quyền SQL, **không thay cho kiểm thử Supabase Auth, PostgREST, token thật hoặc tranh chấp giữa nhiều kết nối**.
 
 Chưa gọi Supabase cloud/VietMap, chưa áp dụng migration online, chưa cấp ADMIN thật, chưa push/deploy. Không có kết luận rằng schema/quyền/settings trên server hiện tại đã đúng.
 
@@ -44,7 +46,7 @@ Kết quả đã tái hiện trên SQL nhúng:
 }
 ```
 
-**Nguyên nhân:** khóa dòng chỉ bảo vệ dữ liệu trong transaction duyệt, không ràng buộc quyết định với dữ liệu mà admin đã xem trước đó. 45 test hiện tại chưa kiểm tra trường hợp xen kẽ này, nên PASS không phủ nhận lỗi.
+**Nguyên nhân:** khóa dòng chỉ bảo vệ dữ liệu trong transaction duyệt, không ràng buộc quyết định với dữ liệu mà admin đã xem trước đó. 57 test hiện tại chưa kiểm tra trường hợp xen kẽ này, nên PASS không phủ nhận lỗi.
 
 **Task cần owner Auth/lead chốt và thực hiện:**
 
@@ -68,6 +70,7 @@ Kết quả đã tái hiện trên SQL nhúng:
 ### 2.2. Bootstrap và quyền server — đã có code và test SQL
 
 - [Migration Auth](../../../../supabase/migrations/20261020090000_auth_profiles.sql) lấy uid từ `auth.uid()`; `get_my_profile` tự tạo hồ sơ nếu thiếu, mặc định USER/ACTIVE/PENDING.
+- [Migration signup](../../../../supabase/migrations/20261020130000_auth_signup_profile.sql) tạo hồ sơ ngay khi Auth insert, không cần phiên frontend; lấy UUID tin cậy từ dòng Auth mới, không nhận quyền từ client. Đồng thời bù các hồ sơ còn thiếu.
 - `ON CONFLICT DO NOTHING` giữ nguyên hồ sơ/quyền/trạng thái đã có. Client không gửi uid cho API sửa hồ sơ, không được gửi roles/status/trạng thái duyệt và không có API tự cấp ADMIN.
 - Quyền ADMIN/status được đọc từ `public.users`, không đọc `user_metadata`. Các RPC thay đổi dữ liệu dùng transaction và khóa dòng; hàm có `SECURITY DEFINER` đặt `search_path = ''`.
 - **Ví dụ kiểm tra:** payload tự thêm `roles: ['ADMIN']` phải bị PT400; USER gọi thao tác admin phải bị PT403. Đã PASS trên SQL nhúng; cần xác nhận lại bằng user thường qua PostgREST.
@@ -145,7 +148,7 @@ npm.cmd ci
 npm.cmd run check
 ```
 
-**Kết quả mong đợi:** typecheck/build và 45 tests PASS; tiếp theo 10 integration tests PASS. Script chỉ lấy URL/key của Supabase local, áp dụng migration local còn thiếu, không fallback cloud và không reset dữ liệu. Nếu chỉ cần chạy lại integration: `npm.cmd run test:integration`.
+**Kết quả mong đợi:** typecheck/build và 57 tests PASS; tiếp theo 11 integration tests PASS. Script chỉ lấy URL/key của Supabase local, áp dụng migration local còn thiếu, không fallback cloud và không reset dữ liệu. Nếu chỉ cần chạy lại integration: `npm.cmd run test:integration`.
 
 **Lỗi cần xử lý:** thiếu Docker → mở/cài Docker rồi chạy lại; `users already exists` → đối chiếu baseline, không reset để né lỗi; lỗi migration/RPC → gửi log đã che credentials về owner Auth. Khi chưa chạy qua bước này, chưa đánh dấu backend đạt kiểm thử local.
 
@@ -318,7 +321,7 @@ Body `update_my_profile` là `{ "input": { ...các field của ví dụ TypeScri
 
 - [ ] Đã sửa lỗi P2 duyệt hồ sơ cũ: STUDENT và DRIVER thay đổi sau lúc admin xem phải bị PT409; có test hồi quy PASS và payload/contract/tài liệu được cập nhật.
 - [ ] Đã đối chiếu schema/defaults/constraints/trigger/hàm cũ và giải quyết baseline cho bảng `users` đang tồn tại.
-- [ ] `npm run check` PASS trên Node 22 + Docker, gồm 45 tests và 10 integration tests; không coi lần chạy bị chặn là PASS.
+- [ ] `npm run check` PASS trên Node 22 + Docker, gồm 57 tests và 11 integration tests; không coi lần chạy bị chặn là PASS.
 - [ ] Sau cập nhật dev: signup → xác nhận email nếu bật → login → bootstrap đúng USER/ACTIVE; reload giữ phiên; logout về form.
 - [ ] Hai lần gọi bootstrap đồng thời khi hồ sơ chưa tồn tại chỉ tạo một dòng, không đặt lại quyền/trạng thái.
 - [ ] User A không đọc/sửa được hồ sơ B; payload tự cấp ADMIN/DRIVER/status bị từ chối; metadata ADMIN không làm user thành admin.
@@ -330,7 +333,7 @@ Body `update_my_profile` là `{ "input": { ...các field của ví dụ TypeScri
 - [ ] Owner 3/4 xác nhận cách kiểm tra eligibility ở server và kế hoạch chia sẻ điện thoại sau CONFIRMED; owner 5 xác nhận uid và khởi tạo ví riêng. Không đánh dấu luồng liên module hoàn tất khi handler còn thiếu.
 - [ ] Có feature branch/PR vào dev, reviewer khác tác giả và ghi kết quả kiểm thử; không merge/deploy tự động từ tài liệu này.
 
-**Chốt bàn giao hiện tại:** sẵn sàng để admin review code/contract, giao task sửa P2 và giải quyết các bước Supabase ở trên; chưa xác nhận sẵn sàng cập nhật server. Sửa lỗi duyệt hồ sơ, kiểm thử email thật, schema hiện có và 10 integration tests là việc còn phải làm, không phải kết quả đã đạt. Số lượng test cần cập nhật sau khi bổ sung test hồi quy P2.
+**Chốt bàn giao hiện tại:** sẵn sàng để admin review code/contract, giao task sửa P2 và giải quyết các bước Supabase ở trên; chưa xác nhận sẵn sàng cập nhật server. Sửa lỗi duyệt hồ sơ, kiểm thử email thật, schema hiện có và 11 integration tests là việc còn phải làm, không phải kết quả đã đạt. Số lượng test cần cập nhật sau khi bổ sung test hồi quy P2.
 
 ## 6. Tài liệu đối chiếu
 

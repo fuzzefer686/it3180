@@ -2,13 +2,15 @@
 
 Admin review/tích hợp Supabase đọc [biên bản rà soát, việc cần làm và ví dụ gọi endpoint](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) đặt ngay trong module Auth.
 
+Phản hồi test đăng ký mới: xem [bản sửa thông báo xác minh, redirect và trigger tạo users](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Trigger mới tạo hồ sơ ngay khi Auth insert; `get_my_profile` vẫn giữ bootstrap dự phòng, idempotent.
+
 ## Yêu cầu và phần đã làm
 
 Theo `ke-hoach/02-ho-so-quan-tri.md` và ảnh thiết kế database nhóm cung cấp:
 
 1. **Tài khoản:** đăng ký email/mật khẩu, đăng nhập, đăng xuất bằng Supabase Auth SDK; nhập lại mật khẩu; thông báo lỗi tiếng Việt; hỗ trợ server có hoặc không yêu cầu xác nhận email. Không tự lưu mật khẩu/token.
 2. **Phiên và trang riêng tư:** khôi phục phiên từ SDK, tránh nhận hồ sơ của phiên cũ khi đổi tài khoản; làm mới token không tải lại hồ sơ thừa. `/dat-chuyen`, `/vi-diem` yêu cầu hồ sơ ACTIVE; `/quan-tri` còn yêu cầu ADMIN. Sau đăng nhập quay về trang đã chọn.
-3. **Bootstrap và hồ sơ:** `get_my_profile` tự tạo đúng một dòng theo `auth.uid()`, mặc định USER/ACTIVE/PENDING. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
+3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/PENDING ngay khi tài khoản được tạo, kể cả chưa xác minh email; migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
 4. **Quản trị:** danh sách 20 hồ sơ/trang; admin duyệt/từ chối sinh viên và driver; từ chối phải có lý do; chỉ duyệt driver khi sinh viên đã VERIFIED và có xe. Duyệt driver thêm DRIVER, giữ USER. Khóa/mở tài khoản qua `users.status`; không cho admin tự khóa mình; không có API tự cấp ADMIN.
 5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Thay trường/mã/minh chứng đưa sinh viên và driver về PENDING, thu hồi DRIVER; thay xe chỉ đưa driver về PENDING và thu hồi DRIVER. Thay họ tên/điện thoại giữ trạng thái duyệt.
 

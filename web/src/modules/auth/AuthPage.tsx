@@ -20,10 +20,12 @@ export function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [signupResult, setSignupResult] = useState<{ email: string; requiresConfirmation: boolean } | null>(null);
+  const [resendNotice, setResendNotice] = useState('');
   const pending = useRef(false);
   const signingUp = mode === 'signup';
-  function clearMessages() { setError(''); setNotice(''); }
+  const signupConfirmed = Boolean(signupResult?.requiresConfirmation && user?.email?.toLowerCase() === signupResult.email.toLowerCase());
+  function clearMessages() { setError(''); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current) return;
@@ -34,16 +36,18 @@ export function AuthPage() {
     pending.current = true; setBusy(true);
     try {
       if (signingUp) {
+        setSignupResult(null); setResendNotice('');
         const { data, error } = await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: `${window.location.origin}/tai-khoan` } });
         if (error) throw error;
         if (!data.user && !data.session) throw new Error('Missing signup result');
+        setSignupResult({ email: credentials.email, requiresConfirmation: !data.session });
         if (!data.session) {
           setMode('login');
-          setNotice('Kiểm tra hộp thư để xác nhận email nếu địa chỉ đủ điều kiện đăng ký, sau đó đăng nhập. Nếu đã có tài khoản, bạn có thể đăng nhập ngay.');
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword(credentials);
         if (error) throw error;
+        setSignupResult(null); setResendNotice('');
       }
       setPassword(''); setConfirmPassword(''); setShowPassword(false);
     } catch (err) { setError(errorMessage(err)); }
@@ -52,13 +56,35 @@ export function AuthPage() {
   async function logout() {
     if (pending.current) return;
     pending.current = true; setBusy(true); clearMessages();
-    try { const { error } = await supabase.auth.signOut(); if (error) throw error; }
+    try { const { error } = await supabase.auth.signOut(); if (error) throw error; setSignupResult(null); setResendNotice(''); }
     catch (err) { setError(errorMessage(err)); }
     finally { pending.current = false; setBusy(false); }
   }
-  if (!loading && user && returnTo) return <Navigate to={returnTo} replace/>;
+  async function resendConfirmation() {
+    if (pending.current || !signupResult?.requiresConfirmation || signupConfirmed) return;
+    pending.current = true; setBusy(true); setError(''); setResendNotice('');
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: signupResult.email,
+        options: { emailRedirectTo: `${window.location.origin}/tai-khoan` } });
+      if (error) throw error;
+      setResendNotice('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh.');
+    } catch (err) { setError(errorMessage(err)); }
+    finally { pending.current = false; setBusy(false); }
+  }
+  if (!loading && user && returnTo && !signupResult && !(busy && signingUp)) return <Navigate to={returnTo} replace/>;
   return <div className="inner-page account-page">
     <header className="page-heading"><h1>Tài khoản</h1><p>Một hồ sơ rõ ràng, thêm an tâm khi đi cùng.</p></header>
+    {signupResult && <section className="notice signup-feedback" aria-labelledby="signup-result-title">
+      <Mail size={24}/><div>
+        <div role="status" aria-live="polite"><h2 id="signup-result-title">{signupResult.requiresConfirmation && !signupConfirmed ? 'Kiểm tra email để xác minh tài khoản' : signupConfirmed ? 'Email đã được xác nhận' : 'Tài khoản đã sẵn sàng'}</h2>
+          <p>{signupResult.requiresConfirmation && !signupConfirmed
+            ? `Kiểm tra hộp thư ${signupResult.email} và thư rác. Nếu địa chỉ đủ điều kiện đăng ký, hãy mở liên kết xác nhận email trước khi đăng nhập. Nếu đã có tài khoản, bạn có thể đăng nhập ngay.`
+            : signupConfirmed ? 'Email đã được xác nhận. Bạn có thể hoàn thiện hồ sơ sinh viên bên dưới.' : 'Server đã cho phép đăng nhập ngay. Bạn có thể hoàn thiện hồ sơ sinh viên bên dưới.'}</p></div>
+        {signupResult.requiresConfirmation && !signupConfirmed && <button className="text-button" type="button" disabled={busy} onClick={resendConfirmation}>{busy ? 'Đang xử lý...' : 'Gửi lại email xác minh'}</button>}
+        {resendNotice && <p className="form-notice" role="status">{resendNotice}</p>}
+        {user && returnTo && <Link className="text-link" to={returnTo}>Tiếp tục đến trang đã chọn<ArrowRight size={17}/></Link>}
+      </div>
+    </section>}
     <div className="account-layout">
       <section className="account-panel">
         {loading ? <div className="content-skeleton" role="status" aria-label="Đang tải tài khoản"><div/><div/><div/></div> : user ? <>
@@ -88,7 +114,6 @@ export function AuthPage() {
             <div className="form-field"><label htmlFor="password">Mật khẩu</label><div className="form-input"><LockKeyhole size={19}/><input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete={signingUp ? 'new-password' : 'current-password'} placeholder={signingUp ? 'Ít nhất 8 ký tự' : 'Nhập mật khẩu'} value={password} required minLength={signingUp ? 8 : undefined} disabled={busy} aria-describedby={signingUp ? 'password-hint' : undefined} onChange={event => { setPassword(event.target.value); clearMessages(); }}/><button className="icon-button" type="button" disabled={busy} aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div>{signingUp && <p id="password-hint" className="field-hint">Tối thiểu 8 ký tự; server có thể yêu cầu mật khẩu mạnh hơn.</p>}</div>
             {signingUp && <div className="form-field"><label htmlFor="confirm-password">Nhập lại mật khẩu</label><div className="form-input"><LockKeyhole size={19}/><input id="confirm-password" name="confirmPassword" type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} required disabled={busy} onChange={event => { setConfirmPassword(event.target.value); clearMessages(); }}/></div></div>}
             {error && <p className="form-error" role="alert">{error}</p>}
-            {notice && <p className="form-notice" role="status">{notice}</p>}
             <button className="button primary login-button" disabled={busy} type="submit">{busy ? signingUp ? 'Đang đăng ký...' : 'Đang đăng nhập...' : signingUp ? 'Đăng ký' : 'Đăng nhập'}{!busy && <ArrowRight size={18}/>}</button>
           </form>
           <p className="signup-note">{signingUp ? 'Đã có tài khoản? ' : 'Chưa có tài khoản? '}<button className="text-button" type="button" disabled={busy} onClick={() => { setMode(signingUp ? 'login' : 'signup'); setPassword(''); setConfirmPassword(''); setShowPassword(false); clearMessages(); }}>{signingUp ? 'Đăng nhập' : 'Đăng ký'}</button></p>

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+// @vitest-environment-options {"url":"https://feat-auth.it3180.pages.dev/tai-khoan"}
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +14,7 @@ import { useSession } from '../../web/src/modules/auth/SessionProvider';
 import { callFunction } from '../../web/src/lib/callable';
 import { supabase } from '../../web/src/lib/supabase';
 
-vi.mock('../../web/src/lib/supabase', () => ({ supabase: { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signOut: vi.fn() } } }));
+vi.mock('../../web/src/lib/supabase', () => ({ supabase: { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signOut: vi.fn(), resend: vi.fn() } } }));
 vi.mock('../../web/src/modules/auth/SessionProvider', () => ({ useSession: vi.fn() }));
 vi.mock('../../web/src/lib/callable', async () => ({ callFunction: vi.fn(), ...await import('../../web/src/lib/errors') }));
 const authUser = { id: profileFixture.uid, email: 'demo@example.com', user_metadata: { roles: ['ADMIN'] } } as unknown as User;
@@ -74,6 +75,12 @@ describe('Giao diện Auth', () => {
     expect((await screen.findByRole('status')).textContent).toContain('xác nhận email');
     expect(supabase.auth.signUp).toHaveBeenCalledWith({ email: 'demo@example.com', password: 'Password!2026', options: { emailRedirectTo: `${window.location.origin}/tai-khoan` } });
     expect((screen.getByLabelText('Mật khẩu') as HTMLInputElement).value).toBe('');
+    expect(screen.getByRole('heading', { name: 'Kiểm tra email để xác minh tài khoản' })).toBeTruthy();
+    expect(supabase.auth.signUp).toHaveBeenCalledWith(expect.objectContaining({
+      options: { emailRedirectTo: 'https://feat-auth.it3180.pages.dev/tai-khoan' },
+    }));
+    await user.type(screen.getByLabelText('Mật khẩu'), 'TypingAgain');
+    expect(screen.getByRole('heading', { name: 'Kiểm tra email để xác minh tài khoản' })).toBeTruthy();
   });
   it('đăng ký có phiên không báo đang chờ xác nhận', async () => {
     vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: { user: authUser } }, error: null } as never);
@@ -81,7 +88,72 @@ describe('Giao diện Auth', () => {
     await fillLogin(); await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
     await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
     await waitFor(() => expect((screen.getByLabelText('Mật khẩu') as HTMLInputElement).value).toBe(''));
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Tài khoản đã sẵn sàng' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Gửi lại email xác minh' })).toBeNull();
+  });
+  it('thông báo đăng ký vẫn hiện khi SDK chuyển sang giao diện tài khoản', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: { user: authUser } }, error: null } as never);
+    const view = account(); const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' })); await fillLogin();
+    await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    session({ user: authUser, profile: profileFixture });
+    view.rerender(<MemoryRouter><AuthPage/></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: 'Tài khoản đã sẵn sàng' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeTruthy();
+  });
+  it('gửi lại email dùng địa chỉ đã đăng ký và redirect đúng website đang mở', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: null }, error: null });
+    vi.mocked(supabase.auth.resend).mockResolvedValue({ data: { user: null, session: null }, error: null });
+    account(); const user = userEvent.setup(); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    await fillLogin(); await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'other@example.com' } });
+    await user.click(screen.getByRole('button', { name: 'Gửi lại email xác minh' }));
+    expect(supabase.auth.resend).toHaveBeenCalledWith({ type: 'signup', email: 'demo@example.com',
+      options: { emailRedirectTo: 'https://feat-auth.it3180.pages.dev/tai-khoan' } });
+    expect(await screen.findByText('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh.')).toBeTruthy();
+  });
+  it('khi phiên được xác nhận thì không tiếp tục yêu cầu xác minh hoặc gửi lại email', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: null }, error: null });
+    const view = account(); const user = userEvent.setup(); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    await fillLogin(); await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    expect(screen.getByRole('heading', { name: 'Kiểm tra email để xác minh tài khoản' })).toBeTruthy();
+    session({ user: authUser, profile: profileFixture });
+    view.rerender(<MemoryRouter><AuthPage/></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: 'Email đã được xác nhận' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Gửi lại email xác minh' })).toBeNull();
+  });
+  it('gửi lại email bị giới hạn thì hiển thị lỗi, không báo đã gửi thành công', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: null }, error: null });
+    vi.mocked(supabase.auth.resend).mockResolvedValue({ data: { user: null, session: null }, error: { code: 'over_email_send_rate_limit' } } as never);
+    account(); const user = userEvent.setup(); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    await fillLogin(); await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    await user.click(screen.getByRole('button', { name: 'Gửi lại email xác minh' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('thử quá nhiều lần');
+    expect(screen.queryByText('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh.')).toBeNull();
+  });
+  it('không chuyển trang quá sớm khi SDK tạo session trước khi signUp trả về', async () => {
+    let resolve!: (value: never) => void;
+    vi.mocked(supabase.auth.signUp).mockReturnValue(new Promise(done => { resolve = done; }));
+    const routes = <MemoryRouter initialEntries={[{ pathname: '/tai-khoan', state: { from: '/vi-diem' } }]}><Routes>
+      <Route path="/tai-khoan" element={<AuthPage/>}/><Route path="/vi-diem" element={<p>Ví sau đăng ký</p>}/>
+    </Routes></MemoryRouter>;
+    const view = render(routes); const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' })); await fillLogin();
+    await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
+    await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
+    session({ user: authUser, profile: profileFixture });
+    view.rerender(<MemoryRouter initialEntries={[{ pathname: '/tai-khoan', state: { from: '/vi-diem' } }]}><Routes>
+      <Route path="/tai-khoan" element={<AuthPage/>}/><Route path="/vi-diem" element={<p>Ví sau đăng ký</p>}/>
+    </Routes></MemoryRouter>);
+    expect(screen.queryByText('Ví sau đăng ký')).toBeNull();
+    await act(async () => resolve({ data: { user: authUser, session: { user: authUser } }, error: null } as never));
+    expect(screen.getByRole('heading', { name: 'Tài khoản đã sẵn sàng' })).toBeTruthy();
+    await user.click(screen.getByRole('link', { name: 'Tiếp tục đến trang đã chọn' }));
+    expect(screen.getByText('Ví sau đăng ký')).toBeTruthy();
   });
   it('hiện/ẩn mật khẩu, đổi chế độ xóa mật khẩu cũ', async () => {
     account(); const user = await fillLogin(); await user.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }));

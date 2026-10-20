@@ -1,5 +1,17 @@
 # Kiểm chứng Supabase Auth và hồ sơ
 
+## Sửa đăng ký/xác minh email/tạo hồ sơ — 20/10/2026
+
+- Yêu cầu theo phản hồi website test: thông báo xác minh rõ ràng sau signup, link xác nhận trả đúng website dev và tạo `public.users` ngay khi Auth tạo tài khoản, kể cả chưa có session/chưa xác minh email.
+- `npm run typecheck` PASS; `npm run build` PASS; `npm test` PASS bằng **Node 22.23.3**: **57 test / 5 file**, gồm 8 contract/config/validation, 7 phiên, 22 giao diện, 20 SQL/quyền. Build còn cảnh báo JavaScript khoảng 609 kB.
+- Test frontend chạy với URL `https://feat-auth.it3180.pages.dev/tai-khoan`; xác nhận signup/resend gửi đúng origin, banner không mất khi nhập tiếp hoặc SDK chuyển session trước lúc signUp trả về, lỗi rate limit không báo gửi thành công giả.
+- Test SQL mới chạy cả hai migration, kiểm tra trigger tạo hồ sơ trước xác minh/session, backfill giữ LOCKED/ADMIN/DRIVER, Auth service không cần quyền đọc bảng private, không tin metadata, không trùng hồ sơ, client không tự insert và lỗi ghi hồ sơ rollback Auth insert.
+- Bộ integration hiện có **11 test**. Đã thử `npm run check`; typecheck/build/57 tests PASS, nhưng integration kết thúc mã 1 do Docker chưa khả dụng. Chưa chạy 11 integration tests, chưa kiểm thử gửi/nhận email thật.
+- Đã GET trang preview và asset JavaScript công khai: HTTP 200, code đang deploy dùng `emailRedirectTo` theo `window.location.origin`. Không truy cập Dashboard/Auth settings, không tạo user cloud, không push/deploy/apply SQL online; không có browser kết nối để thao tác giao diện website thật.
+- Migration mới `20261020130000_auth_signup_profile.sql` thêm trigger/backfill, giữ migration cũ; không đổi shared API/DTO hoặc tạo ví. `seed:local` nay tạo hồ sơ gián tiếp qua trigger.
+- Admin còn phải đối chiếu schema/trigger cũ, áp dụng migration đã review và cấu hình Site URL/Redirect URLs/Confirm Email/template. Xem [hướng dẫn cụ thể trong module Auth](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+- Lỗi P2 duyệt phiên bản hồ sơ cũ của lượt review trước vẫn còn; không nằm trong bản sửa signup này. Các kết quả phía dưới là lịch sử trước bản sửa signup.
+
 ## Auth/hồ sơ/admin theo thiết kế users — 20/10/2026
 
 - **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
