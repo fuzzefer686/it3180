@@ -2,7 +2,7 @@
 
 Team gồm 5 sinh viên năm 3. Tài liệu được viết để có thể làm từng bước, hiểu lý do và giải thích lại cho nhau.
 
-App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**. **Hiện đã có login/logout. Chưa có bảng và API cho hồ sơ, chuyến đi, đặt chuyến hoặc ví điểm.**
+App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**. **Đã có code đăng ký/login/logout, hồ sơ sinh viên/driver và quản trị, kèm migration local theo thiết kế bảng users. Chưa triển khai bản này lên server; Trip/Booking/ví còn thiếu backend.** Xem [phạm vi Auth, cách chạy và kiểm thử](docs/auth-module.md).
 
 ## 1. Bắt đầu theo cách đơn giản nhất
 
@@ -29,7 +29,7 @@ npm run dev:web
 
 Khi terminal hiện địa chỉ web, mở http://127.0.0.1:5173/tai-khoan. Đăng nhập bằng tài khoản test riêng mà lead tạo **trên server**. Thử đăng nhập, tải lại trang và đăng xuất. Nhấn Ctrl+C tại terminal để dừng web.
 
-Nếu hồ sơ báo “chưa triển khai” sau khi login, phần hồ sơ còn thiếu backend; không phải login thất bại. Đổi env thì dừng và chạy lại web để đọc cấu hình mới.
+Nếu hồ sơ báo “chưa triển khai” sau khi login, server đang dùng chưa có RPC Auth mới; lead cần đối chiếu schema và cập nhật từ code đã review, không phải login thất bại. Đổi env thì dừng và chạy lại web để đọc cấu hình mới.
 
 ## 2. Khi nào cần Docker?
 

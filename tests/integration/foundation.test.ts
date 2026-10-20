@@ -2,12 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { localSupabaseClients } from '../../scripts/local-supabase';
 
-// Chỉ tài khoản trong Supabase Auth; không tạo bảng ứng dụng.
+// Tài khoản Auth tạm; test signup cũng kiểm tra bootstrap hồ sơ qua RPC đã migrate local.
 const { admin, url, publicKey, options } = localSupabaseClients();
 const client = createClient(url, publicKey, options);
 const email = `auth-${crypto.randomUUID()}@integration.example`;
 const password = 'IntegrationOnly!2026';
 let uid: string | undefined;
+let signupUid: string | undefined;
+const signupClient = createClient(url, publicKey, options);
 beforeAll(async () => {
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw error;
@@ -15,12 +17,27 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await client.auth.signOut();
+  await signupClient.auth.signOut();
   if (uid) {
     const { error } = await admin.auth.admin.deleteUser(uid);
     if (error) throw error;
   }
+  if (signupUid) {
+    const { error } = await admin.auth.admin.deleteUser(signupUid);
+    if (error) throw error;
+  }
 });
 describe('Supabase Auth local', () => {
+  it('đăng ký qua Auth SDK và tạo hồ sơ an toàn sau khi có phiên', async () => {
+    const result = await signupClient.auth.signUp({ email: `signup-${crypto.randomUUID()}@integration.example`, password,
+      options: { data: { roles: ['ADMIN'] } } });
+    signupUid = result.data.user?.id;
+    expect(result.error).toBeNull(); expect(signupUid).toBeTruthy();
+    // Local tắt xác nhận email trong config.toml; cloud có thể trả session null.
+    expect(result.data.session).not.toBeNull();
+    const profile = await signupClient.rpc('get_my_profile', { input: {} });
+    expect(profile.error).toBeNull(); expect(profile.data.roles).toEqual(['USER']);
+  });
   it('đăng nhập và xác minh đúng user trên Auth server', async () => {
     const login = await client.auth.signInWithPassword({ email, password });
     expect(login.error).toBeNull();

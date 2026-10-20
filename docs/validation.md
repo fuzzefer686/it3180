@@ -1,4 +1,18 @@
-# Kiểm chứng phần Supabase Auth — 08/10/2026
+# Kiểm chứng Supabase Auth và hồ sơ
+
+## Auth/hồ sơ/admin theo thiết kế users — 20/10/2026
+
+- **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
+
+- Phạm vi: đăng ký/login/logout, quản lý phiên, bảo vệ trang, bootstrap USER/ACTIVE, hồ sơ sinh viên/xe máy, admin duyệt/từ chối có lý do và khóa/mở tài khoản. Có migration local `20261020090000_auth_profiles.sql` theo ảnh bảng `users` nhóm cung cấp. Xem [yêu cầu, API, quyền và hướng dẫn chạy](auth-module.md).
+- Chạy bằng **Node 22.23.3** tải vào cache tạm, không đổi Node mặc định trên máy. `npm run typecheck` PASS; `npm run build` PASS; `npm test` PASS: **45 test / 4 file**.
+- Trong 45 test: **13 test SQL** chạy migration và RPC trên PostgreSQL nhúng PGlite, kiểm tra grants/private helpers, uid, chống tự cấp quyền, sai chủ, admin, eligibility, dữ liệu sai, duyệt lại, khóa/mở và phân trang; **17 test giao diện**, **7 test phiên**, **8 test contract/config/validation**. Fixture `auth.uid()` mô phỏng claim đã xác minh; đây không phải Supabase integration thật.
+- Bộ Supabase integration có **10 test** (4 Auth SDK và 6 hồ sơ/admin). Đã thử chạy `npm run test:integration`, lệnh kết thúc **mã 1 do chưa có Docker Desktop/daemon khả dụng**. Không có test integration nào được thực thi trong lần này; **`npm run check` chưa PASS toàn bộ**.
+- Sandbox Windows cũng chặn `tsx` gọi `os.userInfo()`; đã chạy lại ngoài sandbox để xác nhận lỗi còn lại là Docker. Typecheck/build/unit chạy được bằng Node 22.
+- Build có cảnh báo bundle khoảng 607 kB, trên ngưỡng 500 kB; chưa tối ưu bundle trong phạm vi Auth.
+- Không gọi Supabase cloud/VietMap, không thay database hoặc cấp ADMIN trên server. Ảnh không chứa toàn bộ defaults/constraints/RLS hiện có; lead cần đối chiếu SQL thật trước khi tích hợp migration vào server đã có bảng `users`.
+- Shared ảnh hưởng module 3/4/5: `UserProfile` có thêm field hồ sơ/xe/driver/eligibility; wrapper kiểm tra input riêng từng API. Client không được truy cập trực tiếp bảng `users` chứa thông tin riêng tư. Module nghiệp vụ dùng helper kiểm tra eligibility trong transaction server; chưa triển khai Trip/Booking/ví.
+- Script khởi động/test áp dụng migration **local** chưa chạy và gọi CLI qua Node để chạy trên Windows; không reset database, không fallback cloud. Redirect local bổ sung `/tai-khoan`.
 
 ## Supabase và Cloudflare Pages — 14/10/2026
 

@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    "jsx": "react-jsx",
     "lib": [
       "ES2022",
       "DOM"
@@ -12,12 +13,12 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": [
-      "node"
+      "node", "vite/client"
     ]
   },
   "include": [
     "scripts/**/*.ts",
-    "tests/**/*.ts",
+    "tests/**/*.ts", "tests/**/*.tsx",
     "vitest*.mts",
     "shared/**/*.ts"
   ]

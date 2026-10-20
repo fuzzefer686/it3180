@@ -2,14 +2,14 @@
 
 Contract là quy ước giữa người viết giao diện và người viết backend. Ví dụ khi hỏi “hồ sơ của tôi”, frontend gửi gì, backend trả những trường nào? Chốt trước giúp các bạn không đoán tên field của nhau.
 
-**Contract không phải cấu trúc bảng database.** Team còn phải thiết kế bảng, quyền và viết phần xử lý. Hiện các API dưới đây chưa triển khai trên Supabase.
+**Contract không phải cấu trúc bảng database.** Auth/hồ sơ/admin đã có migration và RPC local theo thiết kế `users` nhóm cung cấp; chưa áp dụng lên server. Xem [đầu vào/đầu ra, quyền và ảnh hưởng shared](auth-module.md#api-và-ảnh-hưởng-tới-module-khác). `healthCheck`/`adminFoundationInfo` vẫn chưa có backend.
 
 ## 1. API nền dự kiến
 
 | Tên dùng trong code | Hàm database dự kiến (RPC) | Gửi lên | Nhận về | Hiện trạng |
 |---|---|---|---|---|
 | healthCheck | health_check | `{}` | HealthResponse | Chưa có backend |
-| getMyProfile | get_my_profile | `{}` | UserProfile | Chưa có backend |
+| getMyProfile | get_my_profile | `{}` | UserProfile | Có migration/RPC local, gồm bootstrap |
 | adminFoundationInfo | admin_foundation_info | `{}` | version | Chưa có backend |
 
 `{}` nghĩa là không gửi field nghiệp vụ nào. RPC là gọi hàm trong database qua Supabase. Ví dụ getMyProfile không nhận uid để user tự chọn người khác; backend tự xác định user đang login.
@@ -20,7 +20,7 @@ Contract là quy ước giữa người viết giao diện và người viết b
 - `shared/api.ts`: tên API/RPC, kiểu dữ liệu gửi và nhận. PlannedInputs là input dự kiến cho Trip/Booking/ví, chưa có handler.
 - `web/src/lib/callable.ts`: hàm `callFunction` dùng chung để gọi API. Tên file còn là callable, nhưng hiện gọi Supabase RPC.
 
-Wrapper (hàm gọi chung) gửi `{ input: … }`, dùng Zod kiểm tra kết quả. API chưa có thì hiện lỗi “chưa triển khai”, không trả hồ sơ/quyền/số dư giả để làm như đã hoàn thành.
+Wrapper (hàm gọi chung) gửi `{ input: … }`, dùng Zod kiểm tra input riêng từng API và kiểm tra kết quả. Có thêm updateMyProfile/adminListUsers/adminReviewUser/adminSetUserStatus; xem [module Auth](auth-module.md). API chưa có thì hiện lỗi “chưa triển khai”, không trả hồ sơ/quyền/số dư giả để làm như đã hoàn thành.
 
 ## 3. Quy tắc cả team phải thống nhất
 
