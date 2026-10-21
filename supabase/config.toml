@@ -43,9 +43,13 @@ enable_confirmations = false
 [analytics]
 enabled = false
 
-# Chưa có realtime hoặc Edge Function trong scaffold.
+# Trip/VietMap dùng Edge Function, realtime chưa dùng.
 [realtime]
 enabled = false
 
 [edge_runtime]
-enabled = false
+enabled = true
+
+[functions.trips]
+# Handler xác minh JWT bằng Auth getUser; hỗ trợ cả key JWT mới của Supabase.
+verify_jwt = false
