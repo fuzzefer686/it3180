@@ -1,8 +1,6 @@
 # Auth, hồ sơ và quản trị — triển khai ngày 20/10/2026
 
-Admin review/tích hợp Supabase đọc [biên bản rà soát, việc cần làm và ví dụ gọi endpoint](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) đặt ngay trong module Auth.
-
-Phản hồi test đăng ký mới: xem [bản sửa thông báo xác minh, redirect và trigger tạo users](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Trigger mới tạo hồ sơ ngay khi Auth insert; `get_my_profile` vẫn giữ bootstrap dự phòng, idempotent.
+Tài liệu này gom hướng dẫn Auth, cấu hình đăng ký và các việc còn cần lead xử lý. Kết quả kiểm thử theo từng thời điểm nằm trong [validation](validation.md).
 
 ## Yêu cầu và phần đã làm
 
@@ -28,7 +26,7 @@ Không tạo Trip/Booking/ví/thanh toán; không cấp điểm hoặc seed ADMI
 - RPC là hàm database được gọi qua Supabase. Mỗi hàm lấy uid từ `auth.uid()`, không nhận uid cho thao tác hồ sơ cá nhân và không tin `user_metadata`. Dữ liệu lạ như `roles`, `status` trong input sửa hồ sơ bị từ chối ở cả frontend và SQL.
 - Hàm `security definer` chạy bằng quyền chủ sở hữu, nên tất cả đều đặt `search_path = ''`, dùng tên bảng đầy đủ và kiểm tra quyền rõ ràng. Helper nằm trong schema `private`, client không gọi được.
 - Các thao tác thay đổi hồ sơ/duyệt/khóa khóa dòng trong transaction. Admin bị khóa mất quyền ngay khi gọi lại API bằng phiên cũ. User bị khóa vẫn xem được hồ sơ mình và đăng xuất; không sửa hồ sơ hay thực hiện nghiệp vụ.
-- Module 3/4 cần gọi `private.require_eligible_user(true)` (driver) hoặc `private.require_eligible_user(false)` (hành khách) **bên trong hàm server**, rồi xử lý nghiệp vụ trong cùng transaction. Không dùng boolean frontend làm kiểm tra quyền. Trip/Booking hiện chưa có handler; Auth không tự bảo vệ một handler tương lai nếu handler đó không gọi kiểm tra này.
+- Module nghiệp vụ phải kiểm tra quyền **bên trong hàm server**, rồi xử lý trong cùng transaction. Auth cung cấp `private.require_eligible_user(true)` (driver) và `private.require_eligible_user(false)` (hành khách). Trip đã có helper `private.require_trip_user` tương thích hồ sơ mới; xem [Trip/VietMap](trips.md). Không dùng boolean frontend làm kiểm tra quyền.
 - Sau khi khóa tài khoản, phiên UI khác có thể còn dữ liệu đã tải cho tới khi tải lại; server vẫn từ chối thao tác tiếp theo. `signOut` không được coi là thu hồi tức thì mọi access token.
 
 ## API và ảnh hưởng tới module khác
@@ -82,6 +80,41 @@ Chạy `npm run dev` cho toàn bộ local (cần Docker), hoặc `npm run dev:we
 Nếu báo “chưa được triển khai”, server đang thiếu RPC/migration; không phải đã lưu thành công. Nếu `users already exists` khi áp dụng SQL, dừng và đối chiếu schema với lead; không xóa bảng.
 
 ## Chỉ dành cho lead
+
+### Cấu hình đăng ký và xác nhận email
+
+1. Đối chiếu schema server trước khi áp dụng migration Auth. Migration `20261020130000_auth_signup_profile.sql` thêm trigger `auth_create_app_profile` trên `auth.users` và bù hồ sơ thiếu. Hồ sơ mới có USER/ACTIVE/PENDING; tài khoản cũ giữ nguyên quyền/trạng thái nhờ `on conflict do nothing`. Trigger không tạo ví. Lỗi trigger có thể khiến cả thao tác đăng ký bị rollback.
+2. Trong Supabase Dashboard → Authentication → URL Configuration, đặt Site URL là địa chỉ frontend đang dùng. Thêm URL `/tai-khoan` vào Redirect URLs cho từng môi trường, ví dụ `http://127.0.0.1:5173/tai-khoan`, `http://localhost:5173/tai-khoan`; nếu dùng preview Auth thì thêm `https://feat-auth.it3180.pages.dev/tai-khoan`.
+3. Frontend gửi `emailRedirectTo` bằng `window.location.origin + '/tai-khoan'`. Nếu bật Confirm Email, template email cần dùng `{{ .ConfirmationURL }}` để xác nhận token rồi chuyển về web. Chỉ dùng Site URL/Redirect URL sẽ không thực hiện bước xác nhận token. Sau khi sửa cấu hình, gửi email xác nhận mới vì link trong email cũ không tự đổi.
+4. Thử đăng ký bằng email test, xác nhận email rồi đăng nhập. User object trả về khi signup chưa chứng minh đã có phiên; UI chỉ coi là đăng nhập khi SDK trả session. Luồng email thật trên cloud vẫn cần lead kiểm tra.
+
+Kiểm tra số tài khoản chưa có hồ sơ sau khi áp dụng migration:
+
+```sql
+select count(*)
+from auth.users a
+left join public.users u on u.id = a.id
+where u.id is null;
+```
+
+Mong đợi kết quả bằng 0. `get_my_profile` vẫn giữ bước tạo hồ sơ dự phòng, gọi lại không đặt lại quyền. Kiểm tra RLS/grants: client không đọc/sửa trực tiếp `users`, schema `private` không được expose; RPC admin phải kiểm tra ADMIN/ACTIVE ở server. Quyền ADMIN trong ứng dụng khác quyền quản trị project trên Supabase Dashboard.
+
+### Lỗi P2 còn mở: duyệt hồ sơ đã thay đổi
+
+Auth hiện có lỗi được ghi nhận trong lần review ngày 20/10/2026: admin có thể duyệt phiên bản hồ sơ chưa từng xem. Việc gom tài liệu không sửa lỗi này; owner Auth/lead cần xử lý trước khi nghiệm thu luồng duyệt.
+
+Cách tái hiện:
+
+1. Admin mở hồ sơ có minh chứng A.
+2. User đổi minh chứng thành B; backend đưa trạng thái về PENDING.
+3. Admin vẫn nhìn A nhưng bấm duyệt. `AdminPage.tsx` chỉ gửi `{uid, kind, decision, reason}`.
+4. `admin_review_user` khóa và duyệt dòng hiện tại chứa B, dù admin chưa xem B. Đổi xe trước khi duyệt DRIVER cũng gặp vấn đề tương tự.
+
+Khóa dòng trong transaction chưa ràng buộc quyết định với dữ liệu admin đã xem. Hướng sửa: gửi snapshot hoặc phiên bản hồ sơ trong yêu cầu duyệt, đối chiếu sau khi khóa dòng; nếu đã đổi thì trả PT409 và yêu cầu admin tải lại. Chỉ tải lại ở UI chưa đủ để chặn thay đổi xen giữa lúc xem và lúc duyệt.
+
+Owner Auth cần cập nhật đồng bộ schema input, payload UI, RPC và test hồi quy cho STUDENT/DRIVER, cả duyệt lẫn từ chối. Nếu thêm cột phiên bản, tạo migration mới sau khi nhóm thống nhất; không sửa migration đã áp dụng. Các test đang PASS không phủ nhận lỗi này. Test Supabase integration vẫn cần Docker; test PGlite không thay thế kiểm thử token/email/PostgREST thật.
+
+### Cấp ADMIN đầu tiên
 
 ADMIN đầu tiên không được tạo qua form hoặc lấy từ metadata. Sau khi đã review schema và chọn đúng Auth ID của tài khoản tin cậy, lead có thể cấp bằng SQL trong môi trường được giao quản trị:
 

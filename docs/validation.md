@@ -9,12 +9,12 @@
 - Bộ integration hiện có **11 test**. Đã thử `npm run check`; typecheck/build/57 tests PASS, nhưng integration kết thúc mã 1 do Docker chưa khả dụng. Chưa chạy 11 integration tests, chưa kiểm thử gửi/nhận email thật.
 - Đã GET trang preview và asset JavaScript công khai: HTTP 200, code đang deploy dùng `emailRedirectTo` theo `window.location.origin`. Không truy cập Dashboard/Auth settings, không tạo user cloud, không push/deploy/apply SQL online; không có browser kết nối để thao tác giao diện website thật.
 - Migration mới `20261020130000_auth_signup_profile.sql` thêm trigger/backfill, giữ migration cũ; không đổi shared API/DTO hoặc tạo ví. `seed:local` nay tạo hồ sơ gián tiếp qua trigger.
-- Admin còn phải đối chiếu schema/trigger cũ, áp dụng migration đã review và cấu hình Site URL/Redirect URLs/Confirm Email/template. Xem [hướng dẫn cụ thể trong module Auth](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+- Admin còn phải đối chiếu schema/trigger cũ, áp dụng migration đã review và cấu hình Site URL/Redirect URLs/Confirm Email/template. Xem [hướng dẫn cụ thể trong module Auth](auth-module.md).
 - Lỗi P2 duyệt phiên bản hồ sơ cũ của lượt review trước vẫn còn; không nằm trong bản sửa signup này. Các kết quả phía dưới là lịch sử trước bản sửa signup.
 
 ## Auth/hồ sơ/admin theo thiết kế users — 20/10/2026
 
-- **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
+- **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](auth-module.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
 
 - Phạm vi: đăng ký/login/logout, quản lý phiên, bảo vệ trang, bootstrap USER/ACTIVE, hồ sơ sinh viên/xe máy, admin duyệt/từ chối có lý do và khóa/mở tài khoản. Có migration local `20261020090000_auth_profiles.sql` theo ảnh bảng `users` nhóm cung cấp. Xem [yêu cầu, API, quyền và hướng dẫn chạy](auth-module.md).
 - Chạy bằng **Node 22.23.3** tải vào cache tạm, không đổi Node mặc định trên máy. `npm run typecheck` PASS; `npm run build` PASS; `npm test` PASS: **45 test / 4 file**.

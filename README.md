@@ -85,4 +85,8 @@ Nếu có Docker, chạy `npm run check` để kiểm tra thêm đăng nhập v�
 - `web/src/modules/auth/`: màn hình và phiên đăng nhập.
 - `supabase/config.toml`: cấu hình Supabase trên máy.
 
-File `.env.firebase.dev` thuộc stack cũ, không được Supabase client hiện tại dùng. Báo cáo UI cũ được đánh dấu lịch sử; dùng hướng dẫn Supabase trên đây để chạy app.
+## 6. Ảnh và font giao diện
+
+Font Be Vietnam Pro được đóng gói qua `@fontsource/be-vietnam-pro`, hỗ trợ Latin/tiếng Việt ở các độ đậm 400/500/600/700.
+
+Ảnh `web/public/images/ride-home.jpg` là ảnh minh họa tạo bằng AI, không phải tài xế thật trong hệ thống. Ảnh chính rộng 1400px; hai bản `ride-home-small.jpg` (720px) và `ride-home-medium.jpg` (960px) giúp trình duyệt chọn kích thước phù hợp màn hình.
