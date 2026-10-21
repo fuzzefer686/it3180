@@ -15,5 +15,11 @@ export const signupInputSchema = z.object({
 export function authReturnPath(state: unknown): string | null {
   if (!state || typeof state !== 'object' || !('from' in state) || typeof state.from !== 'string') return null;
   const from = state.from;
-  return ['/dat-chuyen', '/vi-diem', '/quan-tri'].includes(from.split(/[?#]/)[0]) ? from : null;
+  const pathname = from.split(/[?#]/)[0];
+  if (['/dat-chuyen', '/vi-diem', '/quan-tri', '/chuyen-di/dang', '/chuyen-di/cua-toi'].includes(pathname)) {
+    return from;
+  }
+  // Chỉ chi tiết/sửa Trip nội bộ; không nhận URL ngoài hoặc đường dẫn tùy ý.
+  if (/^\/chuyen-di\/[a-zA-Z0-9_-]+(\/sua)?$/.test(pathname)) return from;
+  return null;
 }

@@ -2,7 +2,10 @@
 
 Team gồm 5 sinh viên năm 3. Tài liệu được viết để có thể làm từng bước, hiểu lý do và giải thích lại cho nhau.
 
-App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**. **Đã có code đăng ký/login/logout, hồ sơ sinh viên/driver và quản trị, kèm migration local theo thiết kế bảng users. Chưa triển khai bản này lên server; Trip/Booking/ví còn thiếu backend.** Xem [phạm vi Auth, cách chạy và kiểm thử](docs/auth-module.md).
+App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**.
+Nhánh này đã ghép [Auth/hồ sơ/admin](docs/auth-module.md) và [Trip/VietMap](docs/trips.md).
+Lead quản lý Supabase nhóm. Schema server ngày 21/10 khác migration của repo;
+xem mục bàn giao trong tài liệu Trip trước khi cập nhật server. Booking/ví do owner khác phụ trách.
 
 ## 1. Bắt đầu theo cách đơn giản nhất
 

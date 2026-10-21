@@ -52,6 +52,15 @@ describe('Contract và cấu hình Supabase', () => {
     }
     expect(authReturnPath(null)).toBeNull();
   });
+  it('quay lại form/danh sách/chi tiết Trip sau đăng nhập, không nhận đường dẫn ngoài', () => {
+    for (const from of ['/chuyen-di/dang', '/chuyen-di/cua-toi',
+      '/chuyen-di/11111111-1111-4111-8111-111111111111', '/chuyen-di/11111111-1111-4111-8111-111111111111/sua?tab=route']) {
+      expect(authReturnPath({ from })).toBe(from);
+    }
+    for (const from of ['/chuyen-di/../../example.com', '/chuyen-di//example.com', '/chuyen-di/%2f%2fevil.com']) {
+      expect(authReturnPath({ from })).toBeNull();
+    }
+  });
   it('dịch lỗi email chưa xác nhận, đăng ký bị tắt và mật khẩu yếu mà không lộ lỗi thô', () => {
     expect(errorMessage({ code: 'email_not_confirmed' })).toContain('xác nhận email');
     expect(errorMessage({ code: 'signup_disabled' })).toContain('chưa cho phép đăng ký');

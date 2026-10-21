@@ -1,9 +1,13 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import type { ListTripsInput } from '../../../../shared/trips';
+import { TripResults } from './TripResults';
+import { useSession } from '../auth/SessionProvider';
+import { toVietnamInput } from './format';
 import { ArrowDownUp, ArrowRight, Bike, CalendarDays, ChevronDown, MapPin, Search, ShieldCheck } from 'lucide-react';
 
 function today() {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return toVietnamInput(Date.now()).slice(0, 10);
 }
 const destinations = ['Ninh Bình', 'Nam Định', 'Thanh Hóa', 'Hải Phòng'];
 
@@ -13,14 +17,17 @@ export function TripsPage() {
   const [date, setDate] = useState('');
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
+  const [filters, setFilters] = useState<ListTripsInput>({});
+  const { user, profile } = useSession();
   const originInput = useRef<HTMLInputElement>(null);
   const result = useRef<HTMLDivElement>(null);
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSearched(false); setError('');
-    if (!origin.trim() || !destination.trim() || !date) { setError('Vui lòng chọn điểm đi, điểm đến và ngày đi.'); return; }
-    if (origin.trim().toLocaleLowerCase('vi') === destination.trim().toLocaleLowerCase('vi')) { setError('Điểm đi và điểm đến cần khác nhau.'); return; }
-    if (date < today()) { setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.'); return; }
-    // Chưa có RPC tìm chuyến. Không dựng danh sách hoặc trạng thái đặt giả.
+    if (origin.trim() && destination.trim() && origin.trim().toLocaleLowerCase('vi') === destination.trim().toLocaleLowerCase('vi')) { setError('Điểm đi và điểm đến cần khác nhau.'); return; }
+    if (date && date < today()) { setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.'); return; }
+    const next: ListTripsInput = { origin: origin.trim(), destination: destination.trim() };
+    if (date) next.date = date;
+    setFilters(next);
     setSearched(true);
     requestAnimationFrame(() => result.current?.focus());
   }
@@ -36,16 +43,27 @@ export function TripsPage() {
     </section>
     <section className="search-section" aria-label="Tìm chuyến theo tuyến và ngày">
       <form id="trip-search" className="search-form" onSubmit={search}>
-        <div className="search-field"><label htmlFor="origin">Đi từ</label><div className="input-with-icon"><MapPin size={20}/><input ref={originInput} id="origin" name="origin" autoComplete="off" placeholder="Tỉnh / thành phố" value={origin} maxLength={120} required onChange={e => { setOrigin(e.target.value); setSearched(false); setError(''); }}/></div></div>
+        <div className="search-field"><label htmlFor="origin">Đi từ</label><div className="input-with-icon"><MapPin size={20}/><input ref={originInput} id="origin" name="origin" autoComplete="off" placeholder="Tỉnh / thành phố" value={origin} maxLength={120} onChange={e => { setOrigin(e.target.value); setSearched(false); setError(''); }}/></div></div>
         <button className="icon-button swap-button" type="button" aria-label="Đổi điểm đi và điểm đến" onClick={() => { setOrigin(destination); setDestination(origin); setSearched(false); setError(''); }}><ArrowDownUp size={18}/></button>
-        <div className="search-field"><label htmlFor="destination">Đến</label><div className="input-with-icon"><MapPin size={20}/><input id="destination" name="destination" autoComplete="off" placeholder="Bạn muốn về đâu?" value={destination} maxLength={120} required onChange={e => { setDestination(e.target.value); setSearched(false); setError(''); }}/></div></div>
-        <div className="search-field date-field"><label htmlFor="departure-date">Ngày đi</label><div className="input-with-icon"><CalendarDays size={20}/><input id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()} required onChange={e => { setDate(e.target.value); setSearched(false); setError(''); }}/></div></div>
+        <div className="search-field"><label htmlFor="destination">Đến</label><div className="input-with-icon"><MapPin size={20}/><input id="destination" name="destination" autoComplete="off" placeholder="Bạn muốn về đâu?" value={destination} maxLength={120} onChange={e => { setDestination(e.target.value); setSearched(false); setError(''); }}/></div></div>
+        <div className="search-field date-field"><label htmlFor="departure-date">Ngày đi</label><div className="input-with-icon"><CalendarDays size={20}/><input id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()} onChange={e => { setDate(e.target.value); setSearched(false); setError(''); }}/></div></div>
         <button className="button primary search-button" type="submit"><Search size={19}/> Tìm chuyến</button>
       </form>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="quick-destinations"><span>Chọn nhanh điểm đến</span><div>{destinations.map(place => <button key={place} type="button" className={`destination-chip${destination === place ? ' selected' : ''}`} aria-pressed={destination === place} onClick={() => { setDestination(place); setSearched(false); setError(''); originInput.current?.focus(); }}>{place}<ArrowRight size={14}/></button>)}</div></div>
     </section>
-    {searched && <div className="search-result notice" ref={result} tabIndex={-1} role="status"><Search size={22}/><div><h2>Tìm chuyến chưa sẵn sàng</h2><p>Hiện chưa thể tra cứu chuyến hoặc gửi yêu cầu đi cùng. Vui lòng quay lại sau.</p></div><button className="text-button" onClick={() => { setSearched(false); originInput.current?.focus(); }}>Sửa tìm kiếm</button></div>}
+    <div className="trip-toolbar">
+      {user && <Link className="button secondary" to="/chuyen-di/cua-toi">Chuyến tôi đăng</Link>}
+      {profile?.eligibility.canDrive && <>
+        <Link className="button primary" to="/chuyen-di/dang">Đăng chuyến</Link>
+      </>}
+      {searched && <button className="text-button" onClick={() => {
+        setOrigin(''); setDestination(''); setDate(''); setFilters({}); setSearched(false);
+      }}>Xem tất cả chuyến sắp tới</button>}
+    </div>
+    <div ref={result} tabIndex={-1}>
+      <TripResults key={user?.id + JSON.stringify(filters)} filters={filters} />
+    </div>
     <section className="ride-guide" aria-labelledby="guide-title">
       <div className="guide-intro"><div className="guide-icon"><ShieldCheck size={28}/></div><h2 id="guide-title">Một chuyến đi.<br/>Một người đồng hành.</h2><p>Chọn tuyến phù hợp, gửi yêu cầu và đợi tài xế xác nhận trước khi lên đường.</p></div>
       <div className="guide-details">
