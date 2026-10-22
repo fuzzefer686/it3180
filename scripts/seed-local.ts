@@ -9,6 +9,6 @@ async function main() {
     const created = await admin.auth.admin.createUser({ ...credentials, email_confirm: true });
     if (created.error) throw created.error;
   } else await client.auth.signOut();
-  console.log('Tài khoản Auth local: user@vecung.test / 12345678. Không tạo hồ sơ, quyền admin hoặc bảng ứng dụng.');
+  console.log('Tài khoản Auth local: user@vecung.test / 12345678. Trigger tạo hồ sơ USER/ACTIVE; không cấp ADMIN hoặc khởi tạo ví.');
 }
 main().catch(() => { console.error('Không tạo được tài khoản mẫu. Kiểm tra Supabase local hoặc email đã tồn tại với mật khẩu khác.'); process.exitCode = 1; });

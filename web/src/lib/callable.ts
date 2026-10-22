@@ -1,5 +1,5 @@
 import type { ApiContracts } from '../../../shared/contracts';
-import { emptyInputSchema, responseSchemas, rpcNames } from '../../../shared/api';
+import { inputSchemas, responseSchemas, rpcNames } from '../../../shared/api';
 import { supabase } from './supabase';
 export { errorMessage } from './errors';
 
@@ -7,7 +7,7 @@ export { errorMessage } from './errors';
 export async function callFunction<K extends keyof ApiContracts>(
   name: K, input: ApiContracts[K]['input'],
 ): Promise<ApiContracts[K]['output']> {
-  const { data, error } = await supabase.rpc(rpcNames[name], { input: emptyInputSchema.parse(input) });
+  const { data, error } = await supabase.rpc(rpcNames[name], { input: inputSchemas[name].parse(input) });
   if (error) throw error;
   return responseSchemas[name].parse(data) as ApiContracts[K]['output'];
 }

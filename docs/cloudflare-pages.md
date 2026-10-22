@@ -29,6 +29,10 @@ Thay URL/key bằng thông tin từ project Supabase cần kết nối. Chỉ d�
 
 Các giá trị được đưa vào frontend lúc build. Sửa env cần build/deploy lại; `.env.local` trên máy không tự được gửi lên Cloudflare. Có thể cấu hình URL/key khác giữa Production và Preview khi team đã có các server riêng. Nếu cùng trỏ một project, cả hai dùng chung dữ liệu; mỗi nhánh Git không có database riêng.
 
+Build hiện kiểm tra URL/key ngay trong `web/vite.config.ts`: thiếu cấu hình, dùng key quyền cao hoặc trỏ localhost/loopback sẽ bị chặn trước khi đóng gói. Client bản build cũng từ chối URL local. Tất cả module dùng chung Supabase client (Auth, hồ sơ, Trip/Booking/ví khi triển khai) chịu cùng cấu hình; không đổi shared contract hay schema.
+
+Chạy `npm run dev:web` trên máy vẫn kết nối Supabase online theo `web/.env.local`; không cần Docker. Backend/test Docker vẫn dùng local theo hướng dẫn riêng. Nếu đang dùng env local để làm backend, `npm run build`/bước build của `npm run check` cần được cung cấp URL/key online qua biến môi trường; không dùng bản build trỏ local để phát hành. CI dùng URL `.invalid` và publishable key mẫu chỉ để kiểm tra đóng gói, còn integration luôn lấy URL/key từ Supabase local, không gọi cloud thật.
+
 Kết quả mong đợi: merge main cập nhật website chính; push dev/feature tạo bản Preview. Không cần thêm job deploy Pages trong GitHub Actions. CI GitHub và build Pages chạy riêng; Pages không tự đợi CI xanh hoặc approval.
 
 Tài liệu chính thức: [build và environment variables](https://developers.cloudflare.com/pages/configuration/build-configuration/), [chọn nhánh deploy](https://developers.cloudflare.com/pages/configuration/branch-build-controls/), [Preview deployments](https://developers.cloudflare.com/pages/configuration/preview-deployments/).
@@ -40,9 +44,9 @@ Sau khi PR nền Supabase/Pages được review và merge vào dev, mở bản P
 1. Trong Deployments, kiểm tra nhánh, mã commit và trạng thái thành công của đúng bản cần thử.
 2. Mở `/tai-khoan` trực tiếp, tải lại trang; các trang `/chuyen-di`, `/dat-chuyen`, `/vi-diem` cũng phải mở được.
 3. Dùng tài khoản thử có trên Supabase server để login. Tài khoản local không tự chuyển lên server.
-4. Nếu cần xác nhận địa chỉ server: Chrome `⌘⌥I` → Network → đăng nhập → tìm request `auth/v1/token`. Địa chỉ phải là project Supabase đã chọn, phản hồi 200; UI hiện email đã đăng nhập. Tải lại rồi logout để thử phiên.
+4. Nếu cần xác nhận địa chỉ server: Windows nhấn `F12` → Network → đăng nhập → tìm request `auth/v1/token?grant_type=password`. Địa chỉ phải là project Supabase đã chọn, phản hồi 200; UI hiện email đã đăng nhập. Tải lại rồi logout để thử phiên.
 
-Nếu hồ sơ báo chưa triển khai thì Auth vẫn có thể đã thành công; repo chưa có API/bảng hồ sơ, Trip, Booking hoặc ví. Deployment thành công chỉ xác nhận build/hosting, chưa chứng minh nghiệp vụ đúng.
+Nếu hồ sơ báo chưa triển khai thì Auth vẫn có thể đã thành công; server đang thiếu migration/RPC hồ sơ có trong repo. Trip, Booking hoặc ví vẫn thiếu backend. Deployment thành công chỉ xác nhận build/hosting, chưa chứng minh nghiệp vụ đúng.
 
 Pages phục vụ app React cho URL sâu nếu không có file `404.html` ở gốc output. Repo không có file này, nên dùng hành vi mặc định của Pages; không cần Worker để sửa routing. Xem [SPA trên Pages](https://developers.cloudflare.com/pages/configuration/serving-pages/).
 
@@ -62,11 +66,12 @@ Không xóa dự án Pages. Bỏ file Workers trong Git không tự xóa Worker 
 | Hiện tượng | Kiểm tra |
 |---|---|
 | Pages báo thiếu cấu hình Supabase | URL/key đã đặt đúng Production hoặc Preview chưa; build lại sau khi đổi |
-| Trình duyệt gọi localhost | Build đang dùng URL local; đặt URL Supabase server rồi build lại |
+| Build báo không được trỏ localhost | Đặt URL Supabase online cho đúng Production/Preview rồi build lại; không bỏ kiểm tra |
 | Chỉ Production login được | Preview cũng cần URL/key và tài khoản của đúng server |
-| Sai mật khẩu hoặc email chưa xác nhận | Kiểm tra Auth user trên server, không dùng tài khoản seed local; hoàn thành xác nhận email nếu server yêu cầu |
+| Sai mật khẩu hoặc email chưa xác nhận | Kiểm tra Auth user trên server, không dùng tài khoản seed local; nếu cần xác minh thì mở email mới nhất hoặc dùng nút gửi lại trên form |
 | URL sâu lỗi | Output có đúng `web/dist`, có `index.html` và không có `404.html` ở gốc không |
 | Còn thấy hai build trên PR | Worker vẫn còn Git integration hoặc chưa bị xóa trên Dashboard |
-| Cần xác nhận email/reset password sau này | Lead cấu hình Site URL/Redirect URLs trong Supabase Auth cho domain Pages; login email/password hiện tại không dùng luồng redirect |
+| Link xác minh quay sai website | Cho phép `https://feat-auth.it3180.pages.dev/tai-khoan`, đặt Site URL `https://feat-auth.it3180.pages.dev` và kiểm tra template ConfirmationURL; gửi email mới sau khi sửa |
+| Login vẫn ở localhost hoặc bản online chưa tự mở trang chủ | Deploy đúng bản có `auth-redirect.ts`; đích thành công cố định `https://feat-auth.it3180.pages.dev/chuyen-di`, phiên đổi origin được SDK nhận qua fragment |
 
 Push/merge Git chỉ cập nhật frontend theo cấu hình Pages. Migrations, quyền truy cập và API Supabase vẫn qua review/test local rồi lead cập nhật server; không reset database online hoặc bỏ guard deploy để chạy nhanh.

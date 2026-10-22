@@ -15,7 +15,7 @@ Team là sinh viên năm 3, chưa có nhiều kinh nghiệm. Bắt đầu bằng
 
 **Mọi người đều sửa code trên máy.** GitHub giữ code; Supabase giữ tài khoản và database. Gửi code lên GitHub không tự đưa thay đổi lên Supabase.
 
-Hiện repo có login/logout và test Auth. Chưa có bảng/API hồ sơ, Trip (chuyến), Booking (yêu cầu đi cùng), ví. Các kế hoạch module là việc cần làm, không phải chức năng đã hoàn thành.
+Repo đã bổ sung đăng ký/hồ sơ/admin và migration `users` theo thiết kế nhóm cung cấp; xem [phạm vi và kết quả kiểm thử Auth](auth-module.md). Chưa áp dụng bản này lên server. Trip (chuyến), Booking (yêu cầu đi cùng), ví vẫn chưa có backend; các kế hoạch đó chưa phải chức năng đã hoàn thành.
 
 ## 2. Chọn cách chạy
 
@@ -60,7 +60,7 @@ CI là bộ kiểm tra GitHub tự chạy khi có PR. “CI xanh” nghĩa là c
 
 Ví dụ: cần thêm cột ghi chú cho chuyến. Chỉ thêm bằng nút trong Studio trên máy bạn thì máy bạn khác vẫn chưa có cột. Ghi thay đổi trong migration rồi gửi PR giúp cả nhóm đồng bộ được.
 
-Chỉ làm phần này khi đã cùng team thống nhất bảng/cột/quyền cần có. Repo chưa có bảng ứng dụng; hướng dẫn này không quyết định schema thay team.
+Chỉ làm phần này khi đã cùng team thống nhất bảng/cột/quyền cần có. Repo có migration Auth `users` dựa trên thiết kế đã cung cấp; các bảng module khác vẫn cần được chốt riêng. Server đã có bảng phải đối chiếu lịch sử/schema trước, không chạy lại CREATE TABLE hoặc reset remote.
 
 ### Bước A — mở Supabase local
 
@@ -92,7 +92,7 @@ npm run seed:local
 npm run check
 ```
 
-Mong đợi: các bảng/hàm được tạo lại đúng và test qua. `seed` nghĩa là tạo dữ liệu mẫu; script hiện chỉ tạo tài khoản Auth, chưa tạo hồ sơ/Booking/ví. Dữ liệu mẫu cho phần nghiệp vụ phải được owner bổ sung khi bảng đã có.
+Mong đợi: các bảng/hàm được tạo lại đúng và test qua. `seed` nghĩa là tạo dữ liệu mẫu; script tạo tài khoản Auth và trigger tự tạo hồ sơ USER/ACTIVE. Không cấp ADMIN hoặc tạo Booking/ví. Dữ liệu mẫu cho phần nghiệp vụ phải được owner bổ sung khi bảng đã có.
 
 Gửi migration, code và test cùng một PR. Không sửa file migration đã merge/đã chạy trên server; muốn sửa tiếp thì tạo migration mới. Nếu bị lỗi thứ tự file, trao đổi với lead, không tự bỏ qua lịch sử.
 
@@ -100,7 +100,7 @@ Cách quản lý bằng file này dựa trên [hướng dẫn migrations của S
 
 ## 6. Test cần hiểu và tự thử
 
-Unit test kiểm tra một phần nhỏ của code. Integration test kiểm tra code làm việc với Supabase thật trên máy. `npm run test:local` chạy cả hai; `npm run check` thêm kiểm tra TypeScript và build. Các test hiện có chỉ kiểm tra nền/Auth, chưa chứng minh Booking/ví đúng.
+Unit test kiểm tra code nhỏ, giao diện và SQL/quyền trên PostgreSQL nhúng; test SQL này mô phỏng claim Auth. Integration test mới kiểm tra với Supabase thật trên máy. `npm run test:local` chạy cả hai; `npm run check` thêm kiểm tra TypeScript và build. Test Auth/hồ sơ/admin chưa chứng minh Booking/ví đúng.
 
 | Phần bạn làm | Ví dụ phải thử |
 |---|---|
