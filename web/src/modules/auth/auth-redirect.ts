@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 
-export const AUTH_SITE_ORIGIN = 'https://feat-auth.it3180.pages.dev';
+export const AUTH_SITE_ORIGIN = 'https://it3180.pages.dev';
 // Website đã chốt cho link xác minh email; không gửi link xác minh về localhost.
 // URL này phải được cho phép trong Supabase Authentication → URL Configuration.
 export const AUTH_EMAIL_REDIRECT_URL = `${AUTH_SITE_ORIGIN}/tai-khoan`;

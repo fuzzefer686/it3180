@@ -72,9 +72,9 @@ describe('Contract và cấu hình Supabase', () => {
     expect(errorMessage({ code: 'user_already_exists', message: 'internal auth detail' })).not.toContain('internal');
   });
   it('callback dùng website đã chốt và đích thành công là trang chủ chuyến đi', () => {
-    expect(AUTH_EMAIL_REDIRECT_URL).toBe('https://feat-auth.it3180.pages.dev/tai-khoan');
+    expect(AUTH_EMAIL_REDIRECT_URL).toBe('https://it3180.pages.dev/tai-khoan');
     expect(AUTH_SUCCESS_PATH).toBe('/chuyen-di');
-    expect(AUTH_SUCCESS_URL).toBe('https://feat-auth.it3180.pages.dev/chuyen-di');
+    expect(AUTH_SUCCESS_URL).toBe('https://it3180.pages.dev/chuyen-di');
     expect(isAuthCallback({ hash: '#access_token=demo&type=signup', search: '' })).toBe(true);
     expect(isAuthCallback({ hash: '', search: '?code=demo' })).toBe(true);
     expect(isAuthCallback({ hash: '', search: '' })).toBe(false);
