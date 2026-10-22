@@ -3,6 +3,7 @@ import { TripsPage } from './TripsPage';
 import { TripFormPage } from './TripFormPage';
 import { TripDetailPage } from './TripDetailPage';
 import { TripResults } from './TripResults';
+import { RouteMap } from './RouteMap';
 import { RequireSession } from '../auth/RequireSession';
 import { useSession } from '../auth/SessionProvider';
 import './trips.css';
@@ -12,6 +13,12 @@ export function TripsModule() {
   const { user } = useSession();
   return <Routes>
     <Route index element={<TripsPage />} />
+    <Route path="ban-do" element={<section className="trip-page">
+      <Link to="/chuyen-di">← Tìm chuyến</Link>
+      <h1>Bản đồ VietMap</h1>
+      <p>Kéo để di chuyển, dùng nút + và − để phóng to hoặc thu nhỏ bản đồ.</p>
+      <RouteMap />
+    </section>} />
     <Route path="dang" element={<RequireSession><TripFormPage key={user?.id} /></RequireSession>} />
     <Route path="cua-toi" element={<RequireSession><section className="trip-page">
       <Link to="/chuyen-di">← Tìm chuyến</Link><h1>Chuyến tôi đăng</h1>
