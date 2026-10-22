@@ -3,12 +3,21 @@ import { cliEntry } from '../../scripts/cli-entry';
 import { cliEnv, localSupabaseConfig } from '../../scripts/local-supabase';
 
 // Fixture dùng kết nối database local, không nới quyền service_role trên server.
-export function localQuery<T>(sql: string): T[] {
+function runLocalSql(sql: string): string {
   localSupabaseConfig();
-  const output = execFileSync(process.execPath,
+  return execFileSync(process.execPath,
     [cliEntry('supabase'), 'db', 'query', '--local', sql, '-o', 'json'],
     { encoding: 'utf8', env: cliEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+export function localQuery<T>(sql: string): T[] {
+  const output = runLocalSql(sql);
   return (JSON.parse(output) as { rows: T[] }).rows;
+}
+
+// UPDATE/DELETE không có RETURNING trả command tag (ví dụ DELETE 1), không phải JSON.
+export function localExecute(sql: string): void {
+  runLocalSql(sql);
 }
 
 export function localUserId(id: string): string {
@@ -18,5 +27,5 @@ export function localUserId(id: string): string {
 
 export function removeLocalProfiles(ids: string[]): void {
   if (ids.length === 0) return;
-  localQuery('delete from public.users where id in (' + ids.map(localUserId).join(',') + ')');
+  localExecute('delete from public.users where id in (' + ids.map(localUserId).join(',') + ')');
 }

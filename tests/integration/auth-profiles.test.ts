@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { localSupabaseClients } from '../../scripts/local-supabase';
 import { profileInputFixture } from '../fixtures/auth';
 import { userProfileSchema } from '../../shared/contracts';
-import { localQuery, localUserId, removeLocalProfiles } from '../fixtures/local-database';
+import { localExecute, localQuery, localUserId, removeLocalProfiles } from '../fixtures/local-database';
 
 const { admin, url, publicKey, options } = localSupabaseClients();
 const member = createClient(url, publicKey, options);
@@ -28,7 +28,7 @@ beforeEach(async () => {
   removeLocalProfiles(ids);
   for (const client of [member, other, reviewer]) await profile(client);
   // Chỉ SQL fixture local cấp admin; không mở quyền ghi bảng qua API.
-  localQuery("update public.users set roles=array['USER','ADMIN'] where id=" + localUserId(ids[2]));
+  localExecute("update public.users set roles=array['USER','ADMIN'] where id=" + localUserId(ids[2]));
 });
 afterAll(async () => {
   const errors: unknown[] = [];
