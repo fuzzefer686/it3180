@@ -15,9 +15,27 @@ it('DELETE và UPDATE trả command tag vẫn hoàn tất; chỉ gọi database 
   for (const call of mocks.exec.mock.calls) expect(call[1]).toContain('--local');
 });
 
-it('SELECT đọc rows JSON, không che lỗi đầu ra hoặc lỗi SQL', () => {
+it('SELECT trong CI trả mảng trực tiếp: đọc được count, hồ sơ và kết quả rỗng', () => {
+  mocks.exec.mockReturnValueOnce('[{"count":1}]\n');
+  expect(localQuery('select count(*)::int as count from public.users')).toEqual([{ count: 1 }]);
+  mocks.exec.mockReturnValueOnce('[{"id":"demo","roles":["USER"],"status":"ACTIVE"}]\n');
+  expect(localQuery('select id,roles,status from public.users')).toEqual([
+    { id: 'demo', roles: ['USER'], status: 'ACTIVE' },
+  ]);
+  mocks.exec.mockReturnValueOnce('[]\n');
+  expect(localQuery('select id from public.users where false')).toEqual([]);
+});
+
+it('SELECT ở chế độ agent đọc được rows JSON', () => {
   mocks.exec.mockReturnValueOnce('{"rows":[{"count":1}]}');
   expect(localQuery('select count(*) from public.users')).toEqual([{ count: 1 }]);
+});
+
+it('không che lỗi đầu ra hoặc lỗi SQL', () => {
+  for (const output of ['{}', 'null', '{"rows":null}', '{"rows":{}}']) {
+    mocks.exec.mockReturnValueOnce(output);
+    expect(() => localQuery('select 1')).toThrow('Supabase CLI');
+  }
   mocks.exec.mockReturnValueOnce('invalid output');
   expect(() => localQuery('select 1')).toThrow();
   mocks.exec.mockImplementationOnce(() => { throw new Error('SQL failed'); });

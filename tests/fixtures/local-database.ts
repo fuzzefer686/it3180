@@ -12,7 +12,13 @@ function runLocalSql(sql: string): string {
 
 export function localQuery<T>(sql: string): T[] {
   const output = runLocalSql(sql);
-  return (JSON.parse(output) as { rows: T[] }).rows;
+  // CLI trả mảng khi chạy thường/CI, hoặc { rows } khi bật chế độ agent.
+  const result = JSON.parse(output) as T[] | { rows?: T[] } | null;
+  const rows = Array.isArray(result) ? result : result?.rows;
+  if (!Array.isArray(rows)) {
+    throw new Error('Supabase CLI không trả danh sách dòng JSON hợp lệ.');
+  }
+  return rows;
 }
 
 // UPDATE/DELETE không có RETURNING trả command tag (ví dụ DELETE 1), không phải JSON.
