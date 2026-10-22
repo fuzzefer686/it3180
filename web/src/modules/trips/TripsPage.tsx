@@ -53,7 +53,6 @@ export function TripsPage() {
       <div className="quick-destinations"><span>Chọn nhanh điểm đến</span><div>{destinations.map(place => <button key={place} type="button" className={`destination-chip${destination === place ? ' selected' : ''}`} aria-pressed={destination === place} onClick={() => { setDestination(place); setSearched(false); setError(''); originInput.current?.focus(); }}>{place}<ArrowRight size={14}/></button>)}</div></div>
     </section>
     <div className="trip-toolbar">
-      <Link className="button secondary" to="/chuyen-di/ban-do">Xem bản đồ</Link>
       {user && <Link className="button secondary" to="/chuyen-di/cua-toi">Chuyến tôi đăng</Link>}
       {profile?.eligibility.canDrive && <>
         <Link className="button primary" to="/chuyen-di/dang">Đăng chuyến</Link>

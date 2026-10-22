@@ -29,17 +29,12 @@ lại Vite. REST key và service-role key chỉ ở backend, không đặt vào 
 | `/tai-khoan` | Đăng ký, đăng nhập, hoàn thiện hồ sơ và xe |
 | `/quan-tri` | Admin duyệt sinh viên/tài xế, khóa/mở tài khoản |
 | `/chuyen-di` | Tìm chuyến theo điểm đi, điểm đến, ngày |
-| `/chuyen-di/ban-do` | Xem bản đồ VietMap, không cần đăng nhập hoặc RPC Trip |
 | `/chuyen-di/dang` | Chọn 2–8 điểm, giờ đi/đến, xem tuyến và đăng chuyến |
 | `/chuyen-di/cua-toi` | Chuyến tài xế đã đăng |
 | `/chuyen-di/:tripId` | Bản đồ, khoảng cách từng đoạn, bắt đầu/hủy/kết thúc |
 | `/chuyen-di/:tripId/sua` | Sửa chuyến còn mở và chưa nhận khách |
 
 Trong mục “Chuyến của tôi”, nút “Tôi cầm lái” mở `/chuyen-di/cua-toi`.
-Để xem bản đồ ngay, bấm “Xem bản đồ” tại trang tìm chuyến hoặc mở
-http://127.0.0.1:5173/chuyen-di/ban-do. Trang này tải nền bản đồ thật bằng
-`VITE_VIETMAP_MAP_KEY` trong `web/.env.local`; không cần REST key, hồ sơ tài xế
-hoặc migration Trip. Tìm địa điểm/tính tuyến/đăng chuyến vẫn dùng backend như bên dưới.
 Phần hành khách và nhận khách thuộc Booking của Người 4, chưa triển khai trong nhánh này.
 
 ## Luồng hoạt động
