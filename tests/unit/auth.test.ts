@@ -5,6 +5,7 @@ import { authReturnPath, loginInputSchema, signupInputSchema } from '../../web/s
 import { profileFixture, profileInputFixture } from '../fixtures/auth';
 import { errorMessage } from '../../web/src/lib/errors';
 import { readSupabaseConfig } from '../../web/src/lib/supabase-config';
+import { AUTH_EMAIL_REDIRECT_URL, AUTH_SUCCESS_PATH, AUTH_SUCCESS_URL, authCallbackError, isAuthCallback } from '../../web/src/modules/auth/auth-redirect';
 
 describe('Contract và cấu hình Supabase', () => {
   it('không nhận quyền lạ hoặc field giả quyền trong API nền', () => {
@@ -35,6 +36,16 @@ describe('Contract và cấu hình Supabase', () => {
     const anon = `header.${btoa(JSON.stringify({ role: 'anon' }))}.signature`;
     expect(readSupabaseConfig({ ...env, VITE_SUPABASE_PUBLISHABLE_KEY: anon }).key).toBe(anon);
   });
+  it('bản phát hành chặn localhost và loopback, chấp nhận Supabase online', () => {
+    const key = { VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
+    for (const url of ['http://localhost:54321', 'https://localhost:54321', 'http://localhost.:54321',
+      'http://dev.localhost:54321', 'http://127.0.0.1:54321', 'http://127.0.0.2:54321',
+      'http://0.0.0.0:54321', 'http://[::1]:54321', 'http://[::]:54321']) {
+      expect(() => readSupabaseConfig({ ...key, VITE_SUPABASE_URL: url }, { allowLocal: false })).toThrow('không được trỏ tới localhost');
+    }
+    const online = { ...key, VITE_SUPABASE_URL: 'https://example.supabase.co' };
+    expect(readSupabaseConfig(online, { allowLocal: false }).url).toBe(online.VITE_SUPABASE_URL);
+  });
   it('chuẩn hóa email nhưng giữ nguyên mật khẩu; login không áp chính sách mật khẩu mới', () => {
     expect(loginInputSchema.parse({ email: ' demo@example.com ', password: ' pass ' })).toEqual({ email: 'demo@example.com', password: ' pass ' });
     expect(signupInputSchema.safeParse({ email: 'demo@example.com', password: '1234567', confirmPassword: '1234567' }).success).toBe(false);
@@ -53,9 +64,27 @@ describe('Contract và cấu hình Supabase', () => {
     expect(authReturnPath(null)).toBeNull();
   });
   it('dịch lỗi email chưa xác nhận, đăng ký bị tắt và mật khẩu yếu mà không lộ lỗi thô', () => {
-    expect(errorMessage({ code: 'email_not_confirmed' })).toContain('xác nhận email');
+    expect(errorMessage({ code: 'email_not_confirmed' })).toContain('Vui lòng xác minh email');
+    expect(errorMessage({ code: 'auth_session_missing' })).toContain('Chưa nhận được phiên đăng nhập');
+    expect(errorMessage({ code: 'email_address_not_authorized' })).toContain('cấu hình dịch vụ gửi email');
     expect(errorMessage({ code: 'signup_disabled' })).toContain('chưa cho phép đăng ký');
     expect(errorMessage({ code: 'weak_password' })).toContain('Mật khẩu');
     expect(errorMessage({ code: 'user_already_exists', message: 'internal auth detail' })).not.toContain('internal');
+  });
+  it('callback dùng website đã chốt và đích thành công là trang chủ chuyến đi', () => {
+    expect(AUTH_EMAIL_REDIRECT_URL).toBe('https://feat-auth.it3180.pages.dev/tai-khoan');
+    expect(AUTH_SUCCESS_PATH).toBe('/chuyen-di');
+    expect(AUTH_SUCCESS_URL).toBe('https://feat-auth.it3180.pages.dev/chuyen-di');
+    expect(isAuthCallback({ hash: '#access_token=demo&type=signup', search: '' })).toBe(true);
+    expect(isAuthCallback({ hash: '', search: '?code=demo' })).toBe(true);
+    expect(isAuthCallback({ hash: '', search: '' })).toBe(false);
+    expect(isAuthCallback({ hash: '#access_token=demo&type=recovery', search: '' })).toBe(false);
+  });
+  it('callback chỉ lấy mã lỗi an toàn, không dùng nội dung lỗi hoặc URL đích bên ngoài', () => {
+    expect(authCallbackError({ hash: '#error=access_denied&error_code=otp_expired&error_description=secret', search: '' })).toBe('otp_expired');
+    expect(authCallbackError({ hash: '', search: '?error_code=flow_state_expired' })).toBe('flow_state_expired');
+    expect(authCallbackError({ hash: '#error_description=secret', search: '' })).toBeNull();
+    expect(authCallbackError({ hash: '#error=unknown', search: '' })).toBe('auth_callback_failed');
+    expect(authCallbackError({ hash: '', search: '?error_code=untrusted&next=https://example.com' })).toBe('auth_callback_failed');
   });
 });

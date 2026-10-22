@@ -1,30 +1,54 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { errorMessage } from '../../lib/callable';
 import { useSession } from './SessionProvider';
 import { ProfileForm } from './ProfileForm';
-import { authReturnPath, loginInputSchema, signupInputSchema } from './auth-validation';
+import { loginInputSchema, signupInputSchema } from './auth-validation';
+import { AUTH_EMAIL_REDIRECT_URL, AUTH_SITE_ORIGIN, AUTH_SUCCESS_PATH, authBrowser, authCallbackError, authSessionRedirectUrl, isAuthCallback } from './auth-redirect';
 
 const verificationLabels = { VERIFIED: 'Đã duyệt', PENDING: 'Chờ duyệt', REJECTED: 'Bị từ chối' };
 const roleLabels = { USER: 'Hành khách', DRIVER: 'Tài xế', ADMIN: 'Quản trị viên' };
 export function AuthPage() {
   const { user, profile, loading, profileLoading, profileError, refreshProfile } = useSession();
   const location = useLocation();
-  const returnTo = authReturnPath(location.state);
+  const [arrivedFromAuth] = useState(() => isAuthCallback(location));
+  const [authCompleted, setAuthCompleted] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const code = authCallbackError(location);
+    return code ? errorMessage({ code }) : '';
+  });
   const [signupResult, setSignupResult] = useState<{ email: string; requiresConfirmation: boolean } | null>(null);
   const [resendNotice, setResendNotice] = useState('');
   const pending = useRef(false);
   const signingUp = mode === 'signup';
   const signupConfirmed = Boolean(signupResult?.requiresConfirmation && user?.email?.toLowerCase() === signupResult.email.toLowerCase());
+  const signupProfileReady = Boolean(signupResult && (!signupResult.requiresConfirmation || signupConfirmed) && user &&
+    profile?.uid === user.id && !profileLoading && !profileError);
+  const readyToRedirect = Boolean(!loading && user && (authCompleted || arrivedFromAuth || signupConfirmed) && !busy && !error &&
+    (!signupResult?.requiresConfirmation || signupConfirmed));
+  const onAuthSite = authBrowser.origin() === AUTH_SITE_ORIGIN;
+  const uid = user?.id;
+  useEffect(() => {
+    if (!readyToRedirect || onAuthSite) return;
+    let active = true;
+    async function returnToWebsite() {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      if (!data.session || data.session.user.id !== uid) throw { code: 'auth_session_missing' };
+      const url = authSessionRedirectUrl(data.session);
+      if (active) authBrowser.replace(url);
+    }
+    void returnToWebsite().catch(err => { if (active) setError(errorMessage(err)); });
+    return () => { active = false; };
+  }, [readyToRedirect, onAuthSite, uid]);
   function clearMessages() { setError(''); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,18 +60,21 @@ export function AuthPage() {
     pending.current = true; setBusy(true);
     try {
       if (signingUp) {
-        setSignupResult(null); setResendNotice('');
-        const { data, error } = await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: `${window.location.origin}/tai-khoan` } });
+        setSignupResult(null); setResendNotice(''); setAuthCompleted(false);
+        const { data, error } = await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: AUTH_EMAIL_REDIRECT_URL } });
         if (error) throw error;
-        if (!data.user && !data.session) throw new Error('Missing signup result');
+        if (!data.user && !data.session) throw { code: 'auth_signup_result_missing' };
         setSignupResult({ email: credentials.email, requiresConfirmation: !data.session });
-        if (!data.session) {
-          setMode('login');
-        }
+        setAuthCompleted(Boolean(data.session));
+        if (!data.session) setMode('login');
       } else {
-        const { error } = await supabase.auth.signInWithPassword(credentials);
-        if (error) throw error;
-        setSignupResult(null); setResendNotice('');
+        const { data, error } = await supabase.auth.signInWithPassword(credentials);
+        if (error) {
+          if (error.code === 'email_not_confirmed') setSignupResult({ email: credentials.email, requiresConfirmation: true });
+          throw error;
+        }
+        if (!data.user || !data.session) throw { code: 'auth_session_missing' };
+        setSignupResult(null); setResendNotice(''); setAuthCompleted(true);
       }
       setPassword(''); setConfirmPassword(''); setShowPassword(false);
     } catch (err) { setError(errorMessage(err)); }
@@ -56,39 +83,43 @@ export function AuthPage() {
   async function logout() {
     if (pending.current) return;
     pending.current = true; setBusy(true); clearMessages();
-    try { const { error } = await supabase.auth.signOut(); if (error) throw error; setSignupResult(null); setResendNotice(''); }
+    try { const { error } = await supabase.auth.signOut(); if (error) throw error; setSignupResult(null); setResendNotice(''); setAuthCompleted(false); }
     catch (err) { setError(errorMessage(err)); }
     finally { pending.current = false; setBusy(false); }
   }
   async function resendConfirmation() {
     if (pending.current || !signupResult?.requiresConfirmation || signupConfirmed) return;
-    pending.current = true; setBusy(true); setError(''); setResendNotice('');
+    pending.current = true; setBusy(true); clearMessages(); setResendNotice('');
     try {
       const { error } = await supabase.auth.resend({ type: 'signup', email: signupResult.email,
-        options: { emailRedirectTo: `${window.location.origin}/tai-khoan` } });
+        options: { emailRedirectTo: AUTH_EMAIL_REDIRECT_URL } });
       if (error) throw error;
-      setResendNotice('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh.');
+      setResendNotice('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh mới nhất.');
     } catch (err) { setError(errorMessage(err)); }
     finally { pending.current = false; setBusy(false); }
   }
-  if (!loading && user && returnTo && !signupResult && !(busy && signingUp)) return <Navigate to={returnTo} replace/>;
+  if (readyToRedirect) return onAuthSite ? <Navigate to={AUTH_SUCCESS_PATH} replace/>
+    : <p role="status">Đang trở về website Về Cùng…</p>;
   return <div className="inner-page account-page">
     <header className="page-heading"><h1>Tài khoản</h1><p>Một hồ sơ rõ ràng, thêm an tâm khi đi cùng.</p></header>
     {signupResult && <section className="notice signup-feedback" aria-labelledby="signup-result-title">
-      <Mail size={24}/><div>
-        <div role="status" aria-live="polite"><h2 id="signup-result-title">{signupResult.requiresConfirmation && !signupConfirmed ? 'Kiểm tra email để xác minh tài khoản' : signupConfirmed ? 'Email đã được xác nhận' : 'Tài khoản đã sẵn sàng'}</h2>
+      <ShieldCheck size={24}/><div>
+        <div role="status" aria-live="polite"><h2 id="signup-result-title">{signupResult.requiresConfirmation && !signupConfirmed
+          ? 'Kiểm tra email để hoàn tất đăng ký' : signupProfileReady ? 'Tài khoản đã sẵn sàng' : 'Đang hoàn tất hồ sơ tài khoản'}</h2>
           <p>{signupResult.requiresConfirmation && !signupConfirmed
-            ? `Kiểm tra hộp thư ${signupResult.email} và thư rác. Nếu địa chỉ đủ điều kiện đăng ký, hãy mở liên kết xác nhận email trước khi đăng nhập. Nếu đã có tài khoản, bạn có thể đăng nhập ngay.`
-            : signupConfirmed ? 'Email đã được xác nhận. Bạn có thể hoàn thiện hồ sơ sinh viên bên dưới.' : 'Server đã cho phép đăng nhập ngay. Bạn có thể hoàn thiện hồ sơ sinh viên bên dưới.'}</p></div>
+            ? `Vui lòng mở email xác minh gửi tới ${signupResult.email}. Sau khi xác minh thành công, liên kết sẽ đưa bạn về website Về Cùng. Nếu đã có tài khoản, hãy đăng nhập.`
+            : signupProfileReady ? 'Bạn đã đăng nhập và hồ sơ đã được lưu. Bạn có thể hoàn thiện hồ sơ sinh viên bên dưới.'
+            : profileError ? 'Tài khoản đăng nhập đã được tạo nhưng chưa tải được hồ sơ. Vui lòng dùng nút Tải lại hồ sơ bên dưới.'
+              : 'Tài khoản đăng nhập đã được tạo. Đang tải hồ sơ của bạn.'}</p></div>
         {signupResult.requiresConfirmation && !signupConfirmed && <button className="text-button" type="button" disabled={busy} onClick={resendConfirmation}>{busy ? 'Đang xử lý...' : 'Gửi lại email xác minh'}</button>}
         {resendNotice && <p className="form-notice" role="status">{resendNotice}</p>}
-        {user && returnTo && <Link className="text-link" to={returnTo}>Tiếp tục đến trang đã chọn<ArrowRight size={17}/></Link>}
       </div>
     </section>}
     <div className="account-layout">
       <section className="account-panel">
         {loading ? <div className="content-skeleton" role="status" aria-label="Đang tải tài khoản"><div/><div/><div/></div> : user ? <>
           <div className="profile-identity"><span className="profile-avatar" aria-hidden="true">{(profile?.displayName ?? user.email ?? 'V').slice(0, 1).toUpperCase()}</span><div><h2>{profile?.displayName ?? 'Tài khoản của bạn'}</h2><p>{user.email}</p></div></div>
+          {!signupResult && <p className="account-description" role="status">Bạn đã đăng nhập.</p>}
           {profileLoading && <p className="account-description" role="status">Đang tải hồ sơ...</p>}
           {profile && <>
             <p className="verification-badge"><ShieldCheck size={17}/>Sinh viên: {verificationLabels[profile.studentVerificationStatus]}</p>
@@ -103,12 +134,14 @@ export function AuthPage() {
             {profile.status === 'ACTIVE' && profile.roles.includes('ADMIN') && <Link className="text-link" to="/quan-tri">Quản trị hồ sơ<ArrowRight size={17}/></Link>}
           </>}
           {profileError && <p className="form-error" role="alert">{profileError}</p>}
-          <div className="profile-actions"><button className="button secondary" disabled={profileLoading || busy} onClick={refreshProfile}><RefreshCw size={17}/>Tải lại hồ sơ</button><button className="text-button" disabled={busy} onClick={logout}><LogOut size={17}/>{busy ? 'Đang đăng xuất...' : 'Đăng xuất'}</button></div>
+          <div className="profile-actions">
+            <button className="button secondary" disabled={profileLoading || busy} onClick={refreshProfile}><RefreshCw size={17}/>Tải lại hồ sơ</button><button className="text-button" disabled={busy} onClick={logout}><LogOut size={17}/>{busy ? 'Đang đăng xuất...' : 'Đăng xuất'}</button>
+          </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           {profile && <ProfileForm profile={profile} onSaved={refreshProfile}/>}
         </> : <>
           <h2>{signingUp ? 'Tạo tài khoản Về Cùng.' : 'Chào bạn trở lại.'}</h2>
-          <p className="account-description">{signingUp ? 'Đăng ký email, sau đó hoàn thiện hồ sơ để được duyệt.' : returnTo ? 'Đăng nhập để tiếp tục đến trang bạn đã chọn.' : 'Đăng nhập để sẵn sàng cho chuyến đi cùng.'}</p>
+          <p className="account-description">{signingUp ? 'Đăng ký bằng email và mật khẩu để tạo tài khoản Về Cùng.' : 'Đăng nhập để quản lý tài khoản và hồ sơ của bạn.'}</p>
           <form className="login-form" onSubmit={submit} noValidate aria-busy={busy}>
             <div className="form-field"><label htmlFor="email">Email</label><div className="form-input"><Mail size={19}/><input id="email" name="email" type="email" autoComplete="username" placeholder="Email của bạn" value={email} required disabled={busy} onChange={event => { setEmail(event.target.value); clearMessages(); }}/></div></div>
             <div className="form-field"><label htmlFor="password">Mật khẩu</label><div className="form-input"><LockKeyhole size={19}/><input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete={signingUp ? 'new-password' : 'current-password'} placeholder={signingUp ? 'Ít nhất 8 ký tự' : 'Nhập mật khẩu'} value={password} required minLength={signingUp ? 8 : undefined} disabled={busy} aria-describedby={signingUp ? 'password-hint' : undefined} onChange={event => { setPassword(event.target.value); clearMessages(); }}/><button className="icon-button" type="button" disabled={busy} aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div>{signingUp && <p id="password-hint" className="field-hint">Tối thiểu 8 ký tự; server có thể yêu cầu mật khẩu mạnh hơn.</p>}</div>

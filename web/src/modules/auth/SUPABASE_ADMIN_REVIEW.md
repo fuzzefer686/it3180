@@ -159,8 +159,8 @@ npm.cmd run check
 **Cấu hình trong Dashboard Supabase:**
 
 - Email/password provider và đăng ký email được bật theo chính sách demo của nhóm. Mật khẩu tối thiểu 8 ký tự, thống nhất với form; server có thể yêu cầu mạnh hơn.
-- Chốt bật/tắt Confirm Email. Local đang tắt; nếu server bật, kiểm tra email xác nhận gửi được và tài khoản chưa xác nhận không login được.
-- Site URL trỏ tới frontend dev thực tế; Redirect URLs có `http://127.0.0.1:5173/tai-khoan`, `http://localhost:5173/tai-khoan` nếu dùng các địa chỉ này, và `https://TEN_FRONTEND_DEV/tai-khoan` thực tế. Form dùng `${window.location.origin}/tai-khoan`, nên origin chạy UI phải nằm trong cấu hình đã cho phép.
+- Theo yêu cầu hiện hành 22/10/2026, giữ email/password provider và đăng ký tài khoản được bật; frontend hỗ trợ cả server bật hoặc tắt Confirm email, không tự chặn signup vì cần xác minh. Local vẫn đặt `enable_confirmations = false`. Auth settings online không tự đổi khi push Git hoặc chạy migration.
+- Signup và gửi lại email dùng callback `https://feat-auth.it3180.pages.dev/tai-khoan`; cần thêm vào Redirect URLs, đặt Site URL `https://feat-auth.it3180.pages.dev`, cấu hình template phù hợp và gửi được email nếu bật xác minh. Có phiên hợp lệ thì frontend tự mở `https://feat-auth.it3180.pages.dev/chuyen-di`, kể cả từ localhost, giữ phiên qua callback implicit của SDK khi đổi origin. Gửi lại email mới sau khi sửa cấu hình; link email cũ không tự cập nhật. Cần triển khai trigger `auth_create_app_profile` để tạo dòng `public.users` cùng ID Auth, kiểm tra hồ sơ trước RPC bootstrap. Xem [hướng dẫn Auth/callback/database](./SUPABASE_SIGNUP_FIX.md).
 - Data API được bật, schema `public` được expose. Không expose schema `private` hoặc mở quyền bảng `users` để thay cho RPC.
 
 **Cấu hình frontend:** điền URL và publishable key đúng project vào `web/.env.local`, rồi khởi động lại `npm.cmd run dev:web`:

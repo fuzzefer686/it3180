@@ -1,5 +1,76 @@
 # Kiểm chứng Supabase Auth và hồ sơ
 
+## Sửa đích về domain Pages, xác định lỗi nằm ở link email — 22/10/2026
+
+- Người dùng chốt website **`https://feat-auth.it3180.pages.dev`**, trang sau Auth **`/chuyen-di`**, và xác nhận localhost xuất hiện **khi mở link xác minh trong email**. Các URL trong email đã phát hành không tự đổi khi sửa code. Cần phân biệt đường dẫn Supabase tạo với điều hướng sau khi app đã nhận phiên.
+- `AuthPage` trước đây dùng đường dẫn tương đối `/chuyen-di`, giữ origin hiện tại. Nay nếu origin khác domain đã chốt, lấy phiên bằng SDK, kiểm tra đúng uid rồi `location.replace` sang URL Pages cố định với fragment implicit. SDK đích xác minh user, lưu phiên theo origin mới và xóa fragment. Trên đúng domain vẫn chuyển nội bộ; không nhận URL đích từ query/state hoặc gửi mật khẩu trong callback.
+- Signup và resend tiếp tục dùng callback tuyệt đối **`https://feat-auth.it3180.pages.dev/tai-khoan`**. Các bài test kiểm tra cả hai lời gọi; callback ở localhost đã nhận phiên cũng được đưa về domain Pages. Lỗi/thiếu phiên/khác uid không chuyển phiên.
+- Typecheck **PASS**, build **PASS**, **76/76 unit test PASS**, 6 file trên Node **24.21.0**. Test mới gồm login/signup từ localhost và origin khác, callback local, lỗi SDK/uid; dùng SDK thật với HTTP giả lập để xác minh nhận user, lưu phiên ở origin Pages và xóa fragment. Sau khi bổ sung assertion URL tuyệt đối, riêng `auth.test.ts` **11/11 PASS**. Chưa chạy bằng Node 22 mà repo yêu cầu. Không thay đổi backend, không chạy lại integration đang BLOCKED do thiếu Docker.
+- Đọc HTML/asset công khai của website: HTTP **200**, bundle online vẫn là **`index-DfbvxnOI.js`**, còn phụ thuộc origin hiện tại và không chứa domain callback cố định. Bản build kiểm tra mới **`index-G0NmdbZm.js`** có domain Pages, route chuyến đi và URL Supabase cloud đúng; không suy diễn rằng bản sửa đã được deploy. Đã dọn thư mục build tạm `.task-auth-domain-20261022` với **24 file** sau QA.
+- Môi trường không có Supabase access token/service-role hoặc Cloudflare token; chưa đọc/sửa Site URL, allowlist hoặc template online. Phần email còn cần đúng cấu hình server: Site URL **`https://feat-auth.it3180.pages.dev`**, Redirect URLs chứa **`https://feat-auth.it3180.pages.dev/tai-khoan`**, template dùng `{{ .ConfirmationURL }}`. Cần deploy frontend mới và gửi lại email mới sau khi cập nhật; không thể sửa link đã nằm trong email cũ từ frontend.
+- Không gửi email/tạo tài khoản cloud, không push/deploy, không sửa schema, shared contract, RLS/grants hoặc quyền Trip/Booking/ví. Các mục tiếp theo là lịch sử, không thay cho kết quả và giới hạn hiện tại. Hướng dẫn: [Auth/callback/database](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md); nguồn chính thức [implicit flow](https://supabase.com/docs/guides/auth/sessions/implicit-flow), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
+
+## Luồng hiện hành: đăng ký/login thành công tự mở trang chủ — 22/10/2026
+
+- Theo yêu cầu cuối cùng, đích thành công là **`/chuyen-di`**. Các mục bên dưới ghi lịch sử thay đổi; yêu cầu bắt buộc tắt email và yêu cầu giữ trang tài khoản đã được thay thế.
+- Bỏ `requireImmediateSignup` từng chặn đăng ký khi Confirm email bật. Signup gọi SDK trực tiếp; có user nhưng chưa có session là **chờ xác minh**, có hướng dẫn và nút gửi lại, không trả lỗi thiếu phiên hoặc yêu cầu liên hệ admin. Signup có phiên ngay, login hợp lệ hoặc callback nhận được phiên thì tự chuyển trang chủ, không cần bấm Tiếp tục. Người dùng vẫn có thể chủ động mở Tài khoản để quản lý hồ sơ.
+- Signup/resend dùng cùng URL **`https://feat-auth.it3180.pages.dev/tai-khoan`**. Trang callback nhận phiên qua SDK rồi chuyển nội bộ tới `/chuyen-di`; callback hết hạn/lỗi báo thông báo an toàn. Resend dùng email đã đăng ký, không lấy nhầm email vừa sửa trên form. Lỗi gửi email/rate limit/email trùng/database không báo thành công giả.
+- Login phải trả user/session và chờ SDK cập nhật user; không chuyển trang quá sớm khi SDK phát user trước lúc signUp trả về. Destination cố định trong app, không lấy URL bên ngoài từ query/state. Supabase Auth/RPC vẫn dùng cloud theo env; build guard localhost giữ nguyên. Không đổi shared contract, schema hay quyền của module khác.
+- Trước lúc lượt làm việc bị ngắt quota: Node **24.21.0**, typecheck **PASS**, build online **PASS**, **67/67 unit test PASS**, 5 file. Gồm test signup có/không có phiên, gửi lại email, login lỗi/thiếu phiên, callback hợp lệ/hết hạn, chuyển trang tự động, phiên/hồ sơ và SQL/quyền/trigger/rollback. Sau khi tiếp tục đã rà lại code và artifact, cập nhật ghi chú cấu hình/tài liệu; không thay đổi logic đã kiểm thử hoặc chạy lặp lại các test này. Repo yêu cầu Node 22; chưa kiểm chứng lượt này bằng Node 22.
+- Backend không thay đổi; không chạy lại integration. Kết quả integration trước vẫn BLOCKED do Docker. Chưa thử đăng ký/login bằng tài khoản cloud hoặc nhận email thật, chưa đọc/sửa allowlist/template/SMTP của server, chưa push/deploy. Server cần gửi email được và cho phép callback nếu bật xác minh; unit/build không xác nhận các điều kiện server này.
+- Đã kiểm tra bundle có đúng Supabase online/callback/trang đích và không còn thông báo chặn signup do Confirm email; build output tạm được dọn sau kiểm tra. Hướng dẫn hiện hành: [Auth/callback/database](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+
+## Sửa hướng dẫn vị trí Confirm email trên Dashboard — 22/10/2026
+
+- Người dùng không thấy Confirm email khi làm theo hướng dẫn mở Email provider. Đã đối chiếu mã nguồn công khai Supabase Dashboard: `BasicAuthSettingsForm.tsx` đặt Confirm email trong **User Signups** trên trang chính **Authentication → Sign In / Providers**, nút lưu là **Save changes**; `AuthProvidersFormValidation.tsx` không có Confirm email trong bảng Email.
+- Sửa hướng dẫn module Auth: đóng bảng Email nếu đang mở, quay lại trang chính, tìm User Signups/Confirm email, giữ Allow new users to sign up bật. Không đổi code nghiệp vụ, Auth settings, migration hoặc quyền trên server trong lượt này.
+
+## Đăng ký báo liên hệ admin: xác minh nguyên nhân server — 22/10/2026
+
+- Người dùng báo vẫn lỗi gửi email và không đăng ký được. Hai lần GET `/auth/v1/settings` của project `wrvcvxirfwxgkaranlgk` trong lượt này đều trả `mailer_autoconfirm=false`, `disable_signup=false`; Email provider vẫn bật. Vì Confirm email chưa tắt, Auth không trả phiên ngay khi signup. Các sửa frontend trước chưa hoàn thành thay đổi cấu hình trên server.
+- Chưa có quyền đổi cấu hình online: inventory trình duyệt không có browser kết nối; Supabase CLI trả `Access token not provided`; không có Supabase access token/service-role/database password trong environment. Không xin hoặc in credential trong chat. Chưa sửa Dashboard, gọi Management API ghi cấu hình hay áp dụng SQL trên cloud.
+- Frontend nay đọc cấu hình public bằng publishable key, không cache, trước signup. Confirm email còn bật thì dừng trước lời gọi signup để tránh gửi email/tạo tài khoản chờ xác minh; thông báo chỉ rõ cần tắt Confirm email và Save trên đúng project. Login bằng mật khẩu không bị kiểm tra signup chặn. Lỗi tài khoản cũ chưa xác nhận được phân biệt với lỗi cấu hình đăng ký mới.
+- User cần cập nhật Email provider trên Dashboard rồi phản hồi để kiểm tra lại; không thể dùng publishable key để thay quyền quản trị. Probe chỉ đọc `public.users` với `limit=0` trả HTTP 401/code 42501 (không được đọc trực tiếp bằng key public); kết quả này không xác minh trigger, RPC hoặc tài khoản mới đã được lưu.
+- Node **24.21.0**: typecheck **PASS**, build online **PASS**, unit **64/64 PASS**, 6 file. Test mới kiểm tra settings hợp lệ, Confirm email, provider/signup bị tắt, payload thiếu/sai, HTTP/network lỗi, không gọi signup khi chưa sẵn sàng và retry kiểm tra lại cấu hình; vẫn giữ test SQL/quyền/rollback trước đó. Không gửi signup/email thật hoặc dùng tài khoản cloud để login trong lượt này.
+- Dọn build output tạm sau kiểm tra. Lượt CLI ban đầu bị chặn ghi telemetry ngoài workspace; đường dẫn file tạm chính xác được kiểm tra và không tồn tại. Chưa đủ điều kiện báo đã sửa xong đăng ký trên cloud khi `mailer_autoconfirm` vẫn false.
+
+## Đăng nhập giữ trang tài khoản, dữ liệu ở cloud — 22/10/2026
+
+- Theo yêu cầu làm rõ: đăng nhập xong giữ `/tai-khoan` trên website, hiện “Bạn đã đăng nhập.” và tài khoản/hồ sơ. Bỏ tự điều hướng về trang riêng tư trước đó; nút Tiếp tục chỉ đổi trang khi người dùng chủ động bấm. Đăng ký cũng giữ trang tài khoản như trước.
+- Giữ lời gọi `signInWithPassword` tới Supabase online và tải hồ sơ qua `get_my_profile`; không điều hướng trình duyệt tới domain Supabase. Đăng nhập không tạo lại tài khoản, không ghi mật khẩu vào public.users. Không đổi shared contract, schema, quyền hoặc endpoint của các module khác.
+- Node **24.21.0**: typecheck **PASS**, build bằng cấu hình online **PASS**, **29/29 test UI/phiên PASS** (2 file). Test điều hướng thực hiện submit login, nhận phiên, kiểm tra vẫn hiện trang tài khoản/email rồi chỉ sang ví khi bấm Tiếp tục. Các kiểm tra SQL/backend không chạy lại vì lượt này chỉ đổi giao diện/điều hướng.
+- Đã dọn build output tạm. Chưa push/deploy hoặc đổi cấu hình Auth server; các điều kiện tắt Confirm email và migration server của các mục trước vẫn cần được thực hiện khi cập nhật online.
+
+## Frontend gọi Supabase online, chặn localhost khi build — 22/10/2026
+
+- Đọc lại HTML/JavaScript công khai `https://feat-auth.it3180.pages.dev/tai-khoan`: HTTP **200**, asset `index-DfbvxnOI.js`, có lời gọi `auth.signInWithPassword`, cấu hình project `https://wrvcvxirfwxgkaranlgk.supabase.co`, không thấy origin Auth localhost:54321. Website vẫn dùng bản signup cũ (chưa có `signup_session_missing`); bản sửa trong repo chưa được phiên này triển khai.
+- Đối chiếu SDK đang cài: đăng nhập email/password gửi POST `/auth/v1/token?grant_type=password` tới URL Supabase đã cấu hình. Chưa gửi request đăng nhập thật hoặc xác nhận tài khoản test thành công.
+- GET `/auth/v1/settings` của đúng project, dùng publishable key từ bundle công khai: HTTP **200**, `external.email=true`, `disable_signup=false`, **`mailer_autoconfirm=false`**. Server vẫn yêu cầu xác minh email khi đăng ký mới; sửa frontend không tự tắt cấu hình này. Chưa sửa Auth settings online.
+- Tạo `web/.env.local` bằng URL/publishable key của chính website đang chạy; key không in ra log, file được Git ignore. Frontend dev trên máy nay có cấu hình cùng Supabase online. Không chứa service-role/secret key.
+- Thêm kiểm tra build trong `web/vite.config.ts` và kiểm tra client bản phát hành: localhost/loopback bị từ chối. Supabase Docker local vẫn dùng trong dev/test. Config dùng chung ảnh hưởng mọi module gọi Supabase; không đổi shared contract hoặc database. CI cung cấp URL `.invalid` và key mẫu chỉ để kiểm tra build, integration vẫn lấy cấu hình Docker local và không gọi cloud.
+- Kiểm chứng Node **24.21.0**: typecheck **PASS**, **58/58 unit test PASS** (5 file), build thật với URL localhost **bị chặn đúng yêu cầu**, build bằng cấu hình online **PASS**. Bundle mới chứa đúng project online, không có origin Auth local. Không cần chạy lại integration cho guard frontend; integration lượt trước vẫn BLOCKED do Docker, không tính PASS. Repo yêu cầu Node 22; lượt này chưa kiểm tra Node 22.
+- Build output được tạo trong thư mục tạm riêng rồi dọn sau kiểm tra. Giữ file env cấu hình sử dụng thực tế; không push/deploy hoặc sửa Dashboard trong lượt này.
+
+## Đăng ký không cần xác minh email, có hồ sơ database — 22/10/2026
+
+- Yêu cầu mới thay thế luồng xác minh/redirect bên dưới: signup chỉ gửi email/mật khẩu, không gửi redirect hay gửi lại email. Chỉ báo tài khoản sẵn sàng khi SDK có phiên và đã tải được hồ sơ đúng uid; thiếu phiên/RPC lỗi/email trùng không báo thành công giả.
+- Giữ trigger và backfill trong `20261020130000_auth_signup_profile.sql`: tạo `public.users` cùng transaction với Auth, mặc định USER/ACTIVE/PENDING, không tin metadata, giữ quyền/trạng thái đã có. Không sửa migration cũ, schema hay shared contract. Email/password vẫn thuộc Auth; thông tin hồ sơ lưu qua `update_my_profile` vào bảng users.
+- Local đã có `enable_confirmations = false`; thêm giải thích rõ đây không phải cấu hình server online. [Hướng dẫn mới](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md) yêu cầu tắt Confirm email trên đúng project dev, đối chiếu migration history rồi cập nhật trigger/RPC qua quy trình lead. Thay đổi này áp dụng mọi đăng ký email/mật khẩu cùng project; không bỏ duyệt sinh viên/driver hoặc kiểm tra quyền của module 3/4/5.
+- Node đang cài **24.21.0**: `npm.cmd run typecheck` **PASS**, build frontend vào thư mục tạm **PASS**, `npm.cmd test -- --maxWorkers=1` **57/57 PASS**, 5 file. Test SQL nhúng vẫn kiểm tra trigger/backfill/grants/rollback. Repo yêu cầu Node 22; lượt này chưa xác minh bằng Node 22. Build còn cảnh báo bundle JavaScript khoảng 608 kB.
+- Bổ sung integration đăng ký bằng SDK nhận phiên ngay, kiểm tra dòng users **trước RPC bootstrap**, lưu thông tin hồ sơ vào bảng, logout/login và đăng ký trùng không thêm dòng. Bộ integration hiện có **7 test**. Đã thử `npm.cmd run test:integration`: **BLOCKED**, cần cài/mở Docker Desktop; chưa chạy các test này. Lượt đầu trong sandbox còn lỗi `uv_os_get_passwd`; chạy ngoài sandbox đã tới được kiểm tra Docker và xác nhận Docker không khả dụng.
+- Chưa sửa Dashboard, áp dụng migration lên server hoặc push/deploy frontend. Kết quả unit/build không được tính là đã kiểm chứng website online; tài khoản cũ chưa xác nhận cần quản trị viên kiểm tra, frontend không tự xác nhận.
+
+Các mục ngày 21/10 và trước đó là lịch sử, không phải cấu hình signup hiện hành.
+
+## Cố định domain trả về khi xác minh email — 21/10/2026
+
+- Signup và gửi lại email dùng chung `AUTH_EMAIL_REDIRECT_URL = https://feat-auth.it3180.pages.dev/tai-khoan`, theo domain người dùng đã cung cấp. Không phụ thuộc địa chỉ đang mở frontend; không đổi shared contract, database hoặc cấu hình Docker local.
+- Đổi môi trường UI test thành `http://localhost:5173/tai-khoan`: hai test signup/resend **FAIL trước khi sửa** vì gửi localhost, **PASS sau khi sửa** vì gửi chính xác domain đã chốt. Các test vẫn kiểm tra đúng email, thông báo, phiên và lỗi gửi lại.
+- Node **22.23.3**: `npm run typecheck` **PASS**, `npm run build` **PASS**, unit test toàn bộ **57/57 PASS** (5 file, `vitest run --maxWorkers=1`). Build còn cảnh báo bundle khoảng 609 kB.
+- HTTP GET trang đích `https://feat-auth.it3180.pages.dev/tai-khoan` trả **200**. Kiểm tra bundle vừa build có URL cố định và không còn `emailRedirectTo` dựa vào `window.location.origin`; HTTP 200 không chứng minh luồng email trên server đã hoạt động.
+- Không chạy lại integration vì thay đổi chỉ ở URL frontend/test và tài liệu; chưa kiểm thử email thật hoặc đọc/sửa Supabase Dashboard. Kết quả integration trước đó vẫn BLOCKED do Docker, không tính là PASS.
+- Admin cần thêm URL chính xác vào Redirect URLs, đặt Site URL cho project dev và giữ template xác minh đúng theo [hướng dẫn Auth](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Bản sửa chưa được push/deploy trong lượt này; email cũ cần thay bằng email mới/gửi lại sau khi cập nhật cấu hình.
+
 ## Sửa đăng ký/xác minh email/tạo hồ sơ — 20/10/2026
 
 - Yêu cầu theo phản hồi website test: thông báo xác minh rõ ràng sau signup, link xác nhận trả đúng website dev và tạo `public.users` ngay khi Auth tạo tài khoản, kể cả chưa có session/chưa xác minh email.

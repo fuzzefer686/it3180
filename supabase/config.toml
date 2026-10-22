@@ -38,6 +38,8 @@ minimum_password_length = 8
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
+# Local nhận phiên ngay để test. Server online có thể bật hoặc tắt xác minh email;
+# frontend hỗ trợ cả hai. Migration SQL không cập nhật Auth settings online.
 enable_confirmations = false
 
 [analytics]

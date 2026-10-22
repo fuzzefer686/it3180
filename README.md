@@ -21,6 +21,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
 
 Thay phần `YOUR_…` bằng giá trị lead cung cấp. URL là địa chỉ server; publishable key là key được phép dùng ở frontend. Không điền secret/service-role key. File env là file cấu hình; không đưa `.env.local` lên Git.
 
+Server dev cần bật đăng ký Email/password; frontend hỗ trợ cả server có hoặc không yêu cầu xác minh email. Khi có phiên đăng nhập hợp lệ, web tự mở `https://feat-auth.it3180.pages.dev/chuyen-di`, kể cả từ form localhost; link xác minh trả về website Pages đã chốt. Bảng `public.users`, RPC và trigger tạo hồ sơ phải được lead cập nhật từ migration đã review. Xem [hướng dẫn đăng ký, đăng nhập và callback](web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+
 4. Chạy:
 
 ```bash
@@ -28,6 +30,8 @@ npm run dev:web
 ```
 
 Khi terminal hiện địa chỉ web, mở http://127.0.0.1:5173/tai-khoan. Đăng nhập bằng tài khoản test riêng mà lead tạo **trên server**. Thử đăng nhập, tải lại trang và đăng xuất. Nhấn Ctrl+C tại terminal để dừng web.
+
+Địa chỉ `127.0.0.1:5173` chỉ là nơi mở giao diện trên máy; yêu cầu đăng nhập gửi tới URL Supabase **online** trong env. Bản build phát hành chặn URL Supabase localhost/loopback ngay từ bước build; không cần đổi địa chỉ chạy giao diện để gọi backend online. Xem [cấu hình và cách kiểm tra request trên Pages](docs/cloudflare-pages.md).
 
 Nếu hồ sơ báo “chưa triển khai” sau khi login, server đang dùng chưa có RPC Auth mới; lead cần đối chiếu schema và cập nhật từ code đã review, không phải login thất bại. Đổi env thì dừng và chạy lại web để đọc cấu hình mới.
 
