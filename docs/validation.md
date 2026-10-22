@@ -1,5 +1,15 @@
 # Kiểm chứng Supabase Auth và hồ sơ
 
+## Đối chiếu schema server và sửa migration — 22/10/2026
+
+- Đọc catalog và 43 statements của baseline `20261016000000` từ Supabase nhóm, không đọc dữ liệu người dùng. Migration mới dùng bảng trips/trip_stops/bookings UUID có sẵn; file cũ chuyển sang legacy-migrations.
+- `db push --linked --dry-run` khớp lịch sử, chỉ liệt kê ba migration mới `20261022000100`, `20261022000200`, `20261022000300`. Không áp dụng SQL, không đổi history và không deploy Edge.
+- Typecheck/build PASS; 83 tests / 9 files PASS. Có test giữ dữ liệu chuyến, Booking, ví, payments, FK/grants khi áp dụng lên fixture server đã có dữ liệu; test UUID, mét nguyên và polyline cả tuyến.
+- Browser desktop 1365px/mobile 390px: login, preview, save, chi tiết có giờ đến/thời lượng null, start/complete và chuyến tôi đăng PASS với API/map fixtures. Không có pageerror; không phải kiểm chứng API cloud.
+- `test:integration` đã thử, bị chặn vì Docker không khả dụng. Build còn cảnh báo bundle VietMap >500kB. Hướng dẫn và giới hạn bàn giao: [Trip](trips.md).
+
+
+
 ## Sửa đăng ký/xác minh email/tạo hồ sơ — 20/10/2026
 
 - Yêu cầu theo phản hồi website test: thông báo xác minh rõ ràng sau signup, link xác nhận trả đúng website dev và tạo `public.users` ngay khi Auth tạo tài khoản, kể cả chưa có session/chưa xác minh email.

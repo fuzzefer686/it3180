@@ -50,7 +50,7 @@ export function TripFormPage() {
         }
         setStops(rows);
         setDeparture(toVietnamInput(trip.departureTimeMs));
-        setArrival(toVietnamInput(trip.arrivalTimeMs));
+        setArrival(trip.arrivalTimeMs === null ? '' : toVietnamInput(trip.arrivalTimeMs));
         setNote(trip.note);
         setRouteVersion(trip.routeVersion);
         setPreview({ stops: trip.stops, route: trip.route });

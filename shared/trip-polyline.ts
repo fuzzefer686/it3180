@@ -1,3 +1,25 @@
+// Gộp tọa độ từng chặng thành một polyline lưu trong trips.route_polyline.
+export function encodeTripPolyline(coordinates: [number, number][]): string {
+  let encoded = '';
+  let previousLatitude = 0;
+  let previousLongitude = 0;
+  for (const [longitude, latitude] of coordinates) {
+    const nextLatitude = Math.round(latitude * 100000);
+    const nextLongitude = Math.round(longitude * 100000);
+    for (const change of [nextLatitude - previousLatitude, nextLongitude - previousLongitude]) {
+      let value = change < 0 ? -change * 2 - 1 : change * 2;
+      while (value >= 32) {
+        encoded += String.fromCharCode((value % 32) + 32 + 63);
+        value = Math.floor(value / 32);
+      }
+      encoded += String.fromCharCode(value + 63);
+    }
+    previousLatitude = nextLatitude;
+    previousLongitude = nextLongitude;
+  }
+  return encoded;
+}
+
 // Google polyline5: đọc vĩ độ trước, trả [kinh độ, vĩ độ] cho bản đồ.
 export function decodeTripPolyline(encoded: string): [number, number][] {
   const coordinates: [number, number][] = [];

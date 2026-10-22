@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { localSupabaseClients } from '../../scripts/local-supabase';
 import { profileInputFixture } from '../fixtures/auth';
 import { userProfileSchema } from '../../shared/contracts';
+import { localQuery, localUserId, removeLocalProfiles } from '../fixtures/local-database';
 
 const { admin, url, publicKey, options } = localSupabaseClients();
 const member = createClient(url, publicKey, options);
@@ -24,16 +25,15 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   if (ids.length !== 3) throw new Error('Thiếu tài khoản test local');
-  const removed = await admin.from('users').delete().in('id', ids);
-  if (removed.error) throw removed.error;
+  removeLocalProfiles(ids);
   for (const client of [member, other, reviewer]) await profile(client);
-  // Chỉ fixture local dùng service_role cấp admin, không có API tự cấp ADMIN.
-  const updated = await admin.from('users').update({ roles: ['USER', 'ADMIN'] }).eq('id', ids[2]);
-  if (updated.error) throw updated.error;
+  // Chỉ SQL fixture local cấp admin; không mở quyền ghi bảng qua API.
+  localQuery("update public.users set roles=array['USER','ADMIN'] where id=" + localUserId(ids[2]));
 });
 afterAll(async () => {
   const errors: unknown[] = [];
   for (const client of [member, other, reviewer]) await client.auth.signOut();
+  removeLocalProfiles(ids);
   for (const id of ids) {
     const result = await admin.auth.admin.deleteUser(id);
     if (result.error) errors.push(result.error);
@@ -54,12 +54,14 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     const results = await Promise.all([profile(member), profile(member)]);
     expect(results[0]).toMatchObject({ uid: ids[0], roles: ['USER'], status: 'ACTIVE' });
     expect(results[1].uid).toBe(ids[0]);
-    const count = await admin.from('users').select('id', { count: 'exact', head: true }).eq('id', ids[0]);
-    expect(count.count).toBe(1);
+    const rows = localQuery<{ count: number }>('select count(*)::int as count from public.users where id=' + localUserId(ids[0]));
+    expect(rows[0].count).toBe(1);
   });
   it('chặn anonymous, đọc bảng riêng tư và sửa role trực tiếp', async () => {
     expect((await anonymous.rpc('get_my_profile', { input: {} })).error).not.toBeNull();
-    expect((await member.from('users').select('*')).error?.code).toBe('42501');
+    const ownProfile = await member.from('users').select('id');
+    expect(ownProfile.error).toBeNull();
+    expect(ownProfile.data).toEqual([{ id: ids[0] }]);
     expect((await member.from('users').update({ roles: ['USER', 'ADMIN'] }).eq('id', ids[0])).error?.code).toBe('42501');
     expect((await profile(member)).roles).toEqual(['USER']);
   });

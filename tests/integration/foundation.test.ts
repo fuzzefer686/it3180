@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { localSupabaseClients } from '../../scripts/local-supabase';
+import { localQuery, localUserId, removeLocalProfiles } from '../fixtures/local-database';
 
 // Tài khoản Auth tạm; test signup cũng kiểm tra bootstrap hồ sơ qua RPC đã migrate local.
 const { admin, url, publicKey, options } = localSupabaseClients();
@@ -19,6 +20,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await client.auth.signOut();
   await signupClient.auth.signOut();
+  removeLocalProfiles([uid, signupUid, unconfirmedUid].filter((id): id is string => Boolean(id)));
   if (uid) {
     const { error } = await admin.auth.admin.deleteUser(uid);
     if (error) throw error;
@@ -40,8 +42,8 @@ describe('Supabase Auth local', () => {
     expect(result.error).toBeNull(); expect(signupUid).toBeTruthy();
     // Local tắt xác nhận email trong config.toml; cloud có thể trả session null.
     expect(result.data.session).not.toBeNull();
-    const inserted = await admin.from('users').select('id,roles,status').eq('id', signupUid!).single();
-    expect(inserted.error).toBeNull(); expect(inserted.data).toMatchObject({ id: signupUid, roles: ['USER'], status: 'ACTIVE' });
+    const inserted = localQuery('select id,roles,status from public.users where id=' + localUserId(signupUid!));
+    expect(inserted[0]).toMatchObject({ id: signupUid, roles: ['USER'], status: 'ACTIVE' });
     const profile = await signupClient.rpc('get_my_profile', { input: {} });
     expect(profile.error).toBeNull(); expect(profile.data.roles).toEqual(['USER']);
   });
@@ -51,9 +53,8 @@ describe('Supabase Auth local', () => {
     unconfirmedUid = created.data.user?.id;
     expect(created.error).toBeNull(); expect(unconfirmedUid).toBeTruthy();
     expect(created.data.user?.email_confirmed_at ?? null).toBeNull();
-    const inserted = await admin.from('users').select('id,roles,status,student_verification_status').eq('id', unconfirmedUid!).single();
-    expect(inserted.error).toBeNull();
-    expect(inserted.data).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'PENDING' });
+    const inserted = localQuery('select id,roles,status,student_verification_status from public.users where id=' + localUserId(unconfirmedUid!));
+    expect(inserted[0]).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'PENDING' });
   });
   it('đăng nhập và xác minh đúng user trên Auth server', async () => {
     const login = await client.auth.signInWithPassword({ email, password });

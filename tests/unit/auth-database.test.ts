@@ -18,7 +18,8 @@ beforeAll(async () => {
     create function auth.uid() returns uuid language sql stable as
       'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
   `);
-  await db.exec(readFileSync('supabase/migrations/20261020090000_auth_profiles.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261016000000_initial_schema.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261022000100_auth_existing_schema.sql', 'utf8'));
 });
 beforeEach(async () => {
   await db.exec('reset role; truncate auth.users cascade;');
@@ -63,7 +64,12 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     for (const role of ['anon', 'authenticated']) {
       await db.exec(`set role ${role}`);
       try {
-        await expect(db.query('select * from public.users')).rejects.toMatchObject({ code: '42501' });
+        if (role === 'anon') {
+          await expect(db.query('select * from public.users')).rejects.toMatchObject({ code: '42501' });
+        } else {
+          const ownRows = await db.query<{ id: string }>('select id from public.users');
+          expect(ownRows.rows.map(row => row.id)).toEqual([member]);
+        }
         await expect(db.query("update public.users set roles=array['USER','ADMIN']")).rejects.toMatchObject({ code: '42501' });
         await expect(db.query('select private.require_active_user()')).rejects.toMatchObject({ code: '42501' });
         if (role === 'anon') await expect(db.query("select public.get_my_profile('{}')")).rejects.toMatchObject({ code: '42501' });
@@ -142,7 +148,7 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [member]);
     await expect(db.query('select private.require_eligible_user(true)')).rejects.toMatchObject({ code: 'PT403' });
   });
-  it('phân trang không trùng hồ sơ và xóa Auth user dọn hồ sơ liên quan', async () => {
+  it('phân trang không trùng hồ sơ; khóa ngoại bảo vệ hồ sơ khi xóa Auth user', async () => {
     for (let i = 10; i < 31; i++) {
       const id = `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
       await db.query('insert into auth.users(id) values ($1)', [id]);
@@ -152,6 +158,8 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     const next = await rpc<{ users: UserProfile[]; total: number }>(admin, 'admin_list_users', { page: 2 });
     expect(first.total).toBe(22); expect(first.users).toHaveLength(20); expect(next.users).toHaveLength(2);
     expect(first.users.some(a => next.users.some(b => a.uid === b.uid))).toBe(false);
+    await expect(db.query('delete from auth.users where id=$1', [next.users[0].uid])).rejects.toMatchObject({ code: '23001' });
+    await db.query('delete from public.users where id=$1', [next.users[0].uid]);
     await db.query('delete from auth.users where id=$1', [next.users[0].uid]);
     expect((await db.query('select id from public.users where id=$1', [next.users[0].uid])).rows).toHaveLength(0);
   });

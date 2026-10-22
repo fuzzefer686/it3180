@@ -4,7 +4,9 @@ import { distanceText } from './format';
 
 export function RouteSummary({ stops, route }: { stops: RouteStop[]; route: RouteSnapshot }) {
   return <div className="trip-route-summary">
-    <p><strong>{distanceText(route.totalDistanceMeters)}</strong> · khoảng {Math.ceil(route.totalDurationMs / 60000)} phút đi xe máy</p>
+    <p><strong>{distanceText(route.totalDistanceMeters)}</strong>
+      {route.totalDurationMs !== null && <> · khoảng {Math.ceil(route.totalDurationMs / 60000)} phút đi xe máy</>}
+    </p>
     <ol className="trip-stops">
       {stops.map(stop => <li key={stop.id}>
         <strong>{String.fromCharCode(65 + stop.order)}. {stop.label}</strong>

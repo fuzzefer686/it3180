@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tripInputSchema, listTripsSchema, validateStops, validateTimes } from '../../shared/trip-schemas';
 import { computeRoute } from '../../supabase/functions/trips/vietmap';
 import { handleTripRequest } from '../../supabase/functions/trips/handler';
+import { decodeTripPolyline, encodeTripPolyline } from '../../shared/trip-polyline';
 
 const stops = [
   { label: 'A', latitude: 21.01, longitude: 105.81 },
@@ -11,6 +12,10 @@ const stops = [
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Trip trên Supabase', () => {
+  it('gộp tọa độ thành polyline rồi đọc lại đúng cả tọa độ âm', () => {
+    const points: [number, number][] = [[105.81, 21.01], [105.82, 21.02], [-120.2, 38.5]];
+    expect(decodeTripPolyline(encodeTripPolyline(points))).toEqual(points);
+  });
   it('không nhận uid, role, route hoặc khoảng cách do frontend gửi khi lưu', () => {
     const input = { stops, departureTimeMs: Date.now() + 60000, arrivalTimeMs: Date.now() + 120000, note: '' };
     expect(tripInputSchema.safeParse(input).success).toBe(true);
@@ -33,6 +38,8 @@ describe('Trip trên Supabase', () => {
     const result = await computeRoute(stops, 'test-only-key');
     expect(result.route.totalDistanceMeters).toBe(2400);
     expect(result.stops[2].distanceFromStartMeters).toBe(2400);
+    expect(result.stops.every(stop => /^[0-9a-f-]{36}$/.test(stop.id))).toBe(true);
+    expect(decodeTripPolyline(result.route.encodedPolyline)).toHaveLength(6);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('vehicle')).toBe('motorcycle');
   });
@@ -82,7 +89,7 @@ describe('Trip trên Supabase', () => {
     expect(rpc.mock.calls[0]).toEqual(['check_trip_access', { actor_id: 'verified-user', require_driver: true }]);
     expect(rpc.mock.calls[1][0]).toBe('save_trip_route');
     expect(rpc.mock.calls[1][1].actor_id).toBe('verified-user');
-    expect(rpc.mock.calls[1][1].calculated.route.totalDistanceMeters).toBe(2400.5);
+    expect(rpc.mock.calls[1][1].calculated.route.totalDistanceMeters).toBe(2400);
   });
   it('hồ sơ bị từ chối thì không gọi VietMap', async () => {
     const fetchMock = vi.fn();

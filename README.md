@@ -4,8 +4,9 @@ Team gồm 5 sinh viên năm 3. Tài liệu được viết để có thể làm
 
 App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**.
 Nhánh này đã ghép [Auth/hồ sơ/admin](docs/auth-module.md) và [Trip/VietMap](docs/trips.md).
-Lead quản lý Supabase nhóm. Schema server ngày 21/10 khác migration của repo;
-xem mục bàn giao trong tài liệu Trip trước khi cập nhật server. Booking/ví do owner khác phụ trách.
+Lead quản lý Supabase nhóm. Migration đã được viết lại theo schema đọc từ server
+ngày 22/10; xem [thứ tự review và áp dụng](docs/trips.md) trước khi cập nhật server.
+Booking/ví do owner khác phụ trách. Thay đổi chưa được áp dụng lên server.
 
 ## 1. Bắt đầu theo cách đơn giản nhất
 

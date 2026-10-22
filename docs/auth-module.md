@@ -14,15 +14,15 @@ Theo `ke-hoach/02-ho-so-quan-tri.md` và ảnh thiết kế database nhóm cung 
 
 ## Database theo ảnh thiết kế
 
-Migration `supabase/migrations/20261020090000_auth_profiles.sql` chỉ tạo bảng `public.users` và hàm Auth. Giữ các cột trong ảnh: `id`, `display_name`, `phone`, `school`, `student_code`, `student_evidence_demo`, `roles`, `status`, hai trạng thái xác minh và ghi chú duyệt, `vehicle_model`, `vehicle_plate`, `created_at`. `id` là khóa ngoại tới `auth.users.id`; xóa Auth user sẽ xóa hồ sơ tương ứng.
+Từ bản sửa 22/10, bảng `public.users` lấy từ baseline server `20261016000000_initial_schema.sql`. Migration `20261022000100_auth_existing_schema.sql` chỉ bổ sung RPC Auth và default tên hồ sơ, không tạo lại bảng. `users.id` tham chiếu `auth.users.id` với ON DELETE RESTRICT: không tự xóa hồ sơ và dữ liệu nghiệp vụ khi xóa Auth user.
 
-Không tạo Trip/Booking/ví/thanh toán; không cấp điểm hoặc seed ADMIN. Bảng ứng dụng không chứa password. Frontend dùng tên camelCase trong contract, database dùng snake_case.
+Migration Auth không tạo Trip/Booking/ví/thanh toán; không cấp điểm hoặc seed ADMIN. Baseline nhóm chứa đủ 7 bảng. Bảng ứng dụng không chứa password. Frontend dùng tên camelCase trong contract, database dùng snake_case.
 
-**Ảnh chỉ thể hiện cột và quan hệ, không cho biết toàn bộ defaults, constraints, RLS/grants hay SQL đang chạy.** Migration là bản triển khai local dựa trên ảnh và quy tắc repo, cần lead đối chiếu trước khi cập nhật server. Nếu server đã có `users`, không chạy nguyên migration CREATE TABLE lên server đó; lead cần đưa schema hiện tại vào lịch sử migration và tách phần thay đổi sau khi review. Không sửa/xóa bảng server hoặc reset remote để né xung đột.
+Schema đã được đối chiếu catalog server ngày 22/10. Các migration Auth cũ đã chuyển sang `supabase/legacy-migrations/` để tránh CREATE TABLE trùng. Xem [thứ tự áp dụng và các khác biệt server](trips.md); không chạy lại baseline trên server đã ghi nhận version đó.
 
 ## Quyền truy cập
 
-- Bật RLS (kiểm soát từng dòng) và thu hồi quyền truy cập trực tiếp bảng `users` của `anon`/`authenticated`. Dữ liệu điện thoại/minh chứng chỉ trả qua RPC cho chính user hoặc ADMIN đang ACTIVE; không có API hồ sơ công khai.
+- Giữ RLS của nhóm: `authenticated` chỉ đọc trực tiếp hồ sơ của chính mình, `anon` không đọc được. Client không ghi trực tiếp hoặc xem hồ sơ người khác. Admin xem qua RPC có kiểm tra ADMIN/ACTIVE. Không thu hồi SELECT users vì policy Trip/Booking/ví đang phụ thuộc việc đọc hồ sơ của người gọi.
 - RPC là hàm database được gọi qua Supabase. Mỗi hàm lấy uid từ `auth.uid()`, không nhận uid cho thao tác hồ sơ cá nhân và không tin `user_metadata`. Dữ liệu lạ như `roles`, `status` trong input sửa hồ sơ bị từ chối ở cả frontend và SQL.
 - Hàm `security definer` chạy bằng quyền chủ sở hữu, nên tất cả đều đặt `search_path = ''`, dùng tên bảng đầy đủ và kiểm tra quyền rõ ràng. Helper nằm trong schema `private`, client không gọi được.
 - Các thao tác thay đổi hồ sơ/duyệt/khóa khóa dòng trong transaction. Admin bị khóa mất quyền ngay khi gọi lại API bằng phiên cũ. User bị khóa vẫn xem được hồ sơ mình và đăng xuất; không sửa hồ sơ hay thực hiện nghiệp vụ.
@@ -83,7 +83,7 @@ Nếu báo “chưa được triển khai”, server đang thiếu RPC/migration
 
 ### Cấu hình đăng ký và xác nhận email
 
-1. Đối chiếu schema server trước khi áp dụng migration Auth. Migration `20261020130000_auth_signup_profile.sql` thêm trigger `auth_create_app_profile` trên `auth.users` và bù hồ sơ thiếu. Hồ sơ mới có USER/ACTIVE/PENDING; tài khoản cũ giữ nguyên quyền/trạng thái nhờ `on conflict do nothing`. Trigger không tạo ví. Lỗi trigger có thể khiến cả thao tác đăng ký bị rollback.
+1. Đối chiếu schema server trước khi áp dụng migration Auth. Migration `20261022000200_auth_signup_existing_schema.sql` tạo/thay thế trigger `auth_create_app_profile` trên `auth.users` và bù hồ sơ thiếu. Hồ sơ mới có USER/ACTIVE/PENDING; tài khoản cũ giữ nguyên quyền/trạng thái nhờ `on conflict do nothing`. Trigger không tạo ví. Lỗi trigger có thể khiến cả thao tác đăng ký bị rollback.
 2. Trong Supabase Dashboard → Authentication → URL Configuration, đặt Site URL là địa chỉ frontend đang dùng. Thêm URL `/tai-khoan` vào Redirect URLs cho từng môi trường, ví dụ `http://127.0.0.1:5173/tai-khoan`, `http://localhost:5173/tai-khoan`; nếu dùng preview Auth thì thêm `https://feat-auth.it3180.pages.dev/tai-khoan`.
 3. Frontend gửi `emailRedirectTo` bằng `window.location.origin + '/tai-khoan'`. Nếu bật Confirm Email, template email cần dùng `{{ .ConfirmationURL }}` để xác nhận token rồi chuyển về web. Chỉ dùng Site URL/Redirect URL sẽ không thực hiện bước xác nhận token. Sau khi sửa cấu hình, gửi email xác nhận mới vì link trong email cũ không tự đổi.
 4. Thử đăng ký bằng email test, xác nhận email rồi đăng nhập. User object trả về khi signup chưa chứng minh đã có phiên; UI chỉ coi là đăng nhập khi SDK trả session. Luồng email thật trên cloud vẫn cần lead kiểm tra.
@@ -97,7 +97,7 @@ left join public.users u on u.id = a.id
 where u.id is null;
 ```
 
-Mong đợi kết quả bằng 0. `get_my_profile` vẫn giữ bước tạo hồ sơ dự phòng, gọi lại không đặt lại quyền. Kiểm tra RLS/grants: client không đọc/sửa trực tiếp `users`, schema `private` không được expose; RPC admin phải kiểm tra ADMIN/ACTIVE ở server. Quyền ADMIN trong ứng dụng khác quyền quản trị project trên Supabase Dashboard.
+Mong đợi kết quả bằng 0. `get_my_profile` vẫn giữ bước tạo hồ sơ dự phòng, gọi lại không đặt lại quyền. Kiểm tra RLS/grants: client chỉ đọc hồ sơ mình và không sửa trực tiếp `users`; schema `private` không được expose. RPC admin phải kiểm tra ADMIN/ACTIVE ở server. Quyền ADMIN trong ứng dụng khác quyền quản trị project trên Supabase Dashboard.
 
 ### Lỗi P2 còn mở: duyệt hồ sơ đã thay đổi
 

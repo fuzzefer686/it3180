@@ -37,17 +37,15 @@ export function RouteMap({ stops, route }: { stops: RouteStop[]; route: RouteSna
           if (!active || !map) return;
           try {
             const bounds = new vietmap.LngLatBounds();
-            for (let i = 0; i < route.segments.length; i++) {
-              const coordinates = decodeTripPolyline(route.segments[i].encodedPolyline);
-              for (const coordinate of coordinates) bounds.extend(coordinate);
-              const id = 'trip-segment-' + i;
-              map.addSource(id, {
-                type: 'geojson',
-                data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } },
-              });
-              map.addLayer({ id, source: id, type: 'line',
-                paint: { 'line-color': '#08745b', 'line-width': 5 } });
-            }
+            const coordinates = decodeTripPolyline(route.encodedPolyline);
+            for (const coordinate of coordinates) bounds.extend(coordinate);
+            const id = 'trip-route';
+            map.addSource(id, {
+              type: 'geojson',
+              data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } },
+            });
+            map.addLayer({ id, source: id, type: 'line',
+              paint: { 'line-color': '#08745b', 'line-width': 5 } });
             for (const stop of stops) {
               const marker = document.createElement('span');
               marker.className = 'trip-map-marker';

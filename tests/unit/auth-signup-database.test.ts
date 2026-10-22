@@ -19,12 +19,13 @@ beforeAll(async () => {
     grant usage on schema auth to supabase_auth_admin;
     grant insert on auth.users to supabase_auth_admin;
   `);
-  await db.exec(readFileSync('supabase/migrations/20261020090000_auth_profiles.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261016000000_initial_schema.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261022000100_auth_existing_schema.sql', 'utf8'));
   for (const id of [legacyMissing, legacyLocked, legacyAdmin, legacyDriver]) await db.query('insert into auth.users(id) values ($1)', [id]);
   await db.query("insert into public.users(id,display_name,status) values ($1,'Hồ sơ bị khóa','LOCKED')", [legacyLocked]);
   await db.query("insert into public.users(id,roles) values ($1,array['USER','ADMIN'])", [legacyAdmin]);
   await db.query("insert into public.users(id,roles,student_verification_status,driver_verification_status,vehicle_model,vehicle_plate) values ($1,array['USER','DRIVER'],'VERIFIED','VERIFIED','Xe Demo','DEMO-001')", [legacyDriver]);
-  await db.exec(readFileSync('supabase/migrations/20261020130000_auth_signup_profile.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261022000200_auth_signup_existing_schema.sql', 'utf8'));
 });
 afterAll(async () => { await db.close(); });
 async function read(id: string) {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { RouteStop } from '../../../shared/contracts.ts';
 import type { PlaceSuggestion, RouteSnapshot, TripStopInput } from '../../../shared/trips.ts';
-import { decodeTripPolyline } from '../../../shared/trip-polyline.ts';
+import { decodeTripPolyline, encodeTripPolyline } from '../../../shared/trip-polyline.ts';
 import { mapError, tripError } from '../../../shared/trip-errors.ts';
 import { validateStops } from '../../../shared/trip-schemas.ts';
 
@@ -56,9 +56,12 @@ export async function computeRoute(inputs: TripStopInput[], key: string): Promis
   validateStops(inputs);
   if (!key.trim()) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
   const stops: RouteStop[] = [];
+  const stopIds = inputs.map(() => crypto.randomUUID());
+  const coordinates: [number, number][] = [];
+  let totalDurationMs = 0;
   const route: RouteSnapshot = {
     provider: 'VIETMAP', vehicleType: 'MOTORCYCLE',
-    segments: [], totalDistanceMeters: 0, totalDurationMs: 0,
+    encodedPolyline: '', segments: [], totalDistanceMeters: 0, totalDurationMs: 0,
   };
   // Tính từng cặp để quãng A -> C luôn đúng bằng AB + BC.
   for (let i = 0; i < inputs.length; i++) {
@@ -73,23 +76,29 @@ export async function computeRoute(inputs: TripStopInput[], key: string): Promis
       if (!result.success) throw mapError();
       const leg = result.data.paths[0];
       try {
-        decodeTripPolyline(leg.points);
+        for (const coordinate of decodeTripPolyline(leg.points)) {
+          coordinates.push(coordinate);
+        }
       } catch {
         throw mapError();
       }
+      // Schema nhóm dùng mét nguyên; làm tròn từng chặng rồi mới cộng dồn.
+      const distanceMeters = Math.max(1, Math.round(leg.distance));
       route.segments.push({
-        fromStopId: 'stop-' + (i - 1), toStopId: 'stop-' + i,
-        distanceMeters: leg.distance, durationMs: leg.time, encodedPolyline: leg.points,
+        fromStopId: stopIds[i - 1], toStopId: stopIds[i],
+        distanceMeters, durationMs: leg.time, encodedPolyline: leg.points,
       });
-      route.totalDistanceMeters += leg.distance;
-      route.totalDurationMs += leg.time;
+      route.totalDistanceMeters += distanceMeters;
+      totalDurationMs += leg.time;
     }
     stops.push({
-      id: 'stop-' + i, order: i, label: current.label,
+      id: stopIds[i], order: i, label: current.label,
       latitude: current.latitude, longitude: current.longitude,
       distanceFromStartMeters: route.totalDistanceMeters,
     });
   }
+  route.encodedPolyline = encodeTripPolyline(coordinates);
+  route.totalDurationMs = totalDurationMs;
   // Giới hạn kích thước tuyến để tránh lưu payload quá lớn.
   if (new TextEncoder().encode(JSON.stringify({ stops, route })).byteLength > 600000) {
     throw tripError('Tuyến quá dài để lưu. Vui lòng chia thành chuyến ngắn hơn.', 'ROUTE_TOO_LARGE');

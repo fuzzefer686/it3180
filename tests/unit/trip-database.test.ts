@@ -15,12 +15,15 @@ const stops = [
   { label: 'Phủ Lý', latitude: 20.54, longitude: 105.91 },
   { label: 'Ninh Bình', latitude: 20.25, longitude: 105.97 },
 ];
+const stopIds = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+const bookingId = '44444444-4444-4444-8444-444444444444';
 const calculated = {
-  stops: stops.map((stop, order) => ({ ...stop, id: 'stop-' + order, order, distanceFromStartMeters: order * 1200.25 })),
+  stops: stops.map((stop, order) => ({ ...stop, id: stopIds[order], order, distanceFromStartMeters: order * 1200 })),
   route: {
-    provider: 'VIETMAP', vehicleType: 'MOTORCYCLE', totalDistanceMeters: 2400.5, totalDurationMs: 180000,
-    segments: [0, 1].map(order => ({ fromStopId: 'stop-' + order, toStopId: 'stop-' + (order + 1),
-      distanceMeters: 1200.25, durationMs: 90000, encodedPolyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@' })),
+    encodedPolyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+    provider: 'VIETMAP', vehicleType: 'MOTORCYCLE', totalDistanceMeters: 2400, totalDurationMs: 180000,
+    segments: [0, 1].map(order => ({ fromStopId: stopIds[order], toStopId: stopIds[order + 1],
+      distanceMeters: 1200, durationMs: 90000, encodedPolyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@' })),
   },
 };
 function tripInput() {
@@ -38,11 +41,9 @@ beforeAll(async () => {
   for (const file of readdirSync('supabase/migrations').filter(file => file.endsWith('.sql')).sort()) {
     await db.exec(readFileSync('supabase/migrations/' + file, 'utf8'));
   }
-  // Chỉ dựng phần contract Booking cần đọc; không thay thế module của Người 4.
-  await db.exec('create table public.bookings(id text primary key, trip_id text, status text)');
 });
 beforeEach(async () => {
-  await db.exec('reset role; truncate public.trips, public.bookings; truncate auth.users cascade;');
+  await db.exec('reset role; truncate auth.users cascade;');
   await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [driver, passenger, admin]);
   await db.query("update public.users set roles=array['USER','ADMIN'] where id=$1", [admin]);
 });
@@ -73,6 +74,15 @@ async function save(actor = driver, input: unknown = tripInput()): Promise<TripD
   } finally { await db.exec('reset role'); }
 }
 
+async function insertBooking(trip: TripDetails, status = 'CONFIRMED') {
+  await db.query(`insert into public.bookings(id, trip_id, driver_id, passenger_id,
+    pickup_stop_id, dropoff_stop_id, request_id, status, distance_meters,
+    fare_points, fee_points, driver_points, confirmed_at, picked_up_at)
+    values($1,$2,$3,$4,$5,$6,'test-request',$7,2400,12000,1200,10800,now(),
+      case when $7 = 'ONBOARD' then now() else null end)`,
+    [bookingId, trip.id, driver, passenger, trip.stops[0].id, trip.stops[2].id, status]);
+}
+
 describe('Trip kết hợp migration Auth mới', () => {
   it('đăng ký tạo hồ sơ; phải duyệt sinh viên và tài xế trước khi đăng chuyến', async () => {
     await expect(save()).rejects.toMatchObject({ code: 'PT403' });
@@ -82,7 +92,7 @@ describe('Trip kết hợp migration Auth mới', () => {
     await rpc(admin, 'admin_review_user', { uid: driver, kind: 'DRIVER', decision: 'VERIFIED', reason: '' });
     const trip = await save();
     expect(trip).toMatchObject({ driverId: driver, driverName: profileInputFixture.displayName, status: 'OPEN', routeVersion: 1 });
-    expect(trip.route.totalDistanceMeters).toBe(2400.5);
+    expect(trip.route.totalDistanceMeters).toBe(2400);
     expect(trip).not.toHaveProperty('studentEvidenceDemo');
   });
 
@@ -90,7 +100,8 @@ describe('Trip kết hợp migration Auth mới', () => {
     for (const role of ['anon', 'authenticated']) {
       await db.exec('set role ' + role);
       try {
-        await expect(db.query('select * from public.trips')).rejects.toMatchObject({ code: '42501' });
+        if (role === 'anon') await expect(db.query('select * from public.trips')).rejects.toMatchObject({ code: '42501' });
+        else expect((await db.query('select * from public.trips')).rows).toHaveLength(0);
         await expect(db.query("update public.trips set status='COMPLETED'")).rejects.toMatchObject({ code: '42501' });
         await expect(db.query('select public.check_trip_access($1, true)', [driver])).rejects.toMatchObject({ code: '42501' });
         await expect(db.query("select public.save_trip_route($1, '{}'::jsonb, '{}'::jsonb)", [driver])).rejects.toMatchObject({ code: '42501' });
@@ -122,10 +133,23 @@ describe('Trip kết hợp migration Auth mới', () => {
     await expect(save(driver, input)).rejects.toMatchObject({ code: 'PT409' });
     await db.query("update public.users set roles=array['USER','DRIVER'], student_verification_status='VERIFIED', driver_verification_status='VERIFIED', vehicle_model='Demo', vehicle_plate='Demo' where id=$1", [passenger]);
     await expect(save(passenger, { ...input, routeVersion: 2 })).rejects.toMatchObject({ code: 'PT403' });
-    await db.query("update public.trips set confirmed_booking_id='booking-demo' where id=$1", [trip.id]);
+    await insertBooking(trip);
+    await db.query('update public.trips set confirmed_booking_id=$2 where id=$1', [trip.id, bookingId]);
     await expect(save(driver, { ...input, routeVersion: 2 })).rejects.toMatchObject({ code: 'PT409' });
     await db.query('update public.trips set confirmed_booking_id=null, has_served_passenger=true where id=$1', [trip.id]);
     await expect(save(driver, { ...input, routeVersion: 2 })).rejects.toMatchObject({ code: 'PT409' });
+  });
+
+  it('Booking WAITING giữ nguyên UUID điểm dừng và chặn thay tuyến', async () => {
+    await approveDriver();
+    const trip = await save();
+    await db.query(`insert into public.bookings(id,trip_id,driver_id,passenger_id,pickup_stop_id,dropoff_stop_id,request_id)
+      values($1,$2,$3,$4,$5,$6,'waiting-test')`,
+      [bookingId, trip.id, driver, passenger, trip.stops[0].id, trip.stops[2].id]);
+    await expect(save(driver, { ...tripInput(), tripId: trip.id, routeVersion: 1 })).rejects.toMatchObject({ code: 'PT409' });
+    const unchanged = await rpc<{ trip: TripDetails }>(passenger, 'get_trip', { tripId: trip.id });
+    expect(unchanged.trip.stops).toEqual(trip.stops);
+    expect(unchanged.trip.routeVersion).toBe(1);
   });
 
   it('chỉ chủ chuyến được đổi trạng thái và không thực hiện lặp', async () => {
@@ -140,16 +164,16 @@ describe('Trip kết hợp migration Auth mới', () => {
     await expect(rpc(driver, 'complete_trip', { tripId: trip.id })).rejects.toMatchObject({ code: 'PT409' });
   });
 
-  it('Booking text ID: khách ONBOARD chặn kết thúc, COMPLETED giữ nguyên lịch sử', async () => {
+  it('Booking UUID: khách ONBOARD chặn kết thúc, COMPLETED giữ nguyên lịch sử', async () => {
     await approveDriver();
     const trip = await save();
-    await db.query("insert into public.bookings values ('booking-demo',$1,'ONBOARD')", [trip.id]);
-    await db.query("update public.trips set confirmed_booking_id='booking-demo', has_served_passenger=true where id=$1", [trip.id]);
+    await insertBooking(trip, 'ONBOARD');
+    await db.query('update public.trips set confirmed_booking_id=$2, has_served_passenger=true where id=$1', [trip.id, bookingId]);
     await rpc(driver, 'start_trip', { tripId: trip.id });
     await expect(rpc(driver, 'complete_trip', { tripId: trip.id })).rejects.toMatchObject({ code: 'PT409' });
-    await db.exec("update public.bookings set status='COMPLETED'");
+    await db.exec("update public.bookings set status='COMPLETED', completed_at=now()");
     const result = await rpc<{ trip: TripDetails }>(driver, 'complete_trip', { tripId: trip.id });
-    expect(result.trip).toMatchObject({ status: 'COMPLETED', confirmedBookingId: 'booking-demo', hasServedPassenger: true });
+    expect(result.trip).toMatchObject({ status: 'COMPLETED', confirmedBookingId: bookingId, hasServedPassenger: true });
   });
 
   it('đọc chi tiết và khoảng cách từng đoạn từ snapshot, không lộ hồ sơ riêng tư', async () => {
@@ -158,10 +182,10 @@ describe('Trip kết hợp migration Auth mới', () => {
     const detail = await rpc<{ trip: TripDetails; isOwner: boolean }>(passenger, 'get_trip', { tripId: trip.id });
     expect(detail.isOwner).toBe(false);
     expect(tripResponseSchemas.getTrip.safeParse(detail).success).toBe(true);
-    const input = { tripId: trip.id, pickupStopId: 'stop-0', dropoffStopId: 'stop-2' };
-    expect(await rpc(passenger, 'get_trip_segment_distance', input)).toMatchObject({ distanceMeters: 2400.5, routeVersion: 1 });
-    expect(await rpc(passenger, 'get_trip_segment_distance', { ...input, dropoffStopId: 'stop-1' })).toMatchObject({ distanceMeters: 1200.25 });
-    await expect(rpc(passenger, 'get_trip_segment_distance', { ...input, pickupStopId: 'stop-2' })).rejects.toMatchObject({ code: 'PT400' });
+    const input = { tripId: trip.id, pickupStopId: stopIds[0], dropoffStopId: stopIds[2] };
+    expect(await rpc(passenger, 'get_trip_segment_distance', input)).toMatchObject({ distanceMeters: 2400, routeVersion: 1 });
+    expect(await rpc(passenger, 'get_trip_segment_distance', { ...input, dropoffStopId: stopIds[1] })).toMatchObject({ distanceMeters: 1200 });
+    await expect(rpc(passenger, 'get_trip_segment_distance', { ...input, pickupStopId: stopIds[2] })).rejects.toMatchObject({ code: 'PT400' });
   });
 
   it('lọc có/không dấu theo đúng thứ tự điểm, ngày Việt Nam và chuyến của tôi', async () => {

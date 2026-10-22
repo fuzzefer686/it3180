@@ -8,15 +8,16 @@ const stop = z.object({
 });
 const route = z.object({
   provider: z.literal('VIETMAP'), vehicleType: z.literal('MOTORCYCLE'),
+  encodedPolyline: z.string().min(1),
   segments: z.array(z.object({
-    fromStopId: z.string(), toStopId: z.string(), distanceMeters: z.number().positive(),
-    durationMs: z.number().nonnegative(), encodedPolyline: z.string().min(1),
+    fromStopId: z.string(), toStopId: z.string(), distanceMeters: z.number().nonnegative(),
+    durationMs: z.number().nonnegative().nullable(), encodedPolyline: z.string().min(1).optional(),
   })).min(1).max(7),
-  totalDistanceMeters: z.number().positive(), totalDurationMs: z.number().nonnegative(),
+  totalDistanceMeters: z.number().positive(), totalDurationMs: z.number().nonnegative().nullable(),
 });
 const details = z.object({
   id: z.string(), driverId: z.string(), driverName: z.string(),
-  departureTimeMs: z.number(), arrivalTimeMs: z.number(), status: tripStatusSchema,
+  departureTimeMs: z.number(), arrivalTimeMs: z.number().nullable(), status: tripStatusSchema,
   vehicleType: z.literal('MOTORCYCLE'), stops: z.array(stop).min(2).max(8),
   confirmedBookingId: z.string().nullable(), hasServedPassenger: z.boolean(),
   note: z.string(), routeVersion: z.number().int().positive(), route,
@@ -35,7 +36,7 @@ export const tripResponseSchemas = {
   cancelTrip: trip,
   listTrips: z.object({
     items: z.array(z.object({
-      id: z.string(), driverName: z.string(), departureTimeMs: z.number(), arrivalTimeMs: z.number(),
+      id: z.string(), driverName: z.string(), departureTimeMs: z.number(), arrivalTimeMs: z.number().nullable(),
       status: tripStatusSchema, stopLabels: z.array(z.string()), totalDistanceMeters: z.number(),
       hasPassenger: z.boolean(),
     })),

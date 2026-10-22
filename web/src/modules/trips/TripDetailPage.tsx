@@ -86,7 +86,7 @@ export function TripDetailPage() {
         <h1>{trip.stops[0].label} → {trip.stops[trip.stops.length - 1].label}</h1>
         <p>Tài xế: {trip.driverName}</p>
         <p>Khởi hành: {tripTime(trip.departureTimeMs)}</p>
-        <p>Đến dự kiến: {tripTime(trip.arrivalTimeMs)}</p>
+        <p>Đến dự kiến: {trip.arrivalTimeMs === null ? 'Chưa có thông tin' : tripTime(trip.arrivalTimeMs)}</p>
       </header>
       {trip.note && <p className="trip-note">{trip.note}</p>}
       {trip.cancellationReason && <p className="notice">Lý do hủy: {trip.cancellationReason}</p>}

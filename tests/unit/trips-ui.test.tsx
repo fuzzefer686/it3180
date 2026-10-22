@@ -19,7 +19,7 @@ const places = [
 ];
 const preview = {
   stops: places.map((place, order) => ({ ...place, id: 'stop-' + order, order, distanceFromStartMeters: order * 1200 })),
-  route: { provider: 'VIETMAP', vehicleType: 'MOTORCYCLE', totalDistanceMeters: 1200, totalDurationMs: 90000,
+  route: { encodedPolyline: 'demo', provider: 'VIETMAP', vehicleType: 'MOTORCYCLE', totalDistanceMeters: 1200, totalDurationMs: 90000,
     segments: [{ fromStopId: 'stop-0', toStopId: 'stop-1', distanceMeters: 1200, durationMs: 90000, encodedPolyline: 'demo' }] },
 };
 beforeEach(() => {

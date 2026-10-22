@@ -8,6 +8,12 @@ Nhánh này đã tích hợp Trip/VietMap: [API, điều kiện driver và khác
 callFunction gọi RPC cho Auth và đọc/đổi trạng thái Trip; gọi Edge trips
 cho tìm địa điểm, xem tuyến và lưu chuyến. Shared giữ cả contract Auth và Trip.
 
+Bản sửa schema 22/10: Trip/Booking/stop ID dùng UUID; khoảng cách là mét nguyên.
+`route.encodedPolyline` chứa đường vẽ cả tuyến; các chặng giữ khoảng cách và ID
+điểm đầu/cuối. `arrivalTimeMs`, `route.totalDurationMs` và thời lượng chặng có thể
+null với dữ liệu đã lưu; frontend không thay bằng 0. Xem [bàn giao Trip](trips.md)
+trước khi tích hợp Booking hoặc deploy frontend/Edge khác phiên bản.
+
 ## 1. API nền dự kiến
 
 | Tên dùng trong code | Hàm database dự kiến (RPC) | Gửi lên | Nhận về | Hiện trạng |

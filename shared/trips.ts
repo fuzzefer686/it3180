@@ -16,19 +16,20 @@ export interface RouteSegment {
   fromStopId: string;
   toStopId: string;
   distanceMeters: number;
-  durationMs: number;
-  encodedPolyline: string;
+  durationMs: number | null;
+  encodedPolyline?: string;
 }
 export interface RouteSnapshot {
   provider: 'VIETMAP';
   vehicleType: 'MOTORCYCLE';
+  encodedPolyline: string;
   segments: RouteSegment[];
   totalDistanceMeters: number;
-  totalDurationMs: number;
+  totalDurationMs: number | null;
 }
 export interface TripDetails extends Trip {
   driverName: string;
-  arrivalTimeMs: number;
+  arrivalTimeMs: number | null;
   note: string;
   routeVersion: number;
   route: RouteSnapshot;
@@ -38,7 +39,7 @@ export interface TripListItem {
   id: string;
   driverName: string;
   departureTimeMs: number;
-  arrivalTimeMs: number;
+  arrivalTimeMs: number | null;
   status: Trip['status'];
   stopLabels: string[];
   totalDistanceMeters: number;
