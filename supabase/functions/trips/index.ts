@@ -15,6 +15,6 @@ Deno.serve(request => handleTripRequest(request, {
   },
   rpc: (name, args) => admin.rpc(name, args),
   mapKey: Deno.env.get('VIETMAP_REST_KEY') ?? '',
-  allowedOrigins: (Deno.env.get('TRIPS_ALLOWED_ORIGINS') ?? 'http://127.0.0.1:5173,http://localhost:5173')
+  allowedOrigins: (Deno.env.get('TRIPS_ALLOWED_ORIGINS') ?? 'http://127.0.0.1:5173,http://localhost:5173,https://feat-3-trips-vietmap-supabas.it3180.pages.dev,https://it3180.pages.dev')
     .split(',').map(value => value.trim()).filter(Boolean),
 }));

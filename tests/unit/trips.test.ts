@@ -62,6 +62,20 @@ describe('Trip trên Supabase', () => {
     }
     expect(rpc).not.toHaveBeenCalled();
   });
+  it('Edge trả preflight cho origin preview và production đã cho phép', async () => {
+    const origins = [
+      'https://feat-3-trips-vietmap-supabas.it3180.pages.dev',
+      'https://it3180.pages.dev',
+    ];
+    for (const origin of origins) {
+      const response = await handleTripRequest(new Request('http://local/trips', {
+        method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST' },
+      }), { authenticate: vi.fn(), rpc: vi.fn(), mapKey: '', allowedOrigins: origins });
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+      expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+    }
+  });
   it('Edge không tin actor_id từ request và không nhận thao tác lạ', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
     const dependencies = { authenticate: vi.fn().mockResolvedValue({ id: 'verified-user' }), rpc,
