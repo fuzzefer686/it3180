@@ -3,7 +3,9 @@ import { Bike, CalendarDays, Compass, CircleUserRound, WalletCards } from 'lucid
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './components/ThemeToggle';
 import { AuthPage } from './modules/auth/AuthPage';
-import { TripsPage } from './modules/trips/TripsPage';
+import { AdminPage } from './modules/auth/AdminPage';
+import { RequireSession } from './modules/auth/RequireSession';
+import { TripsModule } from './modules/trips/TripsModule';
 import { BookingsPage } from './modules/bookings/BookingsPage';
 import { WalletsPage } from './modules/wallets/WalletsPage';
 const links = [
@@ -15,7 +17,7 @@ const links = [
 export function App() {
   const { pathname } = useLocation();
   useEffect(() => {
-    document.title = `${links.find(link => link.to === pathname)?.label ?? 'Về Cùng'} | Về Cùng`;
+    document.title = `${pathname === '/quan-tri' ? 'Quản trị hồ sơ' : links.find(link => link.to === pathname)?.label ?? 'Về Cùng'} | Về Cùng`;
     window.scrollTo(0, 0);
   }, [pathname]);
   return <div className="app-shell">
@@ -27,9 +29,10 @@ export function App() {
   </div></header>
   <main id="main-content" className="page-container" tabIndex={-1}><Routes>
     <Route path="/" element={<Navigate to="/chuyen-di" replace/>}/>
-    <Route path="/chuyen-di" element={<TripsPage/>}/>
-    <Route path="/dat-chuyen" element={<BookingsPage/>}/>
-    <Route path="/vi-diem" element={<WalletsPage/>}/>
+    <Route path="/chuyen-di/*" element={<TripsModule/>}/>
+    <Route path="/dat-chuyen" element={<RequireSession><BookingsPage/></RequireSession>}/>
+    <Route path="/vi-diem" element={<RequireSession><WalletsPage/></RequireSession>}/>
+    <Route path="/quan-tri" element={<RequireSession admin><AdminPage/></RequireSession>}/>
     <Route path="/tai-khoan" element={<AuthPage/>}/>
     <Route path="*" element={<section className="empty-state"><h1>Không tìm thấy trang</h1><p>Đường dẫn này không còn khả dụng.</p><Link to="/chuyen-di" className="button primary">Tìm chuyến</Link></section>}/>
   </Routes></main>

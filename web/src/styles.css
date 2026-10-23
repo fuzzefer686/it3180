@@ -184,6 +184,21 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .login-button { width: 100%; }
 .login-form .form-error { padding: 0; }
 .signup-note { font-size: 12px; color: var(--muted); margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.form-notice { font-size: 13px; color: var(--accent-text); line-height: 1.8; }
+.signup-feedback { margin-bottom: 28px; align-items: flex-start; }
+.signup-feedback p { overflow-wrap: anywhere; }
+.signup-feedback .text-button { margin-left: 0; }
+.field-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.profile-editor { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 28px; }
+.profile-editor h2 { font-size: 20px; font-weight: 600; }
+.profile-editor fieldset { display: grid; gap: 24px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.profile-editor textarea, .admin-layout textarea { width: 100%; min-height: 100px; resize: vertical; font: inherit; font-size: 13px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.checkbox-field { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.admin-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 28px; margin-top: 28px; }
+.admin-user { display: grid; gap: 10px; text-align: left; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+.admin-user.selected { border-color: var(--accent); background: var(--tint); }
+.admin-user span { font-size: 12px; color: var(--muted); }
+.admin-layout dd { overflow-wrap: anywhere; min-width: 0; }
 .account-story { overflow: hidden; border-radius: 24px; background: var(--soft); }
 .account-story img { height: 260px; width: 100%; object-fit: cover; object-position: 65% center; }
 .account-story > div { padding: 28px 30px 30px; }
@@ -191,6 +206,8 @@ input::placeholder { color: var(--muted); opacity: 1; }
 .account-story h2 { font-size: 25px; font-weight: 600; letter-spacing: -.7px; line-height: 1.5; }
 .account-story p { font-size: 13px; color: var(--muted); margin-top: 12px; max-width: 360px; }
 .profile-identity { display: flex; align-items: center; gap: 16px; }
+.profile-identity > div { min-width: 0; }
+.profile-identity h2, .admin-user strong { overflow-wrap: anywhere; }
 .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--tint); color: var(--accent-text); display: grid; place-items: center; font-size: 25px; flex-shrink: 0; }
 .profile-identity h2 { font-size: 21px; font-weight: 600; line-height: 1.5; }
 .profile-identity p { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin-top: 5px; }
@@ -228,6 +245,7 @@ input::placeholder { color: var(--muted); opacity: 1; }
   .account-story h2 { font-size: 22px; }
 }
 @media (max-width: 767px) {
+  .admin-layout { grid-template-columns: minmax(0, 1fr); }
   html { scroll-padding-top: 82px; }
   .header-inner { height: 68px; padding: 0 20px; justify-content: space-between; }
   .brand { font-size: 23px; }

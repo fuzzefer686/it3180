@@ -1,0 +1,44 @@
+/* Chỉ dùng trong module Trip; dùng màu có sẵn của giao diện nhóm. */
+.trip-page { display: grid; gap: 22px; padding: 32px 0 56px; }
+.trip-page h1 { font-size: clamp(24px, 3vw, 36px); line-height: 1.5; overflow-wrap: anywhere; }
+.trip-page h2 { font-size: 20px; margin-bottom: 16px; }
+.trip-panel { padding: 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); display: grid; gap: 18px; }
+.trip-panel fieldset { padding: 0; margin: 0; border: 0; display: grid; gap: 20px; min-width: 0; }
+.trip-panel legend { font-size: 20px; font-weight: 600; margin-bottom: 18px; }
+.trip-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.trip-field { display: grid; gap: 8px; font-size: 14px; min-width: 0; }
+.trip-field input, .trip-field textarea, .trip-field select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); color: var(--text); font: inherit; }
+.trip-field textarea { resize: vertical; }
+.trip-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.trip-toolbar { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin: 24px 0; flex-wrap: wrap; }
+.trip-stop-editor { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.trip-stop-editor > .trip-actions { padding-top: 30px; }
+.trip-muted { color: var(--muted); font-size: 13px; }
+.trip-suggestions { list-style: none; padding: 0; margin: 8px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.trip-suggestions button { display: block; width: 100%; padding: 12px; border: 0; text-align: left; color: var(--text); background: var(--surface); }
+.trip-suggestions button:hover { background: var(--tint); }
+.trip-map { height: 380px; border-radius: 16px; overflow: hidden; }
+.trip-map-marker { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #08745b; border: 2px solid white; color: white; font-weight: 700; }
+.trip-route-summary { display: grid; gap: 18px; }
+.trip-stops { display: grid; gap: 14px; padding: 0; list-style: none; }
+.trip-stops li { display: grid; gap: 4px; }
+.trip-stops span { color: var(--muted); font-size: 13px; }
+.trip-table-scroll { overflow-x: auto; }
+.trip-table-scroll table { width: 100%; border-collapse: collapse; text-align: left; }
+.trip-table-scroll caption { text-align: left; margin-bottom: 10px; font-weight: 600; }
+.trip-table-scroll th, .trip-table-scroll td { padding: 10px; border-bottom: 1px solid var(--line); }
+.trip-results { padding: 24px 0; display: grid; gap: 20px; }
+.trip-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.trip-card { display: grid; gap: 14px; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.trip-card:hover { border-color: var(--accent); }
+.trip-card h3 { font-size: 18px; line-height: 1.6; overflow-wrap: anywhere; }
+.trip-badge { width: fit-content; padding: 5px 12px; border-radius: 999px; background: var(--tint); color: var(--accent-text); font-size: 12px; }
+.trip-card-link { color: var(--accent-text); font-size: 14px; font-weight: 600; }
+.trip-heading { display: grid; gap: 12px; }
+.trip-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .trip-form-grid, .trip-cards, .trip-stop-editor { grid-template-columns: 1fr; }
+  .trip-stop-editor > .trip-actions { padding-top: 0; }
+  .trip-panel { padding: 16px; }
+  .trip-map { height: 300px; }
+}

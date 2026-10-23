@@ -26,11 +26,15 @@
     "deploy:check": "node scripts/check-deploy.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@supabase/supabase-js": "2.117.2",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
     "@types/node": "22.20.5",
+    "jsdom": "30.1.3",
+    "supabase": "2.120.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.3",
-    "supabase": "2.120.0",
-    "@supabase/supabase-js": "2.117.2"
+    "vitest": "5.0.3"
   }
 }

@@ -11,11 +11,11 @@
 - Thay đổi shared/contracts.ts, Rules, indexes hoặc config phải nêu ảnh hưởng tới các module.
 - Auth SDK quản lý token/password. Backend lấy uid từ phiên Supabase đã xác minh, quyền/status từ users; không tin quyền/giá/số dư FE.
 - Không cho client tự sửa quyền/giá/số dư. Backend phải tự kiểm tra quyền; không tin Auth user_metadata. Schema/RLS/grants do team thiết kế.
-- Bootstrap kiểm tra uid đã xác minh; nghiệp vụ kiểm tra trạng thái ACTIVE và eligibility phù hợp. Các handler Supabase hiện chưa triển khai.
+- Bootstrap kiểm tra uid đã xác minh; nghiệp vụ kiểm tra trạng thái ACTIVE và eligibility phù hợp. Auth/Trip đã có RPC; VietMap dùng Edge Function trips.
 - Một Trip chỉ phục vụ một khách, được xuống sớm; driver chọn queue thủ công; cutoff và trạng thái do server quyết định.
 - Ví chỉ là điểm demo, không tiền thật/PayOS/đổi điểm thành tiền. Transaction và idempotency bắt buộc khi làm Booking/ví.
 - Chưa có handler thì ghi rõ chưa triển khai, không trả fake success.
-- Test Supabase local trong Docker; không gọi cloud/VietMap thật trong CI. Chưa có migration/bảng ứng dụng; không tự thiết kế bảng nếu team chưa yêu cầu.
+- Test Supabase local trong Docker; không gọi cloud/VietMap thật trong CI. Chuỗi migration dùng baseline 20261016000000 lấy từ server nhóm; không áp dụng thư mục legacy-migrations. Đọc docs/trips.md trước khi đổi schema.
 - Node 22 và Docker cho local; không cần Java. Chạy kiểm tra phù hợp thay đổi; sửa logic backend cần unit/integration.
 - Không thêm secrets/giấy tờ thật/build output vào Git. Chỉ push/deploy/tạo project/bật billing nếu nằm trong yêu cầu của người dùng.
 - Cloud deploy mặc định tắt; không bỏ guard để né config/billing.

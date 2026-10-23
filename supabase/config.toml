@@ -30,7 +30,7 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = ["http://localhost:5173"]
+additional_redirect_urls = ["http://localhost:5173", "http://127.0.0.1:5173/tai-khoan", "http://localhost:5173/tai-khoan"]
 jwt_expiry = 3600
 enable_signup = true
 minimum_password_length = 8
@@ -43,9 +43,13 @@ enable_confirmations = false
 [analytics]
 enabled = false
 
-# Chưa có realtime hoặc Edge Function trong scaffold.
+# Trip/VietMap dùng Edge Function, realtime chưa dùng.
 [realtime]
 enabled = false
 
 [edge_runtime]
-enabled = false
+enabled = true
+
+[functions.trips]
+# Handler xác minh JWT bằng Auth getUser; hỗ trợ cả key JWT mới của Supabase.
+verify_jwt = false
