@@ -43,6 +43,29 @@ describe('Trip trên Supabase', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('vehicle')).toBe('motorcycle');
   });
+  it('gọi các chặng VietMap song song và vẫn giữ đúng thứ tự chặng', async () => {
+    let started = 0;
+    let releaseGate: () => void = () => {};
+    const gate = new Promise<void>(resolve => { releaseGate = resolve; });
+    const fetchMock = vi.fn(async () => {
+      const index = started++;
+      await gate;
+      return new Response(JSON.stringify({ code: 'OK', paths: [
+        { distance: 1000 + index, time: 60000 + index, points_encoded: true, points: '_p~iF~ps|U_ulLnnqC_mqNvxq`@' },
+      ] }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = computeRoute(stops, 'test-only-key');
+    // Chặng sau phải được gọi trước khi chặng đầu trả về; gọi tuần tự sẽ dừng ở 1.
+    await vi.waitFor(() => expect(started).toBe(2));
+    releaseGate();
+    const { route } = await pending;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(route.segments.map(segment => segment.distanceMeters)).toEqual([1000, 1001]);
+    expect(route.segments.map(segment => segment.durationMs)).toEqual([60000, 60001]);
+    expect(route.totalDistanceMeters).toBe(2001);
+    expect(route.totalDurationMs).toBe(120001);
+  });
   it('không trả thành công giả hoặc tiết lộ key khi VietMap lỗi', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('URL contains secret-key')));
     await expect(computeRoute(stops, 'secret-key')).rejects.toMatchObject({ code: 'MAP_UNAVAILABLE' });

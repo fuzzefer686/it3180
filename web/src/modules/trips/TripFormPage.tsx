@@ -1,13 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot, SaveTripInput, TripStopInput } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
 import { PlaceSearch } from './PlaceSearch';
-import { RouteMap } from './RouteMap';
 import { RouteSummary } from './RouteSummary';
 import { fromVietnamInput, toVietnamInput, tripErrorText } from './format';
+
+// SDK bản đồ rất nặng: tách khỏi bundle chính để mở form nhanh, chỉ tải khi xem tuyến.
+const preloadRouteMap = () => import('./RouteMap');
+const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
 
 interface DraftStop { key: string; place: TripStopInput | null }
 interface Preview { stops: RouteStop[]; route: RouteSnapshot }
@@ -84,8 +87,14 @@ export function TripFormPage() {
     try { selected = selectedStops(); }
     catch { setError('Hãy chọn tất cả điểm dừng từ gợi ý địa chỉ.'); return; }
     setBusy(true);
-    try { setPreview(await callFunction('previewTripRoute', { stops: selected })); }
-    catch (error) { setError(tripErrorText(error)); }
+    try {
+      // Tải trước SDK bản đồ trong lúc chờ VietMap trả tuyến để không phải chờ thêm lần nữa.
+      const [result] = await Promise.all([
+        callFunction('previewTripRoute', { stops: selected }),
+        preloadRouteMap().catch(() => null),
+      ]);
+      setPreview(result);
+    } catch (error) { setError(tripErrorText(error)); }
     finally { setBusy(false); }
   }
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -177,7 +186,10 @@ export function TripFormPage() {
         </div>
       </fieldset>
     </form>}
-    {preview && <div className="trip-panel"><RouteMap stops={preview.stops} route={preview.route} />
+    {preview && <div className="trip-panel">
+      <Suspense fallback={<p role="status">Đang tải bản đồ…</p>}>
+        <RouteMap stops={preview.stops} route={preview.route} />
+      </Suspense>
       <RouteSummary stops={preview.stops} route={preview.route} /></div>}
   </section>;
 }

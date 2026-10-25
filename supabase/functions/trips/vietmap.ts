@@ -52,53 +52,71 @@ const routeSchema = z.object({
     points: z.string().min(1).max(80000),
   })).min(1),
 });
+interface RouteLeg {
+  distanceMeters: number;
+  durationMs: number;
+  encodedPolyline: string;
+  coordinates: [number, number][];
+}
+async function requestLeg(previous: TripStopInput, current: TripStopInput, key: string): Promise<RouteLeg> {
+  const params = new URLSearchParams({ vehicle: 'motorcycle', points_encoded: 'true' });
+  params.append('point', previous.latitude + ',' + previous.longitude);
+  params.append('point', current.latitude + ',' + current.longitude);
+  const data = await requestVietmap('route/v4', params, key);
+  const result = routeSchema.safeParse(data);
+  if (!result.success) throw mapError();
+  const leg = result.data.paths[0];
+  let coordinates: [number, number][];
+  try {
+    coordinates = decodeTripPolyline(leg.points);
+  } catch {
+    throw mapError();
+  }
+  return {
+    // Schema nhóm dùng mét nguyên; làm tròn từng chặng rồi mới cộng dồn.
+    distanceMeters: Math.max(1, Math.round(leg.distance)),
+    durationMs: leg.time,
+    encodedPolyline: leg.points,
+    coordinates,
+  };
+}
+
 export async function computeRoute(inputs: TripStopInput[], key: string): Promise<{ stops: RouteStop[]; route: RouteSnapshot }> {
   validateStops(inputs);
   if (!key.trim()) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
   const stops: RouteStop[] = [];
   const stopIds = inputs.map(() => crypto.randomUUID());
+  // Mỗi chặng độc lập nhau nên gọi VietMap song song; 8 điểm không phải chờ 7 lần nối tiếp.
+  const legs = await Promise.all(
+    inputs.slice(1).map((current, index) => requestLeg(inputs[index], current, key)),
+  );
   const coordinates: [number, number][] = [];
+  const segments: RouteSnapshot['segments'] = [];
+  let totalDistanceMeters = 0;
   let totalDurationMs = 0;
-  const route: RouteSnapshot = {
-    provider: 'VIETMAP', vehicleType: 'MOTORCYCLE',
-    encodedPolyline: '', segments: [], totalDistanceMeters: 0, totalDurationMs: 0,
-  };
   // Tính từng cặp để quãng A -> C luôn đúng bằng AB + BC.
   for (let i = 0; i < inputs.length; i++) {
-    const current = inputs[i];
     if (i > 0) {
-      const previous = inputs[i - 1];
-      const params = new URLSearchParams({ vehicle: 'motorcycle', points_encoded: 'true' });
-      params.append('point', previous.latitude + ',' + previous.longitude);
-      params.append('point', current.latitude + ',' + current.longitude);
-      const data = await requestVietmap('route/v4', params, key);
-      const result = routeSchema.safeParse(data);
-      if (!result.success) throw mapError();
-      const leg = result.data.paths[0];
-      try {
-        for (const coordinate of decodeTripPolyline(leg.points)) {
-          coordinates.push(coordinate);
-        }
-      } catch {
-        throw mapError();
-      }
-      // Schema nhóm dùng mét nguyên; làm tròn từng chặng rồi mới cộng dồn.
-      const distanceMeters = Math.max(1, Math.round(leg.distance));
-      route.segments.push({
+      const leg = legs[i - 1];
+      for (const coordinate of leg.coordinates) coordinates.push(coordinate);
+      segments.push({
         fromStopId: stopIds[i - 1], toStopId: stopIds[i],
-        distanceMeters, durationMs: leg.time, encodedPolyline: leg.points,
+        distanceMeters: leg.distanceMeters, durationMs: leg.durationMs, encodedPolyline: leg.encodedPolyline,
       });
-      route.totalDistanceMeters += distanceMeters;
-      totalDurationMs += leg.time;
+      totalDistanceMeters += leg.distanceMeters;
+      totalDurationMs += leg.durationMs;
     }
     stops.push({
-      id: stopIds[i], order: i, label: current.label,
-      latitude: current.latitude, longitude: current.longitude,
-      distanceFromStartMeters: route.totalDistanceMeters,
+      id: stopIds[i], order: i, label: inputs[i].label,
+      latitude: inputs[i].latitude, longitude: inputs[i].longitude,
+      distanceFromStartMeters: totalDistanceMeters,
     });
   }
-  route.encodedPolyline = encodeTripPolyline(coordinates);
-  route.totalDurationMs = totalDurationMs;
+  const route: RouteSnapshot = {
+    provider: 'VIETMAP', vehicleType: 'MOTORCYCLE',
+    encodedPolyline: encodeTripPolyline(coordinates),
+    segments, totalDistanceMeters, totalDurationMs,
+  };
   // Giới hạn kích thước tuyến để tránh lưu payload quá lớn.
   if (new TextEncoder().encode(JSON.stringify({ stops, route })).byteLength > 600000) {
     throw tripError('Tuyến quá dài để lưu. Vui lòng chia thành chuyến ngắn hơn.', 'ROUTE_TOO_LARGE');

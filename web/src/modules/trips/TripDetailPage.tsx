@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { TripDetails } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
-import { RouteMap } from './RouteMap';
 import { RouteSummary } from './RouteSummary';
 import { distanceText, tripErrorText, tripStatusText, tripTime } from './format';
+
+// SDK bản đồ nặng nên tách khỏi bundle chính; trang chi tiết vẫn xem được thông tin khi chưa tải xong.
+const preloadRouteMap = () => import('./RouteMap');
+const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
 
 export function TripDetailPage() {
   const { tripId } = useParams();
@@ -28,6 +31,8 @@ export function TripDetailPage() {
     setLoading(true);
     setError('');
     setTrip(null);
+    // Tải trước SDK bản đồ song song với lúc lấy dữ liệu chuyến.
+    void preloadRouteMap().catch(() => null);
     callFunction('getTrip', { tripId }).then(result => {
       if (!active) return;
       setTrip(result.trip);
@@ -114,7 +119,10 @@ export function TripDetailPage() {
           </div>
         </form>}
       </div>}
-      <div className="trip-panel"><RouteMap stops={trip.stops} route={trip.route} />
+      <div className="trip-panel">
+        <Suspense fallback={<p role="status">Đang tải bản đồ…</p>}>
+          <RouteMap stops={trip.stops} route={trip.route} />
+        </Suspense>
         <RouteSummary stops={trip.stops} route={trip.route} /></div>
       <div className="trip-panel">
         <h2>Quãng đường bạn muốn đi</h2>
