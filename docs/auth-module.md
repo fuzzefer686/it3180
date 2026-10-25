@@ -2,15 +2,27 @@
 
 Tài liệu này gom hướng dẫn Auth, cấu hình đăng ký và các việc còn cần lead xử lý. Kết quả kiểm thử theo từng thời điểm nằm trong [validation](validation.md).
 
+## Cập nhật 26/10/2026 — mặc định xác minh sinh viên và tài xế
+
+Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrations/20261026000100_auth_default_verified.sql`:
+
+- Trigger `auth.users` tạo hồ sơ với `student_verification_status` và `driver_verification_status` = `VERIFIED`; default hai cột cũng đổi theo nên bootstrap trong `get_my_profile` không tạo hồ sơ `PENDING` nữa.
+- Hồ sơ đã có được đặt lại `VERIFIED` cho cả hai; giữ `status` (`LOCKED` vẫn bị khóa), giữ role `ADMIN`, xóa ghi chú duyệt cũ.
+- Role `DRIVER` **không** cấp lúc đăng ký vì ràng buộc `users_driver_eligible` yêu cầu có loại xe và biển số. `update_my_profile` tự cấp `DRIVER` khi hồ sơ có đủ hai thông tin xe và tự thu hồi khi xóa trống, nên `canDrive` bật ngay sau khi người dùng nhập xe mà không cần admin.
+- Sửa hồ sơ không còn đưa trạng thái về `PENDING` hoặc thu hồi `DRIVER`; `canBook` đúng với mọi tài khoản `ACTIVE`.
+- Admin vẫn dùng được `admin_review_user`/`admin_set_user_status` (từ chối, khóa) khi cần, nhưng đó không còn là bước bắt buộc.
+
+Ảnh hưởng: module 3/4 gọi `private.require_eligible_user(true)` vẫn phải có thông tin xe như trước; không đổi contract `UserProfile`, không đổi RLS/grants. Lead cần review rồi `supabase db push` (chỉ file `20261026000100...`) và chạy `npm run test:integration` khi có Docker.
+
 ## Yêu cầu và phần đã làm
 
 Theo `ke-hoach/02-ho-so-quan-tri.md` và ảnh thiết kế database nhóm cung cấp:
 
 1. **Tài khoản:** đăng ký email/mật khẩu, đăng nhập, đăng xuất bằng Supabase Auth SDK; nhập lại mật khẩu; thông báo lỗi tiếng Việt; hỗ trợ server có hoặc không yêu cầu xác nhận email. Không tự lưu mật khẩu/token.
 2. **Phiên và trang riêng tư:** khôi phục phiên từ SDK, tránh nhận hồ sơ của phiên cũ khi đổi tài khoản; làm mới token không tải lại hồ sơ thừa. `/dat-chuyen`, `/vi-diem` yêu cầu hồ sơ ACTIVE; `/quan-tri` còn yêu cầu ADMIN. Sau đăng nhập quay về trang đã chọn.
-3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/PENDING ngay khi tài khoản được tạo, kể cả chưa xác minh email; migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
+3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/VERIFIED ngay khi tài khoản được tạo, kể cả chưa xác minh email (xem cập nhật 26/10 ở trên); migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
 4. **Quản trị:** danh sách 20 hồ sơ/trang; admin duyệt/từ chối sinh viên và driver; từ chối phải có lý do; chỉ duyệt driver khi sinh viên đã VERIFIED và có xe. Duyệt driver thêm DRIVER, giữ USER. Khóa/mở tài khoản qua `users.status`; không cho admin tự khóa mình; không có API tự cấp ADMIN.
-5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Thay trường/mã/minh chứng đưa sinh viên và driver về PENDING, thu hồi DRIVER; thay xe chỉ đưa driver về PENDING và thu hồi DRIVER. Thay họ tên/điện thoại giữ trạng thái duyệt.
+5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Từ 26/10, hồ sơ mặc định VERIFIED và `DRIVER` được cấp tự động khi có xe; sửa hồ sơ không còn hạ trạng thái về PENDING.
 
 ## Database theo ảnh thiết kế
 

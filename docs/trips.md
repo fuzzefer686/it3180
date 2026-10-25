@@ -63,7 +63,7 @@ khác biệt này của server, không dựa riêng vào CHECK để cấp quy�
    rồi deploy `trips` bằng `npx --no-install supabase functions deploy trips --use-api`.
    File `supabase/functions/.env.local` không tự đồng bộ secrets lên server.
 6. Deploy frontend cùng bản Edge mới vì DTO tuyến đã thay đổi. Thử đăng nhập →
-   hoàn thiện/duyệt hồ sơ → xem chuyến cũ → đăng/sửa chuyến mới → bắt đầu/kết thúc.
+   hoàn thiện hồ sơ (nhập xe) → xem chuyến cũ → đăng/sửa chuyến mới → bắt đầu/kết thúc.
 
 Giữ frontend/Edge bản trước nếu cần dừng rollout. Không xóa cột hoặc rollback dữ
 liệu để quay về thiết kế JSON cũ. Nếu SQL lỗi, kiểm tra transaction và migration
@@ -82,7 +82,7 @@ REST key chỉ đặt ở backend. Mở http://127.0.0.1:5173.
 | `/tai-khoan` | Đăng ký, đăng nhập, hồ sơ và xe |
 | `/quan-tri` | Admin duyệt sinh viên/tài xế |
 | `/chuyen-di` | Danh sách, tìm chuyến |
-| `/chuyen-di/dang` | Chọn điểm, xem tuyến, đăng chuyến; cần tài xế đã duyệt |
+| `/chuyen-di/dang` | Chọn điểm, xem tuyến, đăng chuyến; cần hồ sơ có loại xe + biển số (mặc định đã xác minh sinh viên/tài xế) |
 | `/chuyen-di/cua-toi` | Chuyến tôi đăng |
 | `/chuyen-di/:tripId` | Bản đồ tuyến, khoảng cách, quản lý chuyến |
 | `/chuyen-di/:tripId/sua` | Sửa chuyến còn mở, chưa có Booking |

@@ -124,7 +124,7 @@ export function TripFormPage() {
 
   if (loading || profileLoading) return <p role="status">Đang tải tài khoản…</p>;
   if (!user) return <p className="notice"><Link to="/tai-khoan">Đăng nhập để đăng chuyến.</Link></p>;
-  if (!profile?.eligibility.canDrive) return <p className="notice">Bạn cần xác minh sinh viên, hồ sơ tài xế được duyệt và thông tin xe để đăng chuyến. <Link to="/tai-khoan">Hoàn thiện hồ sơ</Link></p>;
+  if (!profile?.eligibility.canDrive) return <p className="notice">Bạn cần nhập loại xe và biển số trong hồ sơ để đăng chuyến. <Link to="/tai-khoan">Hoàn thiện hồ sơ</Link></p>;
   return <section className="trip-page">
     <Link to="/chuyen-di">← Tìm chuyến</Link>
     <h1>{tripId ? 'Sửa chuyến đi' : 'Đăng chuyến đi'}</h1>

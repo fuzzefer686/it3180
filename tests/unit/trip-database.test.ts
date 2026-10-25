@@ -84,12 +84,11 @@ async function insertBooking(trip: TripDetails, status = 'CONFIRMED') {
 }
 
 describe('Trip kết hợp migration Auth mới', () => {
-  it('đăng ký tạo hồ sơ; phải duyệt sinh viên và tài xế trước khi đăng chuyến', async () => {
+  it('đăng ký tạo hồ sơ; nhập thông tin xe là đăng chuyến được ngay, không cần admin duyệt', async () => {
     await expect(save()).rejects.toMatchObject({ code: 'PT403' });
-    await rpc(driver, 'update_my_profile', profileInputFixture);
-    await rpc(admin, 'admin_review_user', { uid: driver, kind: 'STUDENT', decision: 'VERIFIED', reason: '' });
-    await expect(save()).rejects.toMatchObject({ code: 'PT403' });
-    await rpc(admin, 'admin_review_user', { uid: driver, kind: 'DRIVER', decision: 'VERIFIED', reason: '' });
+    const profile = await rpc<{ roles: string[]; eligibility: { canDrive: boolean } }>(driver, 'update_my_profile', profileInputFixture);
+    expect(profile.roles).toContain('DRIVER');
+    expect(profile.eligibility.canDrive).toBe(true);
     const trip = await save();
     expect(trip).toMatchObject({ driverId: driver, driverName: profileInputFixture.displayName, status: 'OPEN', routeVersion: 1 });
     expect(trip.route.totalDistanceMeters).toBe(2400);
@@ -110,7 +109,7 @@ describe('Trip kết hợp migration Auth mới', () => {
     await expect(rpc(null, 'list_trips')).rejects.toMatchObject({ code: 'PT401' });
   });
 
-  it('khóa tài khoản chặn đọc/lưu/start bằng phiên cũ; đổi xe thu hồi quyền đăng', async () => {
+  it('khóa tài khoản chặn đọc/lưu/start bằng phiên cũ; đổi xe vẫn giữ quyền đăng', async () => {
     await approveDriver();
     const trip = await save();
     await rpc(admin, 'admin_set_user_status', { uid: driver, status: 'LOCKED' });
@@ -118,9 +117,10 @@ describe('Trip kết hợp migration Auth mới', () => {
     await expect(rpc(driver, 'list_trips')).rejects.toMatchObject({ code: 'PT403' });
     await expect(rpc(driver, 'start_trip', { tripId: trip.id })).rejects.toMatchObject({ code: 'PT403' });
     await rpc(admin, 'admin_set_user_status', { uid: driver, status: 'ACTIVE' });
-    await rpc(driver, 'update_my_profile', { ...profileInputFixture, vehiclePlate: 'DEMO-002' });
-    await expect(save()).rejects.toMatchObject({ code: 'PT403' });
-    await expect(rpc(driver, 'start_trip', { tripId: trip.id })).rejects.toMatchObject({ code: 'PT403' });
+    const changed = await rpc<{ roles: string[]; eligibility: { canDrive: boolean } }>(driver,
+      'update_my_profile', { ...profileInputFixture, vehiclePlate: 'DEMO-002' });
+    expect(changed.roles).toContain('DRIVER');
+    expect(changed.eligibility.canDrive).toBe(true);
     const cancelled = await rpc<{ trip: TripDetails }>(driver, 'cancel_trip', { tripId: trip.id, reason: 'Đổi xe' });
     expect(cancelled.trip.status).toBe('CANCELLED');
   });

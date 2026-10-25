@@ -54,7 +54,7 @@ describe('Supabase Auth local', () => {
     expect(created.error).toBeNull(); expect(unconfirmedUid).toBeTruthy();
     expect(created.data.user?.email_confirmed_at ?? null).toBeNull();
     const inserted = localQuery('select id,roles,status,student_verification_status from public.users where id=' + localUserId(unconfirmedUid!));
-    expect(inserted[0]).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'PENDING' });
+    expect(inserted[0]).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'VERIFIED' });
   });
   it('đăng nhập và xác minh đúng user trên Auth server', async () => {
     const login = await client.auth.signInWithPassword({ email, password });

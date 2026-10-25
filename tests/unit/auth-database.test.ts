@@ -20,6 +20,7 @@ beforeAll(async () => {
   `);
   await db.exec(readFileSync('supabase/migrations/20261016000000_initial_schema.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261022000100_auth_existing_schema.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261026000100_auth_default_verified.sql', 'utf8'));
 });
 beforeEach(async () => {
   await db.exec('reset role; truncate auth.users cascade;');
@@ -46,7 +47,8 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
   it('bootstrap đúng uid, USER/ACTIVE, không đọc metadata và gọi lại không tạo trùng', async () => {
     const value = await rpc(member, 'get_my_profile');
     expect(userProfileSchema.safeParse(value).success).toBe(true);
-    expect(value).toMatchObject({ uid: member, roles: ['USER'], status: 'ACTIVE', eligibility: { canBook: false, canDrive: false } });
+    // Mặc định xác minh sẵn sinh viên + tài xế; role DRIVER và canDrive vẫn cần loại xe, biển số.
+    expect(value).toMatchObject({ uid: member, roles: ['USER'], status: 'ACTIVE', eligibility: { canBook: true, canDrive: false } });
     await rpc(member, 'get_my_profile');
     expect((await db.query<{ count: number }>('select count(*)::int as count from public.users where id=$1', [member])).rows[0].count).toBe(1);
   });
@@ -57,7 +59,7 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     for (const extra of [{ uid: other }, { roles: ['ADMIN'] }, { status: 'ACTIVE' }, { studentVerificationStatus: 'VERIFIED' }]) {
       await expect(rpc(member, 'update_my_profile', { ...profileInputFixture, ...extra })).rejects.toMatchObject({ code: 'PT400' });
     }
-    expect((await rpc(member, 'get_my_profile')).roles).toEqual(['USER']);
+    expect((await rpc(member, 'get_my_profile')).roles).toEqual(['USER', 'DRIVER']);
   });
   it('chặn đọc/ghi bảng trực tiếp và không cho client gọi helper private', async () => {
     await setupMember();
@@ -91,11 +93,11 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     }
     for (const page of [0, 1.2, 10001, '1']) await expect(rpc(admin, 'admin_list_users', { page })).rejects.toMatchObject({ code: 'PT400' });
   });
-  it('admin cần lý do từ chối và không duyệt hồ sơ thiếu hoặc driver chưa xác minh sinh viên', async () => {
+  it('admin cần lý do từ chối và không duyệt hồ sơ thiếu thông tin', async () => {
     await rpc(member, 'get_my_profile');
+    // Hồ sơ mặc định đã VERIFIED nhưng thiếu số điện thoại/trường/mã nên admin vẫn không duyệt tay được.
     await expect(rpc(admin, 'admin_review_user', { uid: member, kind: 'STUDENT', decision: 'VERIFIED', reason: '' })).rejects.toMatchObject({ code: 'PT409' });
     await setupMember();
-    await expect(rpc(admin, 'admin_review_user', { uid: member, kind: 'DRIVER', decision: 'VERIFIED', reason: '' })).rejects.toMatchObject({ code: 'PT409' });
     await expect(rpc(admin, 'admin_review_user', { uid: member, kind: 'STUDENT', decision: 'REJECTED', reason: ' ' })).rejects.toMatchObject({ code: 'PT400' });
     const rejected = await rpc(admin, 'admin_review_user', { uid: member, kind: 'STUDENT', decision: 'REJECTED', reason: 'Minh chứng demo thiếu thông tin' });
     expect(rejected.studentReviewNote).toBe('Minh chứng demo thiếu thông tin');
@@ -106,19 +108,27 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     expect(approved.eligibility).toEqual({ canBook: true, canDrive: true });
     expect((await rpc(member, 'get_my_profile')).roles).toEqual(['USER', 'DRIVER']);
   });
-  it('đổi xe thu hồi DRIVER, đổi sinh viên yêu cầu duyệt lại; sửa liên hệ giữ duyệt', async () => {
+  it('sửa hồ sơ sau khi xác minh không thu hồi DRIVER hoặc quay lại PENDING', async () => {
     await approveDriver();
     const contact = await rpc(member, 'update_my_profile', { ...profileInputFixture, phone: '0911111111' });
-    expect(contact.eligibility.canDrive).toBe(true);
+    expect(contact.eligibility).toEqual({ canBook: true, canDrive: true });
     const vehicle = await rpc(member, 'update_my_profile', { ...profileInputFixture, vehiclePlate: 'DEMO-002' });
-    expect(vehicle).toMatchObject({ roles: ['USER'], studentVerificationStatus: 'VERIFIED', driverVerificationStatus: 'PENDING' });
+    expect(vehicle).toMatchObject({ roles: ['USER', 'DRIVER'], studentVerificationStatus: 'VERIFIED',
+      driverVerificationStatus: 'VERIFIED', vehiclePlate: 'DEMO-002' });
     const student = await rpc(member, 'update_my_profile', { ...profileInputFixture, studentCode: 'DEMO-002' });
-    expect(student.eligibility).toEqual({ canBook: false, canDrive: false });
+    expect(student.eligibility).toEqual({ canBook: true, canDrive: true });
   });
   it('từ chối sinh viên đã duyệt thu hồi quyền driver', async () => {
     await approveDriver();
     const rejected = await rpc(admin, 'admin_review_user', { uid: member, kind: 'STUDENT', decision: 'REJECTED', reason: 'Duyệt lại minh chứng demo' });
     expect(rejected.roles).toEqual(['USER']); expect(rejected.eligibility.canDrive).toBe(false);
+  });
+  it('bị từ chối thì lưu lại hồ sơ có xe cũng không tự cấp lại DRIVER', async () => {
+    await approveDriver();
+    await rpc(admin, 'admin_review_user', { uid: member, kind: 'STUDENT', decision: 'REJECTED', reason: 'Minh chứng demo sai' });
+    const saved = await rpc(member, 'update_my_profile', profileInputFixture);
+    expect(saved).toMatchObject({ roles: ['USER'], studentVerificationStatus: 'REJECTED',
+      eligibility: { canBook: false, canDrive: false } });
   });
   it('LOCKED không sửa được hồ sơ, không khôi phục quyền qua bootstrap; admin mở lại', async () => {
     await approveDriver();
@@ -138,10 +148,12 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
     await expect(rpc(admin, 'admin_list_users', { page: 1 })).rejects.toMatchObject({ code: 'PT403' });
   });
   it('helper cho Trip/Booking kiểm tra ACTIVE và eligibility trên dữ liệu hiện tại', async () => {
-    await setupMember();
+    await rpc(member, 'get_my_profile');
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [member]);
-    await expect(db.query('select private.require_eligible_user(false)')).rejects.toMatchObject({ code: 'PT403' });
-    await approveDriver();
+    // Đã xác minh sinh viên nên đặt chuyến được, nhưng chưa có xe nên chưa lái được.
+    await expect(db.query('select private.require_eligible_user(false)')).resolves.toBeTruthy();
+    await expect(db.query('select private.require_eligible_user(true)')).rejects.toMatchObject({ code: 'PT403' });
+    await rpc(member, 'update_my_profile', profileInputFixture);
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [member]);
     await expect(db.query('select private.require_eligible_user(true)')).resolves.toBeTruthy();
     await rpc(admin, 'admin_set_user_status', { uid: member, status: 'LOCKED' });

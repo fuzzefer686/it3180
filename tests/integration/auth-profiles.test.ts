@@ -78,15 +78,16 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     expect((await member.rpc('admin_review_user', { input: { uid: ids[0], kind: 'STUDENT', decision: 'VERIFIED', reason: '' } })).error?.code).toBe('PT403');
     expect((await member.rpc('admin_set_user_status', { input: { uid: ids[1], status: 'LOCKED' } })).error?.code).toBe('PT403');
   });
-  it('duyệt sinh viên trước driver; cấp DRIVER giữ USER và sửa xe phải duyệt lại', async () => {
+  it('tự xác minh sinh viên/tài xế: nhập xe là đủ điều kiện, sửa xe không thu hồi quyền', async () => {
     await save();
+    const savedProfile = await profile(member);
+    expect(savedProfile.roles).toEqual(['USER', 'DRIVER']);
+    expect(savedProfile.eligibility).toEqual({ canBook: true, canDrive: true });
     const review = (kind: string) => reviewer.rpc('admin_review_user', { input: { uid: ids[0], kind, decision: 'VERIFIED', reason: '' } });
-    expect((await review('DRIVER')).error?.code).toBe('PT409');
     expect((await review('STUDENT')).error).toBeNull(); expect((await review('DRIVER')).error).toBeNull();
-    expect((await profile(member)).eligibility).toEqual({ canBook: true, canDrive: true });
     const edit = await member.rpc('update_my_profile', { input: { ...profileInputFixture, vehiclePlate: 'DEMO-002' } });
-    expect(edit.error).toBeNull(); expect(edit.data.roles).toEqual(['USER']);
-    expect(edit.data.driverVerificationStatus).toBe('PENDING');
+    expect(edit.error).toBeNull(); expect(edit.data.roles).toEqual(['USER', 'DRIVER']);
+    expect(edit.data.driverVerificationStatus).toBe('VERIFIED');
   });
   it('từ chối cần lý do, lưu ghi chú và khóa chặn thao tác bằng phiên đã cấp trước đó', async () => {
     await save();

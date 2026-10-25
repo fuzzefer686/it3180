@@ -25,7 +25,7 @@ export function ProfileForm({ profile, onSaved }: { profile: UserProfile; onSave
     pending.current = true; setBusy(true);
     try {
       await callFunction('updateMyProfile', parsed.data);
-      setNotice('Đã lưu hồ sơ. Thông tin sinh viên hoặc xe thay đổi cần được duyệt lại.'); onSaved();
+      setNotice('Đã lưu hồ sơ.'); onSaved();
     } catch (err) { setError(errorMessage(err)); }
     finally { pending.current = false; setBusy(false); }
   }
