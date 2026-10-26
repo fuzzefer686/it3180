@@ -21,6 +21,7 @@ export function errorMessage(error: unknown): string {
       case 'PGRST202': return 'Chức năng này chưa được triển khai.';
       case 'PT412': return 'Hồ sơ của bạn chưa sẵn sàng. Vui lòng thử lại sau.';
       case 'PT400': return 'Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.';
+      case 'PT404': return 'Không tìm thấy chuyến đi này.';
     }
   }
   // Không đưa lỗi SDK, SQL hoặc thông tin triển khai ra giao diện.

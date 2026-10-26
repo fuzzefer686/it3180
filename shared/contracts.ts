@@ -1,3 +1,4 @@
+import type { TripApiContracts } from './trips.ts';
 import { z } from 'zod';
 
 // Owner: lead; đổi contract phải báo module sử dụng.
@@ -73,7 +74,7 @@ export interface HealthResponse {
   status: 'ok'; database: 'connected'; sampleMessage: string | null;
   environment: 'local' | 'cloud';
 }
-export interface ApiContracts {
+export interface ApiContracts extends TripApiContracts {
   healthCheck: { input: Record<string, never>; output: HealthResponse };
   getMyProfile: { input: Record<string, never>; output: UserProfile };
   updateMyProfile: { input: ProfileInput; output: UserProfile };
@@ -85,7 +86,6 @@ export interface ApiContracts {
 
 // Các tên/input dự kiến dưới đây chưa có handler; owner chốt qua PR trước khi dùng.
 export interface PlannedInputs {
-  createTrip: { stops: Array<Pick<RouteStop, 'label' | 'latitude' | 'longitude'>>; departureTimeMs: number };
   requestRide: { tripId: string; pickupStopId: string; dropoffStopId: string; requestId: string };
   confirmBooking: { bookingId: string };
   cancelBooking: { bookingId: string; reason: string };

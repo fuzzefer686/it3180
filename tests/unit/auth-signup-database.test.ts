@@ -19,12 +19,14 @@ beforeAll(async () => {
     grant usage on schema auth to supabase_auth_admin;
     grant insert on auth.users to supabase_auth_admin;
   `);
-  await db.exec(readFileSync('supabase/migrations/20261020090000_auth_profiles.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261016000000_initial_schema.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261022000100_auth_existing_schema.sql', 'utf8'));
   for (const id of [legacyMissing, legacyLocked, legacyAdmin, legacyDriver]) await db.query('insert into auth.users(id) values ($1)', [id]);
   await db.query("insert into public.users(id,display_name,status) values ($1,'Hồ sơ bị khóa','LOCKED')", [legacyLocked]);
   await db.query("insert into public.users(id,roles) values ($1,array['USER','ADMIN'])", [legacyAdmin]);
   await db.query("insert into public.users(id,roles,student_verification_status,driver_verification_status,vehicle_model,vehicle_plate) values ($1,array['USER','DRIVER'],'VERIFIED','VERIFIED','Xe Demo','DEMO-001')", [legacyDriver]);
-  await db.exec(readFileSync('supabase/migrations/20261020130000_auth_signup_profile.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261022000200_auth_signup_existing_schema.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261026000100_auth_default_verified.sql', 'utf8'));
 });
 afterAll(async () => { await db.close(); });
 async function read(id: string) {
@@ -34,10 +36,10 @@ async function read(id: string) {
 describe('Tạo public.users khi Auth đăng ký tài khoản', () => {
   it('backfill hồ sơ còn thiếu trước migration mà không cần phiên hoặc xác minh email', async () => {
     expect(await read(legacyMissing)).toMatchObject({ uid: legacyMissing, roles: ['USER'], status: 'ACTIVE',
-      studentVerificationStatus: 'PENDING', driverVerificationStatus: 'PENDING', eligibility: { canBook: false, canDrive: false } });
+      studentVerificationStatus: 'VERIFIED', driverVerificationStatus: 'VERIFIED', eligibility: { canBook: true, canDrive: false } });
     expect((await db.query<{ confirmed: string | null }>('select email_confirmed_at as confirmed from auth.users where id=$1', [legacyMissing])).rows[0].confirmed).toBeNull();
   });
-  it('backfill giữ nguyên hồ sơ đã có, LOCKED, ADMIN và DRIVER', async () => {
+  it('backfill giữ tên, LOCKED, ADMIN và chỉ cấp DRIVER khi hồ sơ đã có thông tin xe', async () => {
     expect(await read(legacyLocked)).toMatchObject({ displayName: 'Hồ sơ bị khóa', status: 'LOCKED', roles: ['USER'] });
     expect((await read(legacyAdmin)).roles).toEqual(['USER', 'ADMIN']);
     expect(await read(legacyDriver)).toMatchObject({ roles: ['USER', 'DRIVER'], driverVerificationStatus: 'VERIFIED', vehiclePlate: 'DEMO-001' });
@@ -47,7 +49,7 @@ describe('Tạo public.users khi Auth đăng ký tài khoản', () => {
     await db.query('insert into auth.users(id,raw_user_meta_data) values ($1,$2::jsonb)', [id,
       JSON.stringify({ roles: ['ADMIN', 'DRIVER'], status: 'LOCKED', student_verification_status: 'VERIFIED', display_name: 'Admin tự khai' })]);
     expect(await read(id)).toMatchObject({ uid: id, displayName: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
-      studentVerificationStatus: 'PENDING', driverVerificationStatus: 'PENDING' });
+      studentVerificationStatus: 'VERIFIED', driverVerificationStatus: 'VERIFIED' });
   });
   it('Auth service không có quyền đọc bảng users vẫn tạo được hồ sơ qua trigger', async () => {
     const id = crypto.randomUUID();
