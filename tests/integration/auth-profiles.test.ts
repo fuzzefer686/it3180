@@ -87,6 +87,8 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     } finally {
       await signupClient.auth.signOut();
       if (created.data.user) {
+        // public.users tham chiếu auth.users với ON DELETE RESTRICT: xóa hồ sơ trước.
+        removeLocalProfiles([created.data.user.id]);
         const removed = await admin.auth.admin.deleteUser(created.data.user.id);
         if (removed.error) throw removed.error;
       }
