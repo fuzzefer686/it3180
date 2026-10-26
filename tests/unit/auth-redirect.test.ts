@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// @vitest-environment-options {"url":"https://feat-auth.it3180.pages.dev/tai-khoan"}
+// @vitest-environment-options {"url":"https://it3180.pages.dev/tai-khoan"}
 import { createClient, type Session, type User } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_SUCCESS_URL, authSessionRedirectUrl } from '../../web/src/modules/auth/auth-redirect';
