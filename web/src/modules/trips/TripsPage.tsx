@@ -1,10 +1,10 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowDownUp, ArrowRight, Bike, CalendarDays, CheckCircle2, ChevronDown, MapPin, Plus, Route, Search, ShieldCheck } from 'lucide-react';
 import type { ListTripsInput } from '../../../../shared/trips';
 import { TripResults } from './TripResults';
 import { useSession } from '../auth/SessionProvider';
 import { toVietnamInput } from './format';
-import { ArrowDownUp, ArrowRight, Bike, CalendarDays, ChevronDown, MapPin, Search, ShieldCheck } from 'lucide-react';
 
 function today() {
   return toVietnamInput(Date.now()).slice(0, 10);
@@ -21,54 +21,130 @@ export function TripsPage() {
   const { user, profile } = useSession();
   const originInput = useRef<HTMLInputElement>(null);
   const result = useRef<HTMLDivElement>(null);
+
   function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setSearched(false); setError('');
-    if (origin.trim() && destination.trim() && origin.trim().toLocaleLowerCase('vi') === destination.trim().toLocaleLowerCase('vi')) { setError('Điểm đi và điểm đến cần khác nhau.'); return; }
-    if (date && date < today()) { setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.'); return; }
+    event.preventDefault();
+    setSearched(false);
+    setError('');
+    if (origin.trim() && destination.trim() && origin.trim().toLocaleLowerCase('vi') === destination.trim().toLocaleLowerCase('vi')) {
+      setError('Điểm đi và điểm đến cần khác nhau.');
+      return;
+    }
+    if (date && date < today()) {
+      setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.');
+      return;
+    }
     const next: ListTripsInput = { origin: origin.trim(), destination: destination.trim() };
     if (date) next.date = date;
     setFilters(next);
     setSearched(true);
     requestAnimationFrame(() => result.current?.focus());
   }
+
   return <>
     <section className="search-hero" aria-labelledby="search-title">
       <div className="hero-copy">
-        <span className="eyebrow"><Bike size={18}/> Ghép xe máy cho sinh viên</span>
+        <span className="eyebrow"><Bike size={16}/> Ghép xe máy cho sinh viên</span>
         <h1 id="search-title">Cùng đường.<br/><span>Cùng về.</span></h1>
-        <p>Tìm một người bạn đồng hành cho chuyến về quê sắp tới.</p>
-        <a className="hero-link" href="#trip-search">Bạn muốn về đâu? <ArrowRight size={20}/></a>
+        <p>Tìm người bạn đồng hành tin cậy cho hành trình về quê hoặc tới trường theo lộ trình xe máy rõ ràng.</p>
+        <div className="hero-trust-row">
+          <span><CheckCircle2 size={15}/> Hồ sơ sinh viên duyệt</span>
+          <span><Route size={15}/> Lộ trình VietMap xe máy</span>
+        </div>
+        <a className="hero-link" href="#trip-search">Bạn muốn về đâu? <ArrowRight size={18}/></a>
       </div>
-      <div className="hero-photo"><img src="/images/ride-home.jpg" srcSet="/images/ride-home-small.jpg 720w, /images/ride-home-medium.jpg 960w, /images/ride-home.jpg 1400w" sizes="(min-width: 1280px) 620px, (min-width: 768px) 50vw, calc(100vw - 40px)" width="1400" height="933" alt="Hai bạn sinh viên đội mũ bảo hiểm đi cùng xe máy trên đường quê" fetchPriority="high"/></div>
+      <div className="hero-photo">
+        <img
+          src="/images/ride-home.jpg"
+          srcSet="/images/ride-home-small.jpg 720w, /images/ride-home-medium.jpg 960w, /images/ride-home.jpg 1400w"
+          sizes="(min-width: 1280px) 620px, (min-width: 768px) 50vw, calc(100vw - 40px)"
+          width="1400"
+          height="933"
+          alt="Hai bạn sinh viên đội mũ bảo hiểm đi cùng xe máy trên đường quê"
+          fetchPriority="high"
+        />
+        <span className="hero-photo-badge"><ShieldCheck size={15}/> Đón & trả linh hoạt dọc các điểm dừng</span>
+      </div>
     </section>
+
     <section className="search-section" aria-label="Tìm chuyến theo tuyến và ngày">
       <form id="trip-search" className="search-form" onSubmit={search}>
-        <div className="search-field"><label htmlFor="origin">Đi từ</label><div className="input-with-icon"><MapPin size={20}/><input ref={originInput} id="origin" name="origin" autoComplete="off" placeholder="Tỉnh / thành phố" value={origin} maxLength={120} onChange={e => { setOrigin(e.target.value); setSearched(false); setError(''); }}/></div></div>
-        <button className="icon-button swap-button" type="button" aria-label="Đổi điểm đi và điểm đến" onClick={() => { setOrigin(destination); setDestination(origin); setSearched(false); setError(''); }}><ArrowDownUp size={18}/></button>
-        <div className="search-field"><label htmlFor="destination">Đến</label><div className="input-with-icon"><MapPin size={20}/><input id="destination" name="destination" autoComplete="off" placeholder="Bạn muốn về đâu?" value={destination} maxLength={120} onChange={e => { setDestination(e.target.value); setSearched(false); setError(''); }}/></div></div>
-        <div className="search-field date-field"><label htmlFor="departure-date">Ngày đi</label><div className="input-with-icon"><CalendarDays size={20}/><input id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()} onChange={e => { setDate(e.target.value); setSearched(false); setError(''); }}/></div></div>
-        <button className="button primary search-button" type="submit"><Search size={19}/> Tìm chuyến</button>
+        <div className="search-field">
+          <label htmlFor="origin">Đi từ</label>
+          <div className="input-with-icon">
+            <MapPin size={19}/>
+            <input ref={originInput} id="origin" name="origin" autoComplete="off" placeholder="Trường học / quận / tỉnh" value={origin} maxLength={120}
+              onChange={e => { setOrigin(e.target.value); setSearched(false); setError(''); }}/>
+          </div>
+        </div>
+        <button className="icon-button swap-button" type="button" aria-label="Đổi điểm đi và điểm đến"
+          onClick={() => { setOrigin(destination); setDestination(origin); setSearched(false); setError(''); }}>
+          <ArrowDownUp size={17}/>
+        </button>
+        <div className="search-field">
+          <label htmlFor="destination">Đến</label>
+          <div className="input-with-icon">
+            <MapPin size={19}/>
+            <input id="destination" name="destination" autoComplete="off" placeholder="Bạn muốn về đâu?" value={destination} maxLength={120}
+              onChange={e => { setDestination(e.target.value); setSearched(false); setError(''); }}/>
+          </div>
+        </div>
+        <div className="search-field date-field">
+          <label htmlFor="departure-date">Ngày đi</label>
+          <div className="input-with-icon">
+            <CalendarDays size={19}/>
+            <input id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()}
+              onChange={e => { setDate(e.target.value); setSearched(false); setError(''); }}/>
+          </div>
+        </div>
+        <button className="button primary search-button" type="submit"><Search size={18}/> Tìm chuyến</button>
       </form>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <div className="quick-destinations"><span>Chọn nhanh điểm đến</span><div>{destinations.map(place => <button key={place} type="button" className={`destination-chip${destination === place ? ' selected' : ''}`} aria-pressed={destination === place} onClick={() => { setDestination(place); setSearched(false); setError(''); originInput.current?.focus(); }}>{place}<ArrowRight size={14}/></button>)}</div></div>
+      <div className="quick-destinations">
+        <span>Chọn nhanh điểm đến</span>
+        <div>
+          {destinations.map(place => (
+            <button key={place} type="button" className={`destination-chip${destination === place ? ' selected' : ''}`}
+              aria-pressed={destination === place}
+              onClick={() => { setDestination(place); setSearched(false); setError(''); originInput.current?.focus(); }}>
+              {place}<ArrowRight size={13}/>
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
+
     <div className="trip-toolbar">
-      {user && <Link className="button secondary" to="/chuyen-di/cua-toi">Chuyến tôi đăng</Link>}
-      {profile?.eligibility.canDrive && <>
-        <Link className="button primary" to="/chuyen-di/dang">Đăng chuyến</Link>
-      </>}
-      {searched && <button className="text-button" onClick={() => {
-        setOrigin(''); setDestination(''); setDate(''); setFilters({}); setSearched(false);
-      }}>Xem tất cả chuyến sắp tới</button>}
+      <div className="trip-toolbar-title">
+        <h2>{searched ? 'Kết quả lọc theo lộ trình' : 'Chuyến xe sắp khởi hành'}</h2>
+        <p className="trip-muted">Xem lộ trình chi tiết trên bản đồ VietMap và chọn đoạn đón trả phù hợp.</p>
+      </div>
+      <div className="trip-toolbar-actions">
+        {searched && (
+          <button className="text-button" type="button" onClick={() => {
+            setOrigin(''); setDestination(''); setDate(''); setFilters({}); setSearched(false);
+          }}>Xem tất cả chuyến sắp tới</button>
+        )}
+        {user && <Link className="button secondary" to="/chuyen-di/cua-toi">Chuyến tôi đăng</Link>}
+        {profile?.eligibility.canDrive && (
+          <Link className="button primary" to="/chuyen-di/dang"><Plus size={17}/> Đăng chuyến</Link>
+        )}
+      </div>
     </div>
+
     <div ref={result} tabIndex={-1}>
       <TripResults key={user?.id + JSON.stringify(filters)} filters={filters} />
     </div>
+
     <section className="ride-guide" aria-labelledby="guide-title">
-      <div className="guide-intro"><div className="guide-icon"><ShieldCheck size={28}/></div><h2 id="guide-title">Một chuyến đi.<br/>Một người đồng hành.</h2><p>Chọn tuyến phù hợp, gửi yêu cầu và đợi tài xế xác nhận trước khi lên đường.</p></div>
+      <div className="guide-intro">
+        <div className="guide-icon"><ShieldCheck size={26}/></div>
+        <h2 id="guide-title">Một chuyến đi.<br/>Một người đồng hành.</h2>
+        <p>Chọn tuyến phù hợp, kiểm tra khoảng cách từng chặng và đợi tài xế xác nhận trước khi lên đường.</p>
+      </div>
       <div className="guide-details">
-        <details open><summary>Không cần đi hết cả tuyến <ChevronDown size={18}/></summary><p>Bạn có thể chọn điểm đón và xuống tại một điểm dừng dọc tuyến tài xế đã đăng.</p></details>
-        <details><summary>Gửi yêu cầu có giữ chỗ không? <ChevronDown size={18}/></summary><p>Yêu cầu vào hàng chờ, chưa giữ chỗ. Tài xế chọn một người đi cùng và gửi xác nhận.</p></details>
+        <details open><summary>Không cần đi hết cả tuyến <ChevronDown size={18}/></summary><p>Bạn có thể chọn điểm đón và xuống tại bất kỳ điểm dừng nào dọc tuyến xe máy tài xế đã đăng.</p></details>
+        <details><summary>Gửi yêu cầu có giữ chỗ không? <ChevronDown size={18}/></summary><p>Yêu cầu vào hàng chờ, chưa giữ chỗ. Tài xế chọn một người đi cùng phù hợp và gửi xác nhận.</p></details>
         <details><summary>Khi nào hàng chờ đóng? <ChevronDown size={18}/></summary><p>Chuyến ngừng nhận yêu cầu mới trước giờ đi 30 phút. Bạn có thể rút yêu cầu đang chờ mà không mất điểm.</p></details>
       </div>
     </section>
