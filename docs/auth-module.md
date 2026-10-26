@@ -2,6 +2,8 @@
 
 Tài liệu này gom hướng dẫn Auth, cấu hình đăng ký và các việc còn cần lead xử lý. Kết quả kiểm thử theo từng thời điểm nằm trong [validation](validation.md).
 
+Yêu cầu hiện hành ngày 22/10/2026: [đăng ký/đăng nhập và tự trở về trang chủ](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Hỗ trợ cả server có hoặc không yêu cầu xác minh email; trigger tạo hồ sơ ngay khi Auth insert, `get_my_profile` giữ bootstrap dự phòng, idempotent.
+
 ## Cập nhật 26/10/2026 — mặc định xác minh sinh viên và tài xế
 
 Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrations/20261026000100_auth_default_verified.sql`:
@@ -18,8 +20,8 @@ Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrat
 
 Theo `ke-hoach/02-ho-so-quan-tri.md` và ảnh thiết kế database nhóm cung cấp:
 
-1. **Tài khoản:** đăng ký email/mật khẩu, đăng nhập, đăng xuất bằng Supabase Auth SDK; nhập lại mật khẩu; thông báo lỗi tiếng Việt; hỗ trợ server có hoặc không yêu cầu xác nhận email. Không tự lưu mật khẩu/token.
-2. **Phiên và trang riêng tư:** khôi phục phiên từ SDK, tránh nhận hồ sơ của phiên cũ khi đổi tài khoản; làm mới token không tải lại hồ sơ thừa. `/dat-chuyen`, `/vi-diem` yêu cầu hồ sơ ACTIVE; `/quan-tri` còn yêu cầu ADMIN. Sau đăng nhập quay về trang đã chọn.
+1. **Tài khoản:** đăng ký email/mật khẩu, đăng nhập, đăng xuất bằng Supabase Auth SDK; nhập lại mật khẩu; thông báo lỗi tiếng Việt. Signup có user nhưng chưa có phiên là chờ xác minh email, không phải lỗi đăng ký. Có nút gửi lại email; lỗi SMTP/rate limit không báo thành công giả. Không tự lưu mật khẩu/token.
+2. **Phiên và trang riêng tư:** khôi phục phiên từ SDK, tránh nhận hồ sơ của phiên cũ khi đổi tài khoản; làm mới token không tải lại hồ sơ thừa. `/dat-chuyen`, `/vi-diem` yêu cầu hồ sơ ACTIVE; `/quan-tri` còn yêu cầu ADMIN. Đăng ký/login hoặc callback thành công tự mở `https://feat-auth.it3180.pages.dev/chuyen-di` khi SDK có user, kể cả từ localhost; khi đổi origin, SDK đích nhận và lưu phiên qua fragment implicit. Người đã đăng nhập vẫn chủ động mở `/tai-khoan` để sửa hồ sơ.
 3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/VERIFIED ngay khi tài khoản được tạo, kể cả chưa xác minh email (xem cập nhật 26/10 ở trên); migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
 4. **Quản trị:** danh sách 20 hồ sơ/trang; admin duyệt/từ chối sinh viên và driver; từ chối phải có lý do; chỉ duyệt driver khi sinh viên đã VERIFIED và có xe. Duyệt driver thêm DRIVER, giữ USER. Khóa/mở tài khoản qua `users.status`; không cho admin tự khóa mình; không có API tự cấp ADMIN.
 5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Từ 26/10, hồ sơ mặc định VERIFIED và `DRIVER` được cấp tự động khi có xe; sửa hồ sơ không còn hạ trạng thái về PENDING.
@@ -51,7 +53,7 @@ Schema đã được đối chiếu catalog server ngày 22/10. Các migration A
 
 **Shared thay đổi:** `UserProfile` giữ các field cũ và thêm field riêng tư, trạng thái driver, xe và eligibility. Fixture của các module 3/4/5 cần bổ sung các field mới. Không đưa toàn bộ UserProfile vào kết quả tìm chuyến công khai; cần DTO công khai riêng khi triển khai Trip. Wrapper `callFunction` kiểm tra input theo từng API thay vì chỉ nhận `{}`. `healthCheck` và `adminFoundationInfo` vẫn chưa triển khai.
 
-**Config/công cụ:** thêm URL `/tai-khoan` vào redirect local; server dev cần lead cấu hình URL frontend thực tế trong Auth URL Configuration nếu bật xác nhận email. Script local/test gọi CLI qua Node để tương thích Windows. `supabase:start` và bộ test integration áp dụng migration **local** chưa chạy; không reset dữ liệu local và không chuyển sang cloud. Các thư viện PGlite/jsdom/Testing Library chỉ dùng để test, không nằm trong bundle frontend.
+**Config/công cụ:** local đặt `enable_confirmations = false`; server dev có thể bật xác minh nếu gửi được email. Signup/resend dùng callback website Pages trong `auth-redirect.ts`; lead cần cho phép URL đó trong Supabase và dùng template xác minh đúng. Không đổi duyệt sinh viên/driver hoặc quyền của module 3/4/5. Script local/test gọi CLI qua Node để tương thích Windows. `supabase:start` và bộ test integration áp dụng migration **local** chưa chạy; không reset dữ liệu local và không chuyển sang cloud. Các thư viện PGlite/jsdom/Testing Library chỉ dùng để test, không nằm trong bundle frontend.
 
 ## Chạy thử bắt buộc
 
@@ -84,7 +86,7 @@ Script mở Supabase local, áp dụng migration chưa chạy bằng `migration 
 
 Chạy `npm run dev` cho toàn bộ local (cần Docker), hoặc `npm run dev:web` với server dev đã được lead cập nhật API. Đổi cấu hình cloud sang local theo `docs/supabase-local.md`; script không ghi đè env cloud.
 
-1. Mở `/tai-khoan`, đăng ký email test, thử mật khẩu không khớp; đăng nhập, reload và đăng xuất. Nếu server bật xác nhận email, xác nhận trước khi login; local hiện tắt xác nhận email.
+1. Mở `/tai-khoan`, đăng ký email test, thử mật khẩu không khớp; có phiên thì tự tới `/chuyen-di`, chưa có phiên thì xác minh qua email rồi trở về website và tự tới trang chủ. Kiểm tra dòng `public.users` cùng ID Auth. Reload, đăng xuất và đăng nhập lại; login đúng tự tới trang chủ, sai giữ form. Nếu thiếu hồ sơ, kiểm tra migration/RPC/trigger.
 2. Lưu hồ sơ với minh chứng hư cấu và xe demo. Tài khoản đang ACTIVE/PENDING chưa đủ điều kiện đặt/đăng chuyến.
 3. Với tài khoản ADMIN test do lead cấp bằng thao tác tin cậy, vào `/quan-tri`, duyệt sinh viên rồi tài xế; trở lại tài khoản user bấm Tải lại hồ sơ. DRIVER vẫn có USER, canDrive thành true.
 4. Sửa biển số: DRIVER bị thu hồi và cần duyệt lại. Khóa user từ admin: user không lưu được hồ sơ bằng phiên cũ. Mở khóa cho phép dùng lại theo trạng thái duyệt hiện tại.

@@ -50,6 +50,48 @@ async function save() {
   if (result.error) throw result.error;
 }
 describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
+  it('đăng ký nhận phiên ngay, có dòng users trước RPC, lưu hồ sơ và đăng nhập lại không cần email', async () => {
+    const signupClient = createClient(url, publicKey, options);
+    const credentials = { email: `signup-${crypto.randomUUID()}@integration.example`, password: 'IntegrationOnly!2026' };
+    const created = await signupClient.auth.signUp(credentials);
+    try {
+      expect(created.error).toBeNull();
+      expect(created.data.user).not.toBeNull();
+      expect(created.data.session).not.toBeNull();
+      const uid = created.data.user!.id;
+      // Đọc bằng admin TRƯỚC get_my_profile để không che việc thiếu trigger bằng bootstrap.
+      const stored = await admin.from('users').select('*').eq('id', uid).single();
+      expect(stored.error).toBeNull();
+      expect(stored.data).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
+        student_verification_status: 'VERIFIED', driver_verification_status: 'VERIFIED' });
+      expect(stored.data).not.toHaveProperty('password');
+      expect((await profile(signupClient)).uid).toBe(uid);
+
+      const saved = await signupClient.rpc('update_my_profile', { input: profileInputFixture });
+      expect(saved.error).toBeNull();
+      const savedRow = await admin.from('users').select('display_name,phone,school,student_code').eq('id', uid).single();
+      expect(savedRow.error).toBeNull();
+      expect(savedRow.data).toEqual({ display_name: profileInputFixture.displayName, phone: profileInputFixture.phone,
+        school: profileInputFixture.school, student_code: profileInputFixture.studentCode });
+
+      expect((await signupClient.auth.signOut()).error).toBeNull();
+      const login = await signupClient.auth.signInWithPassword(credentials);
+      expect(login.error).toBeNull();
+      expect(login.data.user?.id).toBe(uid);
+      expect((await profile(signupClient)).displayName).toBe(profileInputFixture.displayName);
+      const duplicate = await signupClient.auth.signUp(credentials);
+      expect(duplicate.error).not.toBeNull();
+      const count = await admin.from('users').select('id', { count: 'exact', head: true }).eq('id', uid);
+      expect(count.error).toBeNull();
+      expect(count.count).toBe(1);
+    } finally {
+      await signupClient.auth.signOut();
+      if (created.data.user) {
+        const removed = await admin.auth.admin.deleteUser(created.data.user.id);
+        if (removed.error) throw removed.error;
+      }
+    }
+  });
   it('Auth metadata ADMIN không được tin, bootstrap an toàn và gọi đồng thời không tạo trùng', async () => {
     const results = await Promise.all([profile(member), profile(member)]);
     expect(results[0]).toMatchObject({ uid: ids[0], roles: ['USER'], status: 'ACTIVE' });
