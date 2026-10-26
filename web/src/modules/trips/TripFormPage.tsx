@@ -98,6 +98,7 @@ export function TripFormPage() {
   if (!profile?.eligibility.canDrive) {
     return <p className="notice">Bạn cần nhập loại xe và biển số trong hồ sơ để đăng chuyến. <Link to="/tai-khoan">Hoàn thiện hồ sơ</Link></p>;
   }
+  const minNow = toVietnamInput(Date.now() + 60_000);
 
   return <section className="trip-page">
     <div className="trip-top-bar">
@@ -111,7 +112,7 @@ export function TripFormPage() {
     {initialLoading && <p role="status">Đang tải chuyến…</p>}
     {loaded && (
       <div className="trip-builder-layout">
-        <form onSubmit={save} className="trip-panel">
+        <form noValidate onSubmit={save} className="trip-panel">
           <fieldset disabled={busy}>
             <legend>Các điểm dừng theo thứ tự</legend>
             <div className="trip-stops-builder">
@@ -143,8 +144,8 @@ export function TripFormPage() {
               <span className="trip-muted">Điểm A là nơi xuất phát, điểm cuối là nơi kết thúc.</span>
             </div>
             <div className="trip-form-grid">
-              <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required value={departure} onChange={event => setDeparture(event.target.value)} /></label>
-              <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required value={arrival} onChange={event => setArrival(event.target.value)} /></label>
+              <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
+              <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required min={departure || minNow} value={arrival} onChange={event => { setArrival(event.target.value); setError(''); }} /></label>
             </div>
             <label className="trip-field"><span>Ghi chú</span><textarea rows={3} maxLength={1000} placeholder="Ví dụ: Có sẵn 1 mũ bảo hiểm phụ, nhận balo gọn nhẹ…" value={note} onChange={event => setNote(event.target.value)} /></label>
             <div className="trip-actions">

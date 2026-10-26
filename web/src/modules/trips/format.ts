@@ -30,8 +30,18 @@ export function toVietnamInput(milliseconds: number): string {
   return new Date(milliseconds + 7 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }
 
+export function isValidVietnamDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export function fromVietnamInput(value: string): number {
-  return Date.parse(value + ':00+07:00');
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2}))?$/.exec(value.trim());
+  if (!match) return Number.NaN;
+  const parsed = Date.parse(`${match[1]}:${match[2] ?? '00'}+07:00`);
+  if (!Number.isFinite(parsed) || toVietnamInput(parsed) !== match[1]) return Number.NaN;
+  return parsed;
 }
 
 export function tripErrorText(error: unknown): string {

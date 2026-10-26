@@ -4,7 +4,7 @@ import { ArrowDownUp, ArrowRight, Bike, CalendarDays, CheckCircle2, ChevronDown,
 import type { ListTripsInput } from '../../../../shared/trips';
 import { TripResults } from './TripResults';
 import { useSession } from '../auth/SessionProvider';
-import { toVietnamInput } from './format';
+import { isValidVietnamDate, toVietnamInput } from './format';
 
 function today() {
   return toVietnamInput(Date.now()).slice(0, 10);
@@ -20,6 +20,7 @@ export function TripsPage() {
   const [filters, setFilters] = useState<ListTripsInput>({});
   const { user, profile } = useSession();
   const originInput = useRef<HTMLInputElement>(null);
+  const dateInput = useRef<HTMLInputElement>(null);
   const result = useRef<HTMLDivElement>(null);
 
   function search(event: FormEvent<HTMLFormElement>) {
@@ -30,7 +31,7 @@ export function TripsPage() {
       setError('Điểm đi và điểm đến cần khác nhau.');
       return;
     }
-    if (date && date < today()) {
+    if (dateInput.current?.validity.badInput || (date && (!isValidVietnamDate(date) || date < today()))) {
       setError('Vui lòng chọn ngày hôm nay hoặc một ngày sắp tới.');
       return;
     }
@@ -68,7 +69,7 @@ export function TripsPage() {
     </section>
 
     <section className="search-section" aria-label="Tìm chuyến theo tuyến và ngày">
-      <form id="trip-search" className="search-form" onSubmit={search}>
+      <form id="trip-search" className="search-form" noValidate onSubmit={search}>
         <div className="search-field">
           <label htmlFor="origin">Đi từ</label>
           <div className="input-with-icon">
@@ -93,7 +94,7 @@ export function TripsPage() {
           <label htmlFor="departure-date">Ngày đi</label>
           <div className="input-with-icon">
             <CalendarDays size={19}/>
-            <input id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()}
+            <input ref={dateInput} id="departure-date" name="departureDate" aria-label="Ngày đi" type="date" value={date} min={today()}
               onChange={e => { setDate(e.target.value); setSearched(false); setError(''); }}/>
           </div>
         </div>
@@ -122,7 +123,7 @@ export function TripsPage() {
       <div className="trip-toolbar-actions">
         {searched && (
           <button className="text-button" type="button" onClick={() => {
-            setOrigin(''); setDestination(''); setDate(''); setFilters({}); setSearched(false);
+            setOrigin(''); setDestination(''); setDate(''); setError(''); setFilters({}); setSearched(false);
           }}>Xem tất cả chuyến sắp tới</button>
         )}
         {user && <Link className="button secondary" to="/chuyen-di/cua-toi">Chuyến tôi đăng</Link>}
