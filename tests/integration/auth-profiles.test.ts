@@ -60,19 +60,20 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
       expect(created.data.session).not.toBeNull();
       const uid = created.data.user!.id;
       // Đọc bằng admin TRƯỚC get_my_profile để không che việc thiếu trigger bằng bootstrap.
-      const stored = await admin.from('users').select('*').eq('id', uid).single();
-      expect(stored.error).toBeNull();
-      expect(stored.data).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
+      // Đọc bằng SQL local: baseline server không cấp quyền ĐỌC bảng users cho service_role qua API.
+      const stored = localQuery<Record<string, unknown>>('select * from public.users where id=' + localUserId(uid));
+      expect(stored).toHaveLength(1);
+      expect(stored[0]).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
         student_verification_status: 'VERIFIED', driver_verification_status: 'VERIFIED' });
-      expect(stored.data).not.toHaveProperty('password');
+      expect(stored[0]).not.toHaveProperty('password');
       expect((await profile(signupClient)).uid).toBe(uid);
 
       const saved = await signupClient.rpc('update_my_profile', { input: profileInputFixture });
       expect(saved.error).toBeNull();
-      const savedRow = await admin.from('users').select('display_name,phone,school,student_code').eq('id', uid).single();
-      expect(savedRow.error).toBeNull();
-      expect(savedRow.data).toEqual({ display_name: profileInputFixture.displayName, phone: profileInputFixture.phone,
-        school: profileInputFixture.school, student_code: profileInputFixture.studentCode });
+      const savedRow = localQuery<Record<string, unknown>>(
+        'select display_name,phone,school,student_code from public.users where id=' + localUserId(uid));
+      expect(savedRow).toEqual([{ display_name: profileInputFixture.displayName, phone: profileInputFixture.phone,
+        school: profileInputFixture.school, student_code: profileInputFixture.studentCode }]);
 
       expect((await signupClient.auth.signOut()).error).toBeNull();
       const login = await signupClient.auth.signInWithPassword(credentials);
@@ -81,9 +82,8 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
       expect((await profile(signupClient)).displayName).toBe(profileInputFixture.displayName);
       const duplicate = await signupClient.auth.signUp(credentials);
       expect(duplicate.error).not.toBeNull();
-      const count = await admin.from('users').select('id', { count: 'exact', head: true }).eq('id', uid);
-      expect(count.error).toBeNull();
-      expect(count.count).toBe(1);
+      const count = localQuery<{ count: number }>('select count(*)::int as count from public.users where id=' + localUserId(uid));
+      expect(count[0].count).toBe(1);
     } finally {
       await signupClient.auth.signOut();
       if (created.data.user) {
