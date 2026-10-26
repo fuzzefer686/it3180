@@ -15,7 +15,7 @@ Team là sinh viên năm 3, chưa có nhiều kinh nghiệm. Bắt đầu bằng
 
 **Mọi người đều sửa code trên máy.** GitHub giữ code; Supabase giữ tài khoản và database. Gửi code lên GitHub không tự đưa thay đổi lên Supabase.
 
-Repo đã bổ sung đăng ký/hồ sơ/admin và migration `users` theo thiết kế nhóm cung cấp; xem [phạm vi và kết quả kiểm thử Auth](auth-module.md). Chưa áp dụng bản này lên server. Trip (chuyến), Booking (yêu cầu đi cùng), ví vẫn chưa có backend; các kế hoạch đó chưa phải chức năng đã hoàn thành.
+Nhánh này có RPC Auth/Trip và Edge Function VietMap, dựa trên baseline 7 bảng lấy từ server nhóm. Bản sửa migration chưa được áp dụng lên server; xem [Auth](auth-module.md) và [bàn giao Trip](trips.md). Booking/ví do owner khác tích hợp.
 
 ## 2. Chọn cách chạy
 
@@ -60,7 +60,7 @@ CI là bộ kiểm tra GitHub tự chạy khi có PR. “CI xanh” nghĩa là c
 
 Ví dụ: cần thêm cột ghi chú cho chuyến. Chỉ thêm bằng nút trong Studio trên máy bạn thì máy bạn khác vẫn chưa có cột. Ghi thay đổi trong migration rồi gửi PR giúp cả nhóm đồng bộ được.
 
-Chỉ làm phần này khi đã cùng team thống nhất bảng/cột/quyền cần có. Repo có migration Auth `users` dựa trên thiết kế đã cung cấp; các bảng module khác vẫn cần được chốt riêng. Server đã có bảng phải đối chiếu lịch sử/schema trước, không chạy lại CREATE TABLE hoặc reset remote.
+Chỉ làm phần này khi đã cùng team thống nhất bảng/cột/quyền cần có. Baseline `20261016000000` đã tạo các bảng nhóm; migration mới phải dùng đúng cấu trúc đó. Server đã có bảng phải đối chiếu lịch sử/schema trước, không chạy lại CREATE TABLE hoặc reset remote. Các file trong `supabase/legacy-migrations/` chỉ để tra cứu, không áp dụng.
 
 ### Bước A — mở Supabase local
 

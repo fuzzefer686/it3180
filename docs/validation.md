@@ -1,5 +1,13 @@
 # Kiểm chứng Supabase Auth và hồ sơ
 
+## Đối chiếu schema server và sửa migration — 22/10/2026
+
+- Đọc catalog và 43 statements của baseline `20261016000000` từ Supabase nhóm, không đọc dữ liệu người dùng. Migration mới dùng bảng trips/trip_stops/bookings UUID có sẵn; file cũ chuyển sang legacy-migrations.
+- `db push --linked --dry-run` khớp lịch sử, chỉ liệt kê ba migration mới `20261022000100`, `20261022000200`, `20261022000300`. Không áp dụng SQL, không đổi history và không deploy Edge.
+- Typecheck/build PASS; 83 tests / 9 files PASS. Có test giữ dữ liệu chuyến, Booking, ví, payments, FK/grants khi áp dụng lên fixture server đã có dữ liệu; test UUID, mét nguyên và polyline cả tuyến.
+- Browser desktop 1365px/mobile 390px: login, preview, save, chi tiết có giờ đến/thời lượng null, start/complete và chuyến tôi đăng PASS với API/map fixtures. Không có pageerror; không phải kiểm chứng API cloud.
+- `test:integration` đã thử, bị chặn vì Docker không khả dụng. Build còn cảnh báo bundle VietMap >500kB. Hướng dẫn và giới hạn bàn giao: [Trip](trips.md).
+
 ## Sửa đích về domain Pages, xác định lỗi nằm ở link email — 22/10/2026
 
 - Người dùng chốt website **`https://feat-auth.it3180.pages.dev`**, trang sau Auth **`/chuyen-di`**, và xác nhận localhost xuất hiện **khi mở link xác minh trong email**. Các URL trong email đã phát hành không tự đổi khi sửa code. Cần phân biệt đường dẫn Supabase tạo với điều hướng sau khi app đã nhận phiên.
@@ -80,12 +88,12 @@ Các mục ngày 21/10 và trước đó là lịch sử, không phải cấu h�
 - Bộ integration hiện có **11 test**. Đã thử `npm run check`; typecheck/build/57 tests PASS, nhưng integration kết thúc mã 1 do Docker chưa khả dụng. Chưa chạy 11 integration tests, chưa kiểm thử gửi/nhận email thật.
 - Đã GET trang preview và asset JavaScript công khai: HTTP 200, code đang deploy dùng `emailRedirectTo` theo `window.location.origin`. Không truy cập Dashboard/Auth settings, không tạo user cloud, không push/deploy/apply SQL online; không có browser kết nối để thao tác giao diện website thật.
 - Migration mới `20261020130000_auth_signup_profile.sql` thêm trigger/backfill, giữ migration cũ; không đổi shared API/DTO hoặc tạo ví. `seed:local` nay tạo hồ sơ gián tiếp qua trigger.
-- Admin còn phải đối chiếu schema/trigger cũ, áp dụng migration đã review và cấu hình Site URL/Redirect URLs/Confirm Email/template. Xem [hướng dẫn cụ thể trong module Auth](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+- Admin còn phải đối chiếu schema/trigger cũ, áp dụng migration đã review và cấu hình Site URL/Redirect URLs/Confirm Email/template. Xem [hướng dẫn cụ thể trong module Auth](auth-module.md).
 - Lỗi P2 duyệt phiên bản hồ sơ cũ của lượt review trước vẫn còn; không nằm trong bản sửa signup này. Các kết quả phía dưới là lịch sử trước bản sửa signup.
 
 ## Auth/hồ sơ/admin theo thiết kế users — 20/10/2026
 
-- **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
+- **Rà soát cuối cùng cho admin:** đã chạy lại typecheck/build/45 tests bằng Node 22.23.3, kết quả PASS; integration vẫn bị chặn vì thiếu Docker. Một lượt Bugbot xác minh lỗi **P2 duyệt hồ sơ cũ**: admin xem A, user sửa thành B, RPC hiện tại có thể duyệt B mà admin chưa xem. Chưa sửa lỗi trong lượt review. Xem [biên bản trong module Auth](auth-module.md) để nhận task sửa, cách tái hiện và các bước cấu hình/gọi RPC. Chưa đủ điều kiện nghiệm thu hoặc xác nhận sẵn sàng cập nhật server.
 
 - Phạm vi: đăng ký/login/logout, quản lý phiên, bảo vệ trang, bootstrap USER/ACTIVE, hồ sơ sinh viên/xe máy, admin duyệt/từ chối có lý do và khóa/mở tài khoản. Có migration local `20261020090000_auth_profiles.sql` theo ảnh bảng `users` nhóm cung cấp. Xem [yêu cầu, API, quyền và hướng dẫn chạy](auth-module.md).
 - Chạy bằng **Node 22.23.3** tải vào cache tạm, không đổi Node mặc định trên máy. `npm run typecheck` PASS; `npm run build` PASS; `npm test` PASS: **45 test / 4 file**.

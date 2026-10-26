@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { localSupabaseClients } from '../../scripts/local-supabase';
 import { profileInputFixture } from '../fixtures/auth';
 import { userProfileSchema } from '../../shared/contracts';
+import { localExecute, localQuery, localUserId, removeLocalProfiles } from '../fixtures/local-database';
 
 const { admin, url, publicKey, options } = localSupabaseClients();
 const member = createClient(url, publicKey, options);
@@ -24,16 +25,15 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   if (ids.length !== 3) throw new Error('Thiếu tài khoản test local');
-  const removed = await admin.from('users').delete().in('id', ids);
-  if (removed.error) throw removed.error;
+  removeLocalProfiles(ids);
   for (const client of [member, other, reviewer]) await profile(client);
-  // Chỉ fixture local dùng service_role cấp admin, không có API tự cấp ADMIN.
-  const updated = await admin.from('users').update({ roles: ['USER', 'ADMIN'] }).eq('id', ids[2]);
-  if (updated.error) throw updated.error;
+  // Chỉ SQL fixture local cấp admin; không mở quyền ghi bảng qua API.
+  localExecute("update public.users set roles=array['USER','ADMIN'] where id=" + localUserId(ids[2]));
 });
 afterAll(async () => {
   const errors: unknown[] = [];
   for (const client of [member, other, reviewer]) await client.auth.signOut();
+  removeLocalProfiles(ids);
   for (const id of ids) {
     const result = await admin.auth.admin.deleteUser(id);
     if (result.error) errors.push(result.error);
@@ -60,19 +60,20 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
       expect(created.data.session).not.toBeNull();
       const uid = created.data.user!.id;
       // Đọc bằng admin TRƯỚC get_my_profile để không che việc thiếu trigger bằng bootstrap.
-      const stored = await admin.from('users').select('*').eq('id', uid).single();
-      expect(stored.error).toBeNull();
-      expect(stored.data).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
-        student_verification_status: 'PENDING', driver_verification_status: 'PENDING' });
-      expect(stored.data).not.toHaveProperty('password');
+      // Đọc bằng SQL local: baseline server không cấp quyền ĐỌC bảng users cho service_role qua API.
+      const stored = localQuery<Record<string, unknown>>('select * from public.users where id=' + localUserId(uid));
+      expect(stored).toHaveLength(1);
+      expect(stored[0]).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
+        student_verification_status: 'VERIFIED', driver_verification_status: 'VERIFIED' });
+      expect(stored[0]).not.toHaveProperty('password');
       expect((await profile(signupClient)).uid).toBe(uid);
 
       const saved = await signupClient.rpc('update_my_profile', { input: profileInputFixture });
       expect(saved.error).toBeNull();
-      const savedRow = await admin.from('users').select('display_name,phone,school,student_code').eq('id', uid).single();
-      expect(savedRow.error).toBeNull();
-      expect(savedRow.data).toEqual({ display_name: profileInputFixture.displayName, phone: profileInputFixture.phone,
-        school: profileInputFixture.school, student_code: profileInputFixture.studentCode });
+      const savedRow = localQuery<Record<string, unknown>>(
+        'select display_name,phone,school,student_code from public.users where id=' + localUserId(uid));
+      expect(savedRow).toEqual([{ display_name: profileInputFixture.displayName, phone: profileInputFixture.phone,
+        school: profileInputFixture.school, student_code: profileInputFixture.studentCode }]);
 
       expect((await signupClient.auth.signOut()).error).toBeNull();
       const login = await signupClient.auth.signInWithPassword(credentials);
@@ -81,12 +82,13 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
       expect((await profile(signupClient)).displayName).toBe(profileInputFixture.displayName);
       const duplicate = await signupClient.auth.signUp(credentials);
       expect(duplicate.error).not.toBeNull();
-      const count = await admin.from('users').select('id', { count: 'exact', head: true }).eq('id', uid);
-      expect(count.error).toBeNull();
-      expect(count.count).toBe(1);
+      const count = localQuery<{ count: number }>('select count(*)::int as count from public.users where id=' + localUserId(uid));
+      expect(count[0].count).toBe(1);
     } finally {
       await signupClient.auth.signOut();
       if (created.data.user) {
+        // public.users tham chiếu auth.users với ON DELETE RESTRICT: xóa hồ sơ trước.
+        removeLocalProfiles([created.data.user.id]);
         const removed = await admin.auth.admin.deleteUser(created.data.user.id);
         if (removed.error) throw removed.error;
       }
@@ -96,12 +98,14 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     const results = await Promise.all([profile(member), profile(member)]);
     expect(results[0]).toMatchObject({ uid: ids[0], roles: ['USER'], status: 'ACTIVE' });
     expect(results[1].uid).toBe(ids[0]);
-    const count = await admin.from('users').select('id', { count: 'exact', head: true }).eq('id', ids[0]);
-    expect(count.count).toBe(1);
+    const rows = localQuery<{ count: number }>('select count(*)::int as count from public.users where id=' + localUserId(ids[0]));
+    expect(rows[0].count).toBe(1);
   });
   it('chặn anonymous, đọc bảng riêng tư và sửa role trực tiếp', async () => {
     expect((await anonymous.rpc('get_my_profile', { input: {} })).error).not.toBeNull();
-    expect((await member.from('users').select('*')).error?.code).toBe('42501');
+    const ownProfile = await member.from('users').select('id');
+    expect(ownProfile.error).toBeNull();
+    expect(ownProfile.data).toEqual([{ id: ids[0] }]);
     expect((await member.from('users').update({ roles: ['USER', 'ADMIN'] }).eq('id', ids[0])).error?.code).toBe('42501');
     expect((await profile(member)).roles).toEqual(['USER']);
   });
@@ -118,15 +122,16 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     expect((await member.rpc('admin_review_user', { input: { uid: ids[0], kind: 'STUDENT', decision: 'VERIFIED', reason: '' } })).error?.code).toBe('PT403');
     expect((await member.rpc('admin_set_user_status', { input: { uid: ids[1], status: 'LOCKED' } })).error?.code).toBe('PT403');
   });
-  it('duyệt sinh viên trước driver; cấp DRIVER giữ USER và sửa xe phải duyệt lại', async () => {
+  it('tự xác minh sinh viên/tài xế: nhập xe là đủ điều kiện, sửa xe không thu hồi quyền', async () => {
     await save();
+    const savedProfile = await profile(member);
+    expect(savedProfile.roles).toEqual(['USER', 'DRIVER']);
+    expect(savedProfile.eligibility).toEqual({ canBook: true, canDrive: true });
     const review = (kind: string) => reviewer.rpc('admin_review_user', { input: { uid: ids[0], kind, decision: 'VERIFIED', reason: '' } });
-    expect((await review('DRIVER')).error?.code).toBe('PT409');
     expect((await review('STUDENT')).error).toBeNull(); expect((await review('DRIVER')).error).toBeNull();
-    expect((await profile(member)).eligibility).toEqual({ canBook: true, canDrive: true });
     const edit = await member.rpc('update_my_profile', { input: { ...profileInputFixture, vehiclePlate: 'DEMO-002' } });
-    expect(edit.error).toBeNull(); expect(edit.data.roles).toEqual(['USER']);
-    expect(edit.data.driverVerificationStatus).toBe('PENDING');
+    expect(edit.error).toBeNull(); expect(edit.data.roles).toEqual(['USER', 'DRIVER']);
+    expect(edit.data.driverVerificationStatus).toBe('VERIFIED');
   });
   it('từ chối cần lý do, lưu ghi chú và khóa chặn thao tác bằng phiên đã cấp trước đó', async () => {
     await save();

@@ -5,7 +5,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { AuthPage } from './modules/auth/AuthPage';
 import { AdminPage } from './modules/auth/AdminPage';
 import { RequireSession } from './modules/auth/RequireSession';
-import { TripsPage } from './modules/trips/TripsPage';
+import { TripsModule } from './modules/trips/TripsModule';
 import { BookingsPage } from './modules/bookings/BookingsPage';
 import { WalletsPage } from './modules/wallets/WalletsPage';
 const links = [
@@ -29,7 +29,7 @@ export function App() {
   </div></header>
   <main id="main-content" className="page-container" tabIndex={-1}><Routes>
     <Route path="/" element={<Navigate to="/chuyen-di" replace/>}/>
-    <Route path="/chuyen-di" element={<TripsPage/>}/>
+    <Route path="/chuyen-di/*" element={<TripsModule/>}/>
     <Route path="/dat-chuyen" element={<RequireSession><BookingsPage/></RequireSession>}/>
     <Route path="/vi-diem" element={<RequireSession><WalletsPage/></RequireSession>}/>
     <Route path="/quan-tri" element={<RequireSession admin><AdminPage/></RequireSession>}/>

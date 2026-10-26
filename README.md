@@ -2,7 +2,11 @@
 
 Team gồm 5 sinh viên năm 3. Tài liệu được viết để có thể làm từng bước, hiểu lý do và giải thích lại cho nhau.
 
-App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**. **Đã có code đăng ký/login/logout, hồ sơ sinh viên/driver và quản trị, kèm migration local theo thiết kế bảng users. Chưa triển khai bản này lên server; Trip/Booking/ví còn thiếu backend.** Xem [phạm vi Auth, cách chạy và kiểm thử](docs/auth-module.md).
+App dùng React/Vite/TypeScript/Tailwind, Supabase và VietMap; frontend dùng **Cloudflare Pages**.
+Nhánh này đã ghép [Auth/hồ sơ/admin](docs/auth-module.md) và [Trip/VietMap](docs/trips.md).
+Lead quản lý Supabase nhóm. Migration đã được viết lại theo schema đọc từ server
+ngày 22/10; xem [thứ tự review và áp dụng](docs/trips.md) trước khi cập nhật server.
+Booking/ví do owner khác phụ trách. Thay đổi chưa được áp dụng lên server.
 
 ## 1. Bắt đầu theo cách đơn giản nhất
 
@@ -86,4 +90,8 @@ Nếu có Docker, chạy `npm run check` để kiểm tra thêm đăng nhập v�
 - `web/src/modules/auth/`: màn hình và phiên đăng nhập.
 - `supabase/config.toml`: cấu hình Supabase trên máy.
 
-File `.env.firebase.dev` thuộc stack cũ, không được Supabase client hiện tại dùng. Báo cáo UI cũ được đánh dấu lịch sử; dùng hướng dẫn Supabase trên đây để chạy app.
+## 6. Ảnh và font giao diện
+
+Font Be Vietnam Pro được đóng gói qua `@fontsource/be-vietnam-pro`, hỗ trợ Latin/tiếng Việt ở các độ đậm 400/500/600/700.
+
+Ảnh `web/public/images/ride-home.jpg` là ảnh minh họa tạo bằng AI, không phải tài xế thật trong hệ thống. Ảnh chính rộng 1400px; hai bản `ride-home-small.jpg` (720px) và `ride-home-medium.jpg` (960px) giúp trình duyệt chọn kích thước phù hợp màn hình.

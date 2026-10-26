@@ -46,7 +46,7 @@ npx --no-install supabase db push --linked
 
 `db push` áp dụng migrations; không tự deploy frontend, Edge Functions, Auth users hay toàn bộ Auth settings. Không đưa seed local lên server. Không chạy reset với `--linked`/remote URL; không dùng repair/include-all để né lệch history. Xem [CLI reference](https://supabase.com/docs/reference/cli/supabase-db-push).
 
-Lead ghi commit, migration versions và kết quả smoke test. Lỗi sau deploy thì dừng cập nhật tiếp, phối hợp owner viết migration sửa; rollback frontend không tự rollback database. Nếu có Edge Functions sau này, cần quy trình secrets/deploy và test riêng; hiện chưa có để triển khai.
+Lead ghi commit, migration versions và kết quả smoke test. Lỗi sau deploy thì dừng cập nhật tiếp, phối hợp owner viết migration sửa; rollback frontend không tự rollback database. Edge Function `trips` cần cấu hình secrets và deploy riêng theo [hướng dẫn Trip](trips.md).
 
 Server dev chung dùng để tích hợp; production-demo khi có sẽ được tách project/config/dữ liệu và cập nhật từ main. Nhánh Git dev/main không tự tạo Supabase branch hoặc tự link project. Team chưa cần mở thêm project chỉ để mỗi người làm một module.
 
@@ -57,4 +57,4 @@ Ghi lại commit Git và tên các migration vừa áp dụng. Nhờ owner thử
 
 Nếu thất bại, ghi bước gây lỗi và giao lại owner. Không chạy thêm lệnh sửa lịch sử migration khi chưa hiểu nguyên nhân. Rollback là quay lại phiên bản code trước; nó không tự trả database về trạng thái trước.
 
-Auth users (tài khoản đăng nhập), cấu hình email/redirect, frontend Cloudflare và Edge Functions là những phần cần quản lý riêng, không tự đi theo mọi migration. Edge Function là code backend chạy trên Supabase; repo hiện chưa có phần này và local runtime đang tắt.
+Auth users (tài khoản đăng nhập), cấu hình email/redirect, frontend Cloudflare và Edge Functions là những phần cần quản lý riêng, không tự đi theo mọi migration. Edge Function `trips` xử lý VietMap và gọi RPC lưu chuyến; local runtime đã bật trong cấu hình nhánh này.

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// @vitest-environment-options {"url":"https://feat-auth.it3180.pages.dev/tai-khoan"}
+// @vitest-environment-options {"url":"https://it3180.pages.dev/tai-khoan"}
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -83,7 +83,7 @@ describe('Giao diện Auth', () => {
     vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: authSession }, error: null });
     session({ user: authUser }); render(accountRoutes('/tai-khoan#access_token=callback-token&type=signup'));
     await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
-    expect(new URL(replace.mock.calls[0][0]).origin).toBe('https://feat-auth.it3180.pages.dev');
+    expect(new URL(replace.mock.calls[0][0]).origin).toBe('https://it3180.pages.dev');
   });
   it('chặn email sai trước khi gọi SDK', async () => {
     account(); fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sai-email' } });
@@ -126,7 +126,7 @@ describe('Giao diện Auth', () => {
     await fillLogin(); await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
     await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
     expect(supabase.auth.signUp).toHaveBeenCalledWith({ email: 'demo@example.com', password: 'Password!2026',
-      options: { emailRedirectTo: 'https://feat-auth.it3180.pages.dev/tai-khoan' } });
+      options: { emailRedirectTo: 'https://it3180.pages.dev/tai-khoan' } });
     expect((screen.getByLabelText('Mật khẩu') as HTMLInputElement).value).toBe('');
     expect(screen.queryByText('Trang chủ chuyến đi')).toBeNull();
     session({ user: authUser, profile: profileFixture });
@@ -153,7 +153,7 @@ describe('Giao diện Auth', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'other@example.com' } });
     await user.click(screen.getByRole('button', { name: 'Gửi lại email xác minh' }));
     expect(supabase.auth.resend).toHaveBeenCalledWith({ type: 'signup', email: 'demo@example.com',
-      options: { emailRedirectTo: 'https://feat-auth.it3180.pages.dev/tai-khoan' } });
+      options: { emailRedirectTo: 'https://it3180.pages.dev/tai-khoan' } });
     expect(await screen.findByText('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh mới nhất.')).toBeTruthy();
   });
   it('xác minh ở tab khác xong nhận phiên thì tự mở trang chủ', async () => {

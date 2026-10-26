@@ -1,8 +1,20 @@
 # Auth, hồ sơ và quản trị — triển khai ngày 20/10/2026
 
-Admin review/tích hợp Supabase đọc [biên bản rà soát, việc cần làm và ví dụ gọi endpoint](../web/src/modules/auth/SUPABASE_ADMIN_REVIEW.md) đặt ngay trong module Auth.
+Tài liệu này gom hướng dẫn Auth, cấu hình đăng ký và các việc còn cần lead xử lý. Kết quả kiểm thử theo từng thời điểm nằm trong [validation](validation.md).
 
 Yêu cầu hiện hành ngày 22/10/2026: [đăng ký/đăng nhập và tự trở về trang chủ](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Hỗ trợ cả server có hoặc không yêu cầu xác minh email; trigger tạo hồ sơ ngay khi Auth insert, `get_my_profile` giữ bootstrap dự phòng, idempotent.
+
+## Cập nhật 26/10/2026 — mặc định xác minh sinh viên và tài xế
+
+Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrations/20261026000100_auth_default_verified.sql`:
+
+- Trigger `auth.users` tạo hồ sơ với `student_verification_status` và `driver_verification_status` = `VERIFIED`; default hai cột cũng đổi theo nên bootstrap trong `get_my_profile` không tạo hồ sơ `PENDING` nữa.
+- Hồ sơ đã có được đặt lại `VERIFIED` cho cả hai; giữ `status` (`LOCKED` vẫn bị khóa), giữ role `ADMIN`, xóa ghi chú duyệt cũ.
+- Role `DRIVER` **không** cấp lúc đăng ký vì ràng buộc `users_driver_eligible` yêu cầu có loại xe và biển số. `update_my_profile` tự cấp `DRIVER` khi hồ sơ có đủ hai thông tin xe và tự thu hồi khi xóa trống, nên `canDrive` bật ngay sau khi người dùng nhập xe mà không cần admin.
+- Sửa hồ sơ không còn đưa trạng thái về `PENDING` hoặc thu hồi `DRIVER`; `canBook` đúng với mọi tài khoản `ACTIVE`.
+- Admin vẫn dùng được `admin_review_user`/`admin_set_user_status` (từ chối, khóa) khi cần, nhưng đó không còn là bước bắt buộc.
+
+Ảnh hưởng: module 3/4 gọi `private.require_eligible_user(true)` vẫn phải có thông tin xe như trước; không đổi contract `UserProfile`, không đổi RLS/grants. Lead cần review rồi `supabase db push` (chỉ file `20261026000100...`) và chạy `npm run test:integration` khi có Docker.
 
 ## Yêu cầu và phần đã làm
 
@@ -10,25 +22,25 @@ Theo `ke-hoach/02-ho-so-quan-tri.md` và ảnh thiết kế database nhóm cung 
 
 1. **Tài khoản:** đăng ký email/mật khẩu, đăng nhập, đăng xuất bằng Supabase Auth SDK; nhập lại mật khẩu; thông báo lỗi tiếng Việt. Signup có user nhưng chưa có phiên là chờ xác minh email, không phải lỗi đăng ký. Có nút gửi lại email; lỗi SMTP/rate limit không báo thành công giả. Không tự lưu mật khẩu/token.
 2. **Phiên và trang riêng tư:** khôi phục phiên từ SDK, tránh nhận hồ sơ của phiên cũ khi đổi tài khoản; làm mới token không tải lại hồ sơ thừa. `/dat-chuyen`, `/vi-diem` yêu cầu hồ sơ ACTIVE; `/quan-tri` còn yêu cầu ADMIN. Đăng ký/login hoặc callback thành công tự mở `https://feat-auth.it3180.pages.dev/chuyen-di` khi SDK có user, kể cả từ localhost; khi đổi origin, SDK đích nhận và lưu phiên qua fragment implicit. Người đã đăng nhập vẫn chủ động mở `/tai-khoan` để sửa hồ sơ.
-3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/PENDING ngay khi tài khoản được tạo, kể cả chưa xác minh email; migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
+3. **Bootstrap và hồ sơ:** trigger trên `auth.users` tạo hồ sơ USER/ACTIVE/VERIFIED ngay khi tài khoản được tạo, kể cả chưa xác minh email (xem cập nhật 26/10 ở trên); migration bù hồ sơ thiếu của tài khoản cũ. `get_my_profile` giữ bootstrap dự phòng theo `auth.uid()`. Gọi lại không đặt lại quyền/trạng thái. User sửa họ tên, điện thoại, trường, mã sinh viên và minh chứng hư cấu; tùy chọn xe máy/biển số để đăng ký driver.
 4. **Quản trị:** danh sách 20 hồ sơ/trang; admin duyệt/từ chối sinh viên và driver; từ chối phải có lý do; chỉ duyệt driver khi sinh viên đã VERIFIED và có xe. Duyệt driver thêm DRIVER, giữ USER. Khóa/mở tài khoản qua `users.status`; không cho admin tự khóa mình; không có API tự cấp ADMIN.
-5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Thay trường/mã/minh chứng đưa sinh viên và driver về PENDING, thu hồi DRIVER; thay xe chỉ đưa driver về PENDING và thu hồi DRIVER. Thay họ tên/điện thoại giữ trạng thái duyệt.
+5. **Điều kiện tham gia:** server trả `eligibility.canBook` khi ACTIVE + sinh viên VERIFIED; `canDrive` còn cần DRIVER + driver VERIFIED + xe. Từ 26/10, hồ sơ mặc định VERIFIED và `DRIVER` được cấp tự động khi có xe; sửa hồ sơ không còn hạ trạng thái về PENDING.
 
 ## Database theo ảnh thiết kế
 
-Migration `supabase/migrations/20261020090000_auth_profiles.sql` chỉ tạo bảng `public.users` và hàm Auth. Giữ các cột trong ảnh: `id`, `display_name`, `phone`, `school`, `student_code`, `student_evidence_demo`, `roles`, `status`, hai trạng thái xác minh và ghi chú duyệt, `vehicle_model`, `vehicle_plate`, `created_at`. `id` là khóa ngoại tới `auth.users.id`; xóa Auth user sẽ xóa hồ sơ tương ứng.
+Từ bản sửa 22/10, bảng `public.users` lấy từ baseline server `20261016000000_initial_schema.sql`. Migration `20261022000100_auth_existing_schema.sql` chỉ bổ sung RPC Auth và default tên hồ sơ, không tạo lại bảng. `users.id` tham chiếu `auth.users.id` với ON DELETE RESTRICT: không tự xóa hồ sơ và dữ liệu nghiệp vụ khi xóa Auth user.
 
-Không tạo Trip/Booking/ví/thanh toán; không cấp điểm hoặc seed ADMIN. Bảng ứng dụng không chứa password. Frontend dùng tên camelCase trong contract, database dùng snake_case.
+Migration Auth không tạo Trip/Booking/ví/thanh toán; không cấp điểm hoặc seed ADMIN. Baseline nhóm chứa đủ 7 bảng. Bảng ứng dụng không chứa password. Frontend dùng tên camelCase trong contract, database dùng snake_case.
 
-**Ảnh chỉ thể hiện cột và quan hệ, không cho biết toàn bộ defaults, constraints, RLS/grants hay SQL đang chạy.** Migration là bản triển khai local dựa trên ảnh và quy tắc repo, cần lead đối chiếu trước khi cập nhật server. Nếu server đã có `users`, không chạy nguyên migration CREATE TABLE lên server đó; lead cần đưa schema hiện tại vào lịch sử migration và tách phần thay đổi sau khi review. Không sửa/xóa bảng server hoặc reset remote để né xung đột.
+Schema đã được đối chiếu catalog server ngày 22/10. Các migration Auth cũ đã chuyển sang `supabase/legacy-migrations/` để tránh CREATE TABLE trùng. Xem [thứ tự áp dụng và các khác biệt server](trips.md); không chạy lại baseline trên server đã ghi nhận version đó.
 
 ## Quyền truy cập
 
-- Bật RLS (kiểm soát từng dòng) và thu hồi quyền truy cập trực tiếp bảng `users` của `anon`/`authenticated`. Dữ liệu điện thoại/minh chứng chỉ trả qua RPC cho chính user hoặc ADMIN đang ACTIVE; không có API hồ sơ công khai.
+- Giữ RLS của nhóm: `authenticated` chỉ đọc trực tiếp hồ sơ của chính mình, `anon` không đọc được. Client không ghi trực tiếp hoặc xem hồ sơ người khác. Admin xem qua RPC có kiểm tra ADMIN/ACTIVE. Không thu hồi SELECT users vì policy Trip/Booking/ví đang phụ thuộc việc đọc hồ sơ của người gọi.
 - RPC là hàm database được gọi qua Supabase. Mỗi hàm lấy uid từ `auth.uid()`, không nhận uid cho thao tác hồ sơ cá nhân và không tin `user_metadata`. Dữ liệu lạ như `roles`, `status` trong input sửa hồ sơ bị từ chối ở cả frontend và SQL.
 - Hàm `security definer` chạy bằng quyền chủ sở hữu, nên tất cả đều đặt `search_path = ''`, dùng tên bảng đầy đủ và kiểm tra quyền rõ ràng. Helper nằm trong schema `private`, client không gọi được.
 - Các thao tác thay đổi hồ sơ/duyệt/khóa khóa dòng trong transaction. Admin bị khóa mất quyền ngay khi gọi lại API bằng phiên cũ. User bị khóa vẫn xem được hồ sơ mình và đăng xuất; không sửa hồ sơ hay thực hiện nghiệp vụ.
-- Module 3/4 cần gọi `private.require_eligible_user(true)` (driver) hoặc `private.require_eligible_user(false)` (hành khách) **bên trong hàm server**, rồi xử lý nghiệp vụ trong cùng transaction. Không dùng boolean frontend làm kiểm tra quyền. Trip/Booking hiện chưa có handler; Auth không tự bảo vệ một handler tương lai nếu handler đó không gọi kiểm tra này.
+- Module nghiệp vụ phải kiểm tra quyền **bên trong hàm server**, rồi xử lý trong cùng transaction. Auth cung cấp `private.require_eligible_user(true)` (driver) và `private.require_eligible_user(false)` (hành khách). Trip đã có helper `private.require_trip_user` tương thích hồ sơ mới; xem [Trip/VietMap](trips.md). Không dùng boolean frontend làm kiểm tra quyền.
 - Sau khi khóa tài khoản, phiên UI khác có thể còn dữ liệu đã tải cho tới khi tải lại; server vẫn từ chối thao tác tiếp theo. `signOut` không được coi là thu hồi tức thì mọi access token.
 
 ## API và ảnh hưởng tới module khác
@@ -82,6 +94,41 @@ Chạy `npm run dev` cho toàn bộ local (cần Docker), hoặc `npm run dev:we
 Nếu báo “chưa được triển khai”, server đang thiếu RPC/migration; không phải đã lưu thành công. Nếu `users already exists` khi áp dụng SQL, dừng và đối chiếu schema với lead; không xóa bảng.
 
 ## Chỉ dành cho lead
+
+### Cấu hình đăng ký và xác nhận email
+
+1. Đối chiếu schema server trước khi áp dụng migration Auth. Migration `20261022000200_auth_signup_existing_schema.sql` tạo/thay thế trigger `auth_create_app_profile` trên `auth.users` và bù hồ sơ thiếu. Hồ sơ mới có USER/ACTIVE/PENDING; tài khoản cũ giữ nguyên quyền/trạng thái nhờ `on conflict do nothing`. Trigger không tạo ví. Lỗi trigger có thể khiến cả thao tác đăng ký bị rollback.
+2. Trong Supabase Dashboard → Authentication → URL Configuration, đặt Site URL là địa chỉ frontend đang dùng. Thêm URL `/tai-khoan` vào Redirect URLs cho từng môi trường, ví dụ `http://127.0.0.1:5173/tai-khoan`, `http://localhost:5173/tai-khoan`; nếu dùng preview Auth thì thêm `https://feat-auth.it3180.pages.dev/tai-khoan`.
+3. Frontend gửi `emailRedirectTo` bằng `window.location.origin + '/tai-khoan'`. Nếu bật Confirm Email, template email cần dùng `{{ .ConfirmationURL }}` để xác nhận token rồi chuyển về web. Chỉ dùng Site URL/Redirect URL sẽ không thực hiện bước xác nhận token. Sau khi sửa cấu hình, gửi email xác nhận mới vì link trong email cũ không tự đổi.
+4. Thử đăng ký bằng email test, xác nhận email rồi đăng nhập. User object trả về khi signup chưa chứng minh đã có phiên; UI chỉ coi là đăng nhập khi SDK trả session. Luồng email thật trên cloud vẫn cần lead kiểm tra.
+
+Kiểm tra số tài khoản chưa có hồ sơ sau khi áp dụng migration:
+
+```sql
+select count(*)
+from auth.users a
+left join public.users u on u.id = a.id
+where u.id is null;
+```
+
+Mong đợi kết quả bằng 0. `get_my_profile` vẫn giữ bước tạo hồ sơ dự phòng, gọi lại không đặt lại quyền. Kiểm tra RLS/grants: client chỉ đọc hồ sơ mình và không sửa trực tiếp `users`; schema `private` không được expose. RPC admin phải kiểm tra ADMIN/ACTIVE ở server. Quyền ADMIN trong ứng dụng khác quyền quản trị project trên Supabase Dashboard.
+
+### Lỗi P2 còn mở: duyệt hồ sơ đã thay đổi
+
+Auth hiện có lỗi được ghi nhận trong lần review ngày 20/10/2026: admin có thể duyệt phiên bản hồ sơ chưa từng xem. Việc gom tài liệu không sửa lỗi này; owner Auth/lead cần xử lý trước khi nghiệm thu luồng duyệt.
+
+Cách tái hiện:
+
+1. Admin mở hồ sơ có minh chứng A.
+2. User đổi minh chứng thành B; backend đưa trạng thái về PENDING.
+3. Admin vẫn nhìn A nhưng bấm duyệt. `AdminPage.tsx` chỉ gửi `{uid, kind, decision, reason}`.
+4. `admin_review_user` khóa và duyệt dòng hiện tại chứa B, dù admin chưa xem B. Đổi xe trước khi duyệt DRIVER cũng gặp vấn đề tương tự.
+
+Khóa dòng trong transaction chưa ràng buộc quyết định với dữ liệu admin đã xem. Hướng sửa: gửi snapshot hoặc phiên bản hồ sơ trong yêu cầu duyệt, đối chiếu sau khi khóa dòng; nếu đã đổi thì trả PT409 và yêu cầu admin tải lại. Chỉ tải lại ở UI chưa đủ để chặn thay đổi xen giữa lúc xem và lúc duyệt.
+
+Owner Auth cần cập nhật đồng bộ schema input, payload UI, RPC và test hồi quy cho STUDENT/DRIVER, cả duyệt lẫn từ chối. Nếu thêm cột phiên bản, tạo migration mới sau khi nhóm thống nhất; không sửa migration đã áp dụng. Các test đang PASS không phủ nhận lỗi này. Test Supabase integration vẫn cần Docker; test PGlite không thay thế kiểm thử token/email/PostgREST thật.
+
+### Cấp ADMIN đầu tiên
 
 ADMIN đầu tiên không được tạo qua form hoặc lấy từ metadata. Sau khi đã review schema và chọn đúng Auth ID của tài khoản tin cậy, lead có thể cấp bằng SQL trong môi trường được giao quản trị:
 
