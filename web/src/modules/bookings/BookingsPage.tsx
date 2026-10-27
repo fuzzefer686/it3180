@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Bike, CalendarDays, CheckCircle2, Clock3, ShieldAlert, Ticket } from 'lucide-react';
 import { useSession } from '../auth/SessionProvider';
+import { BookingList } from './BookingList';
+import type { BookingGroup } from './booking-api';
 
 const filters = ['Đang chờ', 'Sắp đi', 'Lịch sử'] as const;
+const bookingGroups: Record<typeof filters[number], BookingGroup> = { 'Đang chờ': 'WAITING', 'Sắp đi': 'UPCOMING', 'Lịch sử': 'HISTORY' };
 
 export function BookingsPage() {
   const { user, loading } = useSession();
@@ -16,7 +19,7 @@ export function BookingsPage() {
         <h1>Chuyến của tôi</h1>
         <p>Hẹn đi cùng, theo dõi xác nhận từ tài xế và xem lại những hành trình đã đi.</p>
       </div>
-      <span className="status-pill amber">Đặt chỗ đang phát triển</span>
+      <span className="status-pill teal">Yêu cầu đi cùng</span>
     </header>
 
     <div className="journey-toolbar">
@@ -39,6 +42,8 @@ export function BookingsPage() {
 
         {loading ? (
           <div className="content-skeleton" role="status" aria-label="Đang tải phiên đăng nhập"><div/><div/><div/></div>
+        ) : user ? (
+          <BookingList key={user.id + ':' + filter} group={bookingGroups[filter]} embedded />
         ) : (
           <div className="empty-state">
             <div className="empty-icon">

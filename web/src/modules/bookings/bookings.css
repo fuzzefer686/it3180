@@ -1,0 +1,21 @@
+.booking-module { display: grid; gap: 1.25rem; }
+.booking-panel, .booking-card { border: 1px solid var(--border, #d9e3de); border-radius: 16px; padding: clamp(16px, 3vw, 28px); margin-block: 16px; }
+.booking-panel > * + *, .booking-card > * + * { margin-top: 12px; }
+.booking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 16px; }
+.booking-field { display: grid; gap: 8px; min-width: 0; }
+.booking-field input, .booking-field select, .booking-field textarea { width: 100%; border: 1px solid var(--border, #c7d6cf); border-radius: 8px; padding: 12px; color: inherit; background: transparent; font: inherit; }
+.booking-field textarea { min-height: 80px; }
+.booking-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-block: 12px; }
+.booking-actions [aria-pressed="true"], .booking-trip-option[aria-pressed="true"] { outline: 2px solid #15976f; outline-offset: 2px; }
+.booking-trip-options { display: grid; gap: 12px; margin-block: 16px; }
+.booking-trip-option { display: grid; gap: 8px; text-align: left; padding: 16px; border: 1px solid var(--border, #c7d6cf); border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
+.booking-muted { font-size: .9rem; line-height: 1.6; opacity: .8; }
+.booking-consent { display: flex; align-items: start; gap: 12px; margin-block: 20px; line-height: 1.6; }
+.booking-consent input { margin-top: 6px; flex-shrink: 0; }
+.booking-suggestions { list-style: none; padding: 0; max-height: 280px; overflow: auto; }
+.booking-suggestions button { text-align: left; padding: 12px; background: transparent; color: inherit; border: 1px solid var(--border, #c7d6cf); width: 100%; cursor: pointer; }
+.booking-badge { display: inline-block; border-radius: 20px; padding: 5px 12px; background: #08745b; color: white; }
+.booking-panel fieldset { border: 0; padding: 0; min-width: 0; }
+.booking-panel .trip-map { height: 340px; border-radius: 12px; margin-block: 16px; }
+.booking-panel .trip-map-marker { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #08745b; color: white; font-weight: 700; border: 2px solid white; }
+@media (max-width: 680px) { .booking-grid { grid-template-columns: 1fr; } .booking-actions .button { width: 100%; } .booking-panel .trip-map { height: 260px; } }
