@@ -108,6 +108,18 @@ describe('Frontend Trip kết hợp hồ sơ Auth', () => {
     });
   });
 
+  it('báo rõ khi giờ đi đã trôi qua và nêu mốc sớm nhất được chọn', async () => {
+    mount();
+    await selectStops();
+    fireEvent.change(screen.getByLabelText('Giờ đi (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() - 3600000) } });
+    fireEvent.change(screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() + 3600000) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Giờ đi đã qua');
+    expect(alert.textContent).toContain('sớm nhất là');
+    expect(mocks.api).not.toHaveBeenCalledWith('createTrip', expect.anything());
+  });
+
   it('kiểm tra hợp lệ ngày/giờ trên trang tìm kiếm và form đăng chuyến', async () => {
     expect(isValidVietnamDate('2026-10-27')).toBe(true);
     expect(isValidVietnamDate('2026-02-30')).toBe(false);

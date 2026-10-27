@@ -87,7 +87,9 @@ export function TripFormPage() {
       setError('Hãy chọn ngày và giờ đi trước khi lưu.'); return;
     }
     if (departureTimeMs <= Date.now() + 30_000) {
-      setError('Giờ đi phải sau thời điểm hiện tại. Bây giờ là ' + tripTime(Date.now()) + '.'); return;
+      // Nêu mốc sớm nhất được chọn để người dùng không phải đoán "sau hiện tại" là khi nào.
+      setError('Giờ đi đã qua (bây giờ là ' + tripTime(Date.now())
+        + '). Hãy chọn giờ muộn hơn, sớm nhất là ' + tripTime(Date.now() + 60_000) + '.'); return;
     }
     if (!Number.isFinite(arrivalTimeMs)) {
       setError('Hãy chọn ngày và giờ đến dự kiến trước khi lưu.'); return;
