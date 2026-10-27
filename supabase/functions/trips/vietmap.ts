@@ -2,18 +2,62 @@ import { z } from 'zod';
 import type { RouteStop } from '../../../shared/contracts.ts';
 import type { PlaceSuggestion, RouteSnapshot, TripStopInput } from '../../../shared/trips.ts';
 import { decodeTripPolyline, encodeTripPolyline } from '../../../shared/trip-polyline.ts';
-import { mapError, tripError } from '../../../shared/trip-errors.ts';
+import { TripError, mapError, mapKeyError, mapQuotaError, tripError } from '../../../shared/trip-errors.ts';
 import { validateStops } from '../../../shared/trip-schemas.ts';
 
-async function requestVietmap(path: string, params: URLSearchParams, key: string): Promise<unknown> {
-  if (!key.trim()) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
-  params.set('apikey', key.trim());
-  const url = 'https://maps.vietmap.vn/api/' + path + '?' + params.toString();
+// Ghi log nguyên nhân thật để Dashboard Logs chỉ ra được lỗi, nhưng không bao giờ ghi URL/khoá.
+// Kèm dấu vân tay (độ dài + 12 ký tự SHA-256) để đối chiếu khoá đang dùng với key thật.
+async function logVietmapFailure(
+  kind: string, path: string, detail: string, key: string, query?: string,
+): Promise<void> {
+  const secret = key.trim();
+  let fingerprint = 'key len=' + secret.length;
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
-    if (!response.ok) throw mapError();
-    return await response.json();
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+    const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    fingerprint += ' sha256=' + hex.slice(0, 12);
   } catch {
+    // Môi trường test có thể không có WebCrypto; chỉ log độ dài là đủ để so.
+  }
+  const safe = (secret ? detail.split(secret).join('[key]') : detail).slice(0, 300);
+  console.error('[vietmap]', kind, path, safe, '|', fingerprint, query ? '| query=' + query : '');
+}
+
+async function requestVietmap(
+  path: string, params: URLSearchParams, key: string, cancel?: AbortSignal,
+): Promise<unknown> {
+  const trimmed = key.trim();
+  if (!trimmed) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
+  // Giữ bản query chưa có khoá để log được tham số thật khi VietMap trả 400.
+  const query = params.toString();
+  params.set('apikey', trimmed);
+  const url = 'https://maps.vietmap.vn/api/' + path + '?' + params.toString();
+  const timeout = AbortSignal.timeout(7000);
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: cancel ? AbortSignal.any([timeout, cancel]) : timeout });
+  } catch (error) {
+    // Bị huỷ vì request song song kia đã thắng: không phải lỗi, không ghi log.
+    if (cancel?.aborted) throw mapError();
+    // Timeout, DNS, TLS hoặc mất kết nối: thông điệp có thể chứa URL nên phải lọc khoá trước khi log.
+    const name = error instanceof Error ? error.name : 'Error';
+    const message = error instanceof Error ? error.message : String(error);
+    await logVietmapFailure('fetch', path, name + ': ' + message, trimmed, query);
+    throw mapError();
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    await logVietmapFailure('http', path, response.status + ' ' + body, trimmed, query);
+    if (response.status === 401 || response.status === 403) throw mapKeyError();
+    if (response.status === 429) {
+      throw mapQuotaError(Number(response.headers.get('retry-after')) || null);
+    }
+    throw mapError();
+  }
+  try {
+    return await response.json();
+  } catch (error) {
+    await logVietmapFailure('json', path, error instanceof Error ? error.message : String(error), trimmed);
     throw mapError();
   }
 }
@@ -21,14 +65,53 @@ const suggestionSchema = z.object({
   ref_id: z.string().min(1),
   display: z.string().min(1).max(300),
 });
+
+// autocomplete/v4 hay treo 504 (nginx upstream timeout ~5 giây) khi VietMap tải cao, trong khi
+// autocomplete/v3 trả nhanh và cùng trường ref_id/display. Gọi song song và lấy bản về trước để
+// người dùng không phải chờ ngưỡng timeout của nginx; bản thua bị huỷ để không tốn thêm hạn mức.
+async function requestPlaces(text: string, key: string): Promise<unknown> {
+  const cancel = new AbortController();
+  const attempts = [
+    requestVietmap('autocomplete/v4', new URLSearchParams({ text, display_type: '1' }), key, cancel.signal),
+    requestVietmap('autocomplete/v3', new URLSearchParams({ text }), key, cancel.signal),
+  ];
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    // Cả hai cùng lỗi: ưu tiên lỗi cụ thể (khoá/hạn mức) hơn lỗi chung.
+    const errors = (await Promise.allSettled(attempts))
+      .flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+      .filter((reason): reason is TripError => reason instanceof TripError);
+    throw errors.find(reason => reason.code !== 'MAP_UNAVAILABLE') ?? errors[0] ?? mapError();
+  } finally {
+    cancel.abort();
+  }
+}
+
+// Cache ngắn theo isolate: gõ cùng một địa chỉ nhiều lần (kể cả gõ lại sau khi xoá)
+// không cần gọi VietMap lần nữa, giảm hẳn khả năng gặp 504.
+const placeCache = new Map<string, { at: number; items: PlaceSuggestion[] }>();
+const PLACE_CACHE_TTL_MS = 5 * 60 * 1000;
+const PLACE_CACHE_MAX_ENTRIES = 200;
+
 export async function searchPlaces(text: string, key: string): Promise<PlaceSuggestion[]> {
-  const params = new URLSearchParams({ text, display_type: '1' });
-  const data = await requestVietmap('autocomplete/v4', params, key);
+  const cacheKey = text.trim().toLowerCase();
+  const cached = placeCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < PLACE_CACHE_TTL_MS) return cached.items;
+  const data = await requestPlaces(text, key);
   const result = z.array(suggestionSchema).safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    await logVietmapFailure('schema', 'autocomplete', JSON.stringify(data).slice(0, 200), key);
+    throw mapError();
+  }
   const items: PlaceSuggestion[] = [];
   for (const item of result.data.slice(0, 10)) {
     items.push({ refId: item.ref_id, label: item.display });
+  }
+  placeCache.set(cacheKey, { at: Date.now(), items });
+  if (placeCache.size > PLACE_CACHE_MAX_ENTRIES) {
+    const oldest = placeCache.keys().next().value;
+    if (oldest !== undefined) placeCache.delete(oldest);
   }
   return items;
 }
@@ -40,7 +123,10 @@ const placeSchema = z.object({
 export async function getPlace(refId: string, key: string): Promise<TripStopInput> {
   const data = await requestVietmap('place/v4', new URLSearchParams({ refid: refId }), key);
   const result = placeSchema.safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    await logVietmapFailure('schema', 'place/v4', JSON.stringify(data).slice(0, 200), key);
+    throw mapError();
+  }
   return { label: result.data.display, latitude: result.data.lat, longitude: result.data.lng };
 }
 const routeSchema = z.object({
@@ -64,12 +150,18 @@ async function requestLeg(previous: TripStopInput, current: TripStopInput, key: 
   params.append('point', current.latitude + ',' + current.longitude);
   const data = await requestVietmap('route/v4', params, key);
   const result = routeSchema.safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    // Chỉ log tên field sai; body route chứa polyline rất dài nên không log toàn bộ.
+    await logVietmapFailure('schema', 'route/v4',
+      result.error.issues.map(issue => issue.path.join('.') + ': ' + issue.message).join('; '), key);
+    throw mapError();
+  }
   const leg = result.data.paths[0];
   let coordinates: [number, number][];
   try {
     coordinates = decodeTripPolyline(leg.points);
   } catch {
+    await logVietmapFailure('polyline', 'route/v4', 'không giải mã được points', key);
     throw mapError();
   }
   return {

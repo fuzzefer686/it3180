@@ -91,6 +91,42 @@ User ACTIVE xem được bản đồ trong chi tiết chuyến. Trang tìm chuy�
 bản đồ riêng. Nếu `list_trips` trả 404 thì server chưa có RPC khớp; key Tilemap
 không sửa được lỗi đó. Nhánh Git được push không tự cập nhật Supabase.
 
+## Khi VietMap lỗi (Edge trả 5xx)
+
+Frontend không nhận lỗi thô của nhà cung cấp; nó nhận một trong các mã dưới đây. Nguyên nhân thật
+được ghi vào Dashboard → Edge Functions → `trips` → Logs với tiền tố `[vietmap]`.
+
+| Mã trả về | HTTP | Nghĩa | Việc cần làm |
+|---|---|---|---|
+| `MAP_NOT_CONFIGURED` | 412 | Secret `VIETMAP_REST_KEY` rỗng | Đặt secret rồi deploy lại `trips` |
+| `MAP_INVALID_KEY` | 503 | VietMap trả 401/403 cho key | Kiểm tra key và quyền dịch vụ trên trang VietMap |
+| `MAP_QUOTA` | 429 | VietMap trả 429 (hết hạn mức hoặc giới hạn tần suất) | Chờ theo `Retry-After` hoặc nâng gói; giảm số lần gọi |
+| `MAP_UNAVAILABLE` | 503 | Timeout 7 giây, lỗi mạng hoặc JSON sai dạng | Xem log `[vietmap] fetch/http/schema` |
+
+Log chỉ ghi tên endpoint, mã HTTP, query không chứa khoá và tối đa 300 ký tự đầu của body;
+chuỗi trùng key được thay bằng `[key]` nên không đưa key vào log. Mỗi dòng log còn kèm dấu vân tay
+`key len=<số ký tự> sha256=<12 ký tự đầu SHA-256>` để đối chiếu khoá đang dùng với key thật:
+
+```bash
+printf '%s' 'KEY_TREN_TRANG_VIETMAP' | shasum -a 256 | cut -c1-12
+```
+
+Hai chuỗi `sha256` trùng nhau nghĩa là Edge đang dùng đúng key; khác nhau thì secret chưa được cập
+nhật (thường do thiếu quyền Owner/Administrator hoặc thao tác trên project khác).
+
+Key đúng là điều kiện cần nhưng chưa đủ. Nếu gọi bằng `curl` từ máy cá nhân thấy 200 mà Edge vẫn
+503 thì đọc log để biết VietMap trả gì cho IP của Edge (thường là 429 do dùng chung IP, hoặc 403
+do chặn theo IP) trước khi sửa secret hay deploy lại frontend.
+
+`autocomplete/v4` của VietMap đã từng trả `504 Gateway Time-out` (trang lỗi nginx, sau ~5 giây) khi
+tải cao, trong khi `place/v4` và `route/v4` vẫn trả 200 trong 0,1 giây. Vì vậy `searchPlaces` gọi
+**song song** `autocomplete/v4` và `autocomplete/v3`, lấy kết quả về trước và huỷ request còn lại —
+hai bản trả cùng `ref_id`/`display`, và `ref_id` của v3 dùng được với `place/v4`. Nhờ vậy khi v4 treo,
+người dùng nhận gợi ý sau ~0,3 giây thay vì chờ hết 5 giây timeout của nginx. Đổi lại, mỗi lần tìm
+chưa có cache tốn 2 request VietMap. Kết quả được cache 5 phút theo isolate (tối đa 200 mục) nên gõ
+lại cùng một địa chỉ không gọi thêm. Nếu cả hai cùng lỗi, hệ thống ưu tiên trả lỗi cụ thể (khoá bị từ
+chối, hết hạn mức) hơn lỗi chung; khi đó gửi VietMap timestamp và `request_id` trong log.
+
 ## Code và kiểm thử
 
 - `web/src/modules/trips/`: màn hình, tìm địa điểm, RouteMap và hiển thị tuyến.
