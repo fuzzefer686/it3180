@@ -1,5 +1,75 @@
 # Kiểm chứng Supabase Auth và hồ sơ
 
+## Hoàn tất và xác nhận migration role trên server — 28/10/2026
+
+- Người dùng xác nhận đã chạy `20261027000100_auth_default_driver_role.sql`
+  trên server. Kiểm tra chỉ đọc project `wrvcvxirfwxgkaranlgk`: **6/6 hồ sơ có
+  USER + DRIVER và VERIFIED cả sinh viên/tài xế**. Default roles = USER + DRIVER,
+  default hai cột xác minh = VERIFIED; định nghĩa trigger signup,
+  `update_my_profile` và CHECK khớp nội dung migration trong repo. Không chạy
+  lại migration hoặc ghi server trong lần kiểm tra này.
+- Kiểm tra lại trên `feat/4-booking`, Node **22.23.3**: typecheck **PASS**,
+  **126/126 unit tests PASS** (12 file), build frontend vào thư mục tạm **PASS**.
+  Build vẫn cảnh báo bundle trên 500 kB và import Supabase vừa tĩnh vừa động.
+  Integration Docker chưa chạy. Chưa commit/push/deploy frontend.
+- Trạng thái server đã thay thế ghi chú "chỉ lưu local" ở mục ngày 27/10 bên
+  dưới; ghi chú đó giữ lại để phản ánh đúng lựa chọn tại thời điểm trước.
+
+## Migration cấp USER + DRIVER mặc định, chỉ lưu local — 27/10/2026
+
+- Thêm `20261027000100_auth_default_driver_role.sql` trên `feat/4-booking`:
+  tài khoản mới/cũ có USER + DRIVER và VERIFIED cả hai; giữ ADMIN/LOCKED và
+  dữ liệu hồ sơ/xe. Giữ role khi xóa xe, nhưng canDrive vẫn cần xe. Không sửa
+  migration đã áp dụng. Ảnh hưởng constraint và module 3/4 được ghi ở
+  [Auth](auth-module.md#cập-nhật-27102026--role-user--driver-mặc-định).
+- Test hồi quy trước sửa: 5 test FAIL đúng ở role của signup/bootstrap/backfill
+  và khi xóa xe. Sau sửa: Node **22.23.3**, typecheck **PASS**, toàn bộ
+  **126/126 unit tests PASS** (12 file). Cập nhật kỳ vọng role trong integration
+  Auth để chạy với chính sách mới; vẫn kiểm tra metadata không cấp ADMIN.
+- Docker daemon chưa chạy; công cụ Computer Use chưa được cấp quyền mở Docker.
+  Người dùng chọn **chỉ lưu migration trong repo trước**. Chưa chạy integration
+  Docker và chưa áp dụng migration role lên server; không đánh dấu các bước này
+  PASS. Lần cập nhật xác minh trên server ở mục tiếp theo không cấp role cho
+  tài khoản chưa có thông tin xe.
+
+## Áp dụng mặc định xác minh tài khoản trên server dev — 27/10/2026
+
+- Theo yêu cầu người dùng, áp dụng riêng
+  `20261026000100_auth_default_verified.sql` đã có trong repo lên project
+  `wrvcvxirfwxgkaranlgk`, trong transaction của file. Không sửa migration đã có,
+  không chạy `db push` cho cả repo hoặc thay migration history.
+- Trước cập nhật: 6 hồ sơ, 4 hồ sơ chưa VERIFIED đủ cả hai; default còn PENDING,
+  trigger signup đã có, không có tài khoản Auth thiếu hồ sơ.
+- Sau cập nhật: **6/6 VERIFIED cả sinh viên và tài xế**, không còn hồ sơ cần xác
+  minh. Default hai cột = VERIFIED, trigger signup tạo VERIFIED/VERIFIED;
+  `update_my_profile` không đưa hồ sơ về PENDING. DRIVER khớp điều kiện có đủ xe;
+  số tài khoản LOCKED và ADMIN giữ nguyên. Chỉ đọc số liệu tổng hợp để xác minh,
+  không tạo tài khoản/email test trên cloud.
+- Node **22.23.3**: **30/30 tests PASS** trong `auth-database`,
+  `auth-signup-database`, `trip-database` trước khi áp dụng. Không chạy lại
+  integration Docker trong lượt này; kiểm tra server sau thay đổi là đọc dữ
+  liệu/cấu trúc thực tế, không phải thử đăng ký bằng SDK.
+
+## Auth giữ nguyên website và đồng bộ nhánh Booking — 27/10/2026
+
+- Checkout `feat/4-booking` theo yêu cầu. Nhánh đã có
+  `20261026000200_booking_rpc.sql`; đối chiếu toàn bộ nội dung khớp phần SQL
+  người dùng gửi và xác nhận đã chạy trong SQL Editor. Không tạo migration trùng,
+  không sửa SQL đã áp dụng hoặc ghi lại lịch sử migration trên server.
+- Đăng nhập/đăng ký/callback thành công chỉ chuyển nội bộ tới `/chuyen-di`.
+  Signup/resend lấy callback `/tai-khoan` từ origin website đang mở, gồm preview
+  Booking, production và localhost; bỏ chuyển phiên qua domain cố định.
+  Ảnh hưởng chung: các module tiếp tục dùng phiên ở đúng website hiện tại.
+- Test hồi quy tái hiện lỗi trước sửa: 6 test FAIL ở localhost/preview và resend.
+  Sau sửa, Node **22.23.3**: typecheck **PASS**, toàn bộ **125/125 unit tests PASS**
+  (12 file), build frontend vào thư mục tạm **PASS**. Test SDK thật với HTTP giả
+  lập xác nhận callback lưu phiên ở preview và xóa token khỏi URL; không gọi cloud.
+- Build còn cảnh báo bundle trên 500 kB và import Supabase vừa tĩnh vừa động của
+  Booking. Lượt này chỉ sửa điều hướng frontend; chưa thử đăng nhập/email thật,
+  chưa chạy lại integration Docker, chưa commit/push/deploy hoặc đổi cấu hình
+  Supabase. Callback email của từng preview phải có trong Redirect URLs; xem
+  [hướng dẫn Auth](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+
 ## Đối chiếu schema server và sửa migration — 22/10/2026
 
 - Đọc catalog và 43 statements của baseline `20261016000000` từ Supabase nhóm, không đọc dữ liệu người dùng. Migration mới dùng bảng trips/trip_stops/bookings UUID có sẵn; file cũ chuyển sang legacy-migrations.

@@ -21,6 +21,7 @@ beforeAll(async () => {
   await db.exec(readFileSync('supabase/migrations/20261016000000_initial_schema.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261022000100_auth_existing_schema.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261026000100_auth_default_verified.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261027000100_auth_default_driver_role.sql', 'utf8'));
 });
 beforeEach(async () => {
   await db.exec('reset role; truncate auth.users cascade;');
@@ -44,11 +45,11 @@ async function approveDriver() {
   return rpc(admin, 'admin_review_user', { uid: member, kind: 'DRIVER', decision: 'VERIFIED', reason: '' });
 }
 describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
-  it('bootstrap đúng uid, USER/ACTIVE, không đọc metadata và gọi lại không tạo trùng', async () => {
+  it('bootstrap đúng uid, USER + DRIVER/ACTIVE, không đọc metadata và gọi lại không tạo trùng', async () => {
     const value = await rpc(member, 'get_my_profile');
     expect(userProfileSchema.safeParse(value).success).toBe(true);
-    // Mặc định xác minh sẵn sinh viên + tài xế; role DRIVER và canDrive vẫn cần loại xe, biển số.
-    expect(value).toMatchObject({ uid: member, roles: ['USER'], status: 'ACTIVE', eligibility: { canBook: true, canDrive: false } });
+    // Role DRIVER có sẵn; canDrive vẫn cần loại xe và biển số.
+    expect(value).toMatchObject({ uid: member, roles: ['USER', 'DRIVER'], status: 'ACTIVE', eligibility: { canBook: true, canDrive: false } });
     await rpc(member, 'get_my_profile');
     expect((await db.query<{ count: number }>('select count(*)::int as count from public.users where id=$1', [member])).rows[0].count).toBe(1);
   });
@@ -117,6 +118,12 @@ describe('Auth database: migration, grants và nghiệp vụ hồ sơ', () => {
       driverVerificationStatus: 'VERIFIED', vehiclePlate: 'DEMO-002' });
     const student = await rpc(member, 'update_my_profile', { ...profileInputFixture, studentCode: 'DEMO-002' });
     expect(student.eligibility).toEqual({ canBook: true, canDrive: true });
+  });
+  it('xóa thông tin xe vẫn giữ role DRIVER nhưng không còn được đăng chuyến', async () => {
+    await setupMember();
+    const saved = await rpc(member, 'update_my_profile', { ...profileInputFixture, vehicleModel: null, vehiclePlate: null });
+    expect(saved).toMatchObject({ roles: ['USER', 'DRIVER'], studentVerificationStatus: 'VERIFIED',
+      driverVerificationStatus: 'VERIFIED', eligibility: { canBook: true, canDrive: false } });
   });
   it('từ chối sinh viên đã duyệt thu hồi quyền driver', async () => {
     await approveDriver();

@@ -43,9 +43,9 @@ describe('Supabase Auth local', () => {
     // Local tắt xác nhận email trong config.toml; cloud có thể trả session null.
     expect(result.data.session).not.toBeNull();
     const inserted = localQuery('select id,roles,status from public.users where id=' + localUserId(signupUid!));
-    expect(inserted[0]).toMatchObject({ id: signupUid, roles: ['USER'], status: 'ACTIVE' });
+    expect(inserted[0]).toMatchObject({ id: signupUid, roles: ['USER', 'DRIVER'], status: 'ACTIVE' });
     const profile = await signupClient.rpc('get_my_profile', { input: {} });
-    expect(profile.error).toBeNull(); expect(profile.data.roles).toEqual(['USER']);
+    expect(profile.error).toBeNull(); expect(profile.data.roles).toEqual(['USER', 'DRIVER']);
   });
   it('Auth user chưa xác nhận email cũng có public.users mà không cần session frontend', async () => {
     const created = await admin.auth.admin.createUser({ email: `unconfirmed-${crypto.randomUUID()}@integration.example`, password,
@@ -54,7 +54,7 @@ describe('Supabase Auth local', () => {
     expect(created.error).toBeNull(); expect(unconfirmedUid).toBeTruthy();
     expect(created.data.user?.email_confirmed_at ?? null).toBeNull();
     const inserted = localQuery('select id,roles,status,student_verification_status from public.users where id=' + localUserId(unconfirmedUid!));
-    expect(inserted[0]).toMatchObject({ id: unconfirmedUid, roles: ['USER'], status: 'ACTIVE', student_verification_status: 'VERIFIED' });
+    expect(inserted[0]).toMatchObject({ id: unconfirmedUid, roles: ['USER', 'DRIVER'], status: 'ACTIVE', student_verification_status: 'VERIFIED' });
   });
   it('đăng nhập và xác minh đúng user trên Auth server', async () => {
     const login = await client.auth.signInWithPassword({ email, password });

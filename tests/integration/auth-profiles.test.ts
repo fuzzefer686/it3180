@@ -63,7 +63,7 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
       // Đọc bằng SQL local: baseline server không cấp quyền ĐỌC bảng users cho service_role qua API.
       const stored = localQuery<Record<string, unknown>>('select * from public.users where id=' + localUserId(uid));
       expect(stored).toHaveLength(1);
-      expect(stored[0]).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
+      expect(stored[0]).toMatchObject({ id: uid, display_name: 'Thành viên Về Cùng', roles: ['USER', 'DRIVER'], status: 'ACTIVE',
         student_verification_status: 'VERIFIED', driver_verification_status: 'VERIFIED' });
       expect(stored[0]).not.toHaveProperty('password');
       expect((await profile(signupClient)).uid).toBe(uid);
@@ -96,7 +96,7 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
   });
   it('Auth metadata ADMIN không được tin, bootstrap an toàn và gọi đồng thời không tạo trùng', async () => {
     const results = await Promise.all([profile(member), profile(member)]);
-    expect(results[0]).toMatchObject({ uid: ids[0], roles: ['USER'], status: 'ACTIVE' });
+    expect(results[0]).toMatchObject({ uid: ids[0], roles: ['USER', 'DRIVER'], status: 'ACTIVE' });
     expect(results[1].uid).toBe(ids[0]);
     const rows = localQuery<{ count: number }>('select count(*)::int as count from public.users where id=' + localUserId(ids[0]));
     expect(rows[0].count).toBe(1);
@@ -107,7 +107,7 @@ describe('Auth/hồ sơ/admin qua Supabase local thật', () => {
     expect(ownProfile.error).toBeNull();
     expect(ownProfile.data).toEqual([{ id: ids[0] }]);
     expect((await member.from('users').update({ roles: ['USER', 'ADMIN'] }).eq('id', ids[0])).error?.code).toBe('42501');
-    expect((await profile(member)).roles).toEqual(['USER']);
+    expect((await profile(member)).roles).toEqual(['USER', 'DRIVER']);
   });
   it('không thể chọn uid khác hoặc chèn field quyền vào API hồ sơ', async () => {
     await save();
