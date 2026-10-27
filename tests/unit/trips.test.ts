@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tripInputSchema, listTripsSchema, validateStops, validateTimes } from '../../shared/trip-schemas';
-import { computeRoute } from '../../supabase/functions/trips/vietmap';
+import { computeRoute, searchPlaces } from '../../supabase/functions/trips/vietmap';
 import { handleTripRequest } from '../../supabase/functions/trips/handler';
 import { decodeTripPolyline, encodeTripPolyline } from '../../shared/trip-polyline';
 
@@ -108,8 +108,45 @@ describe('Trip trên Supabase', () => {
       spy.mockRestore();
     }
   });
-  it('Edge từ chối token thiếu/sai trước khi kiểm tra quyền hoặc gọi VietMap', async () => {
-    const authenticate = vi.fn().mockResolvedValue(null);
+  it('dự phòng sang autocomplete/v3 khi v4 lỗi tạm thời', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('<html>504 Gateway Time-out</html>', { status: 504 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        { ref_id: 'auto:v3-ref', display: '117 Phố Thái Hà' },
+      ]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const items = await searchPlaces('117 Thái Hà Hà Nội', 'fallback-key');
+      expect(items).toEqual([{ refId: 'auto:v3-ref', label: '117 Phố Thái Hà' }]);
+      expect(new URL(fetchMock.mock.calls[0][0]).pathname).toContain('autocomplete/v4');
+      expect(new URL(fetchMock.mock.calls[1][0]).pathname).toContain('autocomplete/v3');
+    } finally {
+      errors.mockRestore();
+      info.mockRestore();
+    }
+  });
+  it('không dự phòng khi khoá bị từ chối, và cache kết quả tìm địa điểm', async () => {
+    const rejected = vi.fn().mockResolvedValue(new Response('', { status: 403 }));
+    vi.stubGlobal('fetch', rejected);
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(searchPlaces('Ben Xe Mien Dong', 'bad-key')).rejects.toMatchObject({ code: 'MAP_INVALID_KEY' });
+      expect(rejected).toHaveBeenCalledTimes(1);
+    } finally {
+      errors.mockRestore();
+    }
+    const okMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { ref_id: 'auto:cache', display: 'Bến Xe Miền Đông' },
+    ]), { status: 200 }));
+    vi.stubGlobal('fetch', okMock);
+    const first = await searchPlaces('Ben Xe Mien Dong', 'good-key');
+    const second = await searchPlaces('  ben xe mien dong ', 'good-key');
+    expect(second).toEqual(first);
+    expect(okMock).toHaveBeenCalledTimes(1);
+  });
+  it('Edge từ chối token thiếu/sai trước khi kiểm tra quyền hoặc gọi VietMap', async () => {    const authenticate = vi.fn().mockResolvedValue(null);
     const rpc = vi.fn();
     const dependencies = { authenticate, rpc, mapKey: '', allowedOrigins: ['http://127.0.0.1:5173'] };
     for (const headers of [new Headers(), new Headers({ authorization: 'Bearer invalid-token' })]) {

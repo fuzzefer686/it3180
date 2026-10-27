@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { RouteStop } from '../../../shared/contracts.ts';
 import type { PlaceSuggestion, RouteSnapshot, TripStopInput } from '../../../shared/trips.ts';
 import { decodeTripPolyline, encodeTripPolyline } from '../../../shared/trip-polyline.ts';
-import { mapError, mapKeyError, mapQuotaError, tripError } from '../../../shared/trip-errors.ts';
+import { TripError, mapError, mapKeyError, mapQuotaError, tripError } from '../../../shared/trip-errors.ts';
 import { validateStops } from '../../../shared/trip-schemas.ts';
 
 // Ghi log nguyên nhân thật để Dashboard Logs chỉ ra được lỗi, nhưng không bao giờ ghi URL/khoá.
@@ -60,17 +60,45 @@ const suggestionSchema = z.object({
   ref_id: z.string().min(1),
   display: z.string().min(1).max(300),
 });
+
+// autocomplete/v4 hay trả 504 (nginx upstream timeout ~5 giây) khi VietMap tải cao,
+// trong khi v3 cùng key trả nhanh và cùng trường ref_id/display. Chỉ dự phòng khi lỗi
+// tạm thời; 401/403/429 vẫn là lỗi thật nên không thử lại.
+async function requestPlaces(text: string, key: string): Promise<unknown> {
+  try {
+    const params = new URLSearchParams({ text, display_type: '1' });
+    return await requestVietmap('autocomplete/v4', params, key);
+  } catch (error) {
+    if (!(error instanceof TripError) || error.code !== 'MAP_UNAVAILABLE') throw error;
+    console.log('[vietmap] fallback autocomplete/v3');
+    return requestVietmap('autocomplete/v3', new URLSearchParams({ text }), key);
+  }
+}
+
+// Cache ngắn theo isolate: gõ cùng một địa chỉ nhiều lần (kể cả gõ lại sau khi xoá)
+// không cần gọi VietMap lần nữa, giảm hẳn khả năng gặp 504.
+const placeCache = new Map<string, { at: number; items: PlaceSuggestion[] }>();
+const PLACE_CACHE_TTL_MS = 5 * 60 * 1000;
+const PLACE_CACHE_MAX_ENTRIES = 200;
+
 export async function searchPlaces(text: string, key: string): Promise<PlaceSuggestion[]> {
-  const params = new URLSearchParams({ text, display_type: '1' });
-  const data = await requestVietmap('autocomplete/v4', params, key);
+  const cacheKey = text.trim().toLowerCase();
+  const cached = placeCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < PLACE_CACHE_TTL_MS) return cached.items;
+  const data = await requestPlaces(text, key);
   const result = z.array(suggestionSchema).safeParse(data);
   if (!result.success) {
-    await logVietmapFailure('schema', 'autocomplete/v4', JSON.stringify(data).slice(0, 200), key);
+    await logVietmapFailure('schema', 'autocomplete', JSON.stringify(data).slice(0, 200), key);
     throw mapError();
   }
   const items: PlaceSuggestion[] = [];
   for (const item of result.data.slice(0, 10)) {
     items.push({ refId: item.ref_id, label: item.display });
+  }
+  placeCache.set(cacheKey, { at: Date.now(), items });
+  if (placeCache.size > PLACE_CACHE_MAX_ENTRIES) {
+    const oldest = placeCache.keys().next().value;
+    if (oldest !== undefined) placeCache.delete(oldest);
   }
   return items;
 }

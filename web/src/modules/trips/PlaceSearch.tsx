@@ -41,7 +41,8 @@ export function PlaceSearch({ label, value, onChange }: Props) {
       } finally {
         if (active) setBusy(false);
       }
-    }, 350);
+      // Gõ liền 6-8 ký tự không nên tạo 6-8 lời gọi VietMap: chờ 600ms mới tìm.
+    }, 600);
     return () => {
       active = false;
       clearTimeout(timer);

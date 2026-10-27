@@ -118,6 +118,13 @@ Key đúng là điều kiện cần nhưng chưa đủ. Nếu gọi bằng `curl
 503 thì đọc log để biết VietMap trả gì cho IP của Edge (thường là 429 do dùng chung IP, hoặc 403
 do chặn theo IP) trước khi sửa secret hay deploy lại frontend.
 
+`autocomplete/v4` của VietMap đã từng trả `504 Gateway Time-out` (trang lỗi nginx, sau ~5 giây) khi
+tải cao, trong khi `place/v4` và `route/v4` vẫn trả 200 trong 0,1 giây. Vì vậy `searchPlaces` gọi v4
+trước, nếu lỗi tạm thời thì gọi `autocomplete/v3` — hai bản trả cùng `ref_id`/`display`, và `ref_id`
+của v3 dùng được với `place/v4`. Kết quả tìm địa điểm được cache 5 phút theo isolate (tối đa 200
+mục), nên gõ lại cùng một địa chỉ không gọi VietMap lần nữa. Lỗi 401/403/429 không dự phòng vì đó là
+lỗi thật. Nếu cả v4 và v3 đều 504 thì gửi VietMap timestamp và `request_id` trong log.
+
 ## Code và kiểm thử
 
 - `web/src/modules/trips/`: màn hình, tìm địa điểm, RouteMap và hiển thị tuyến.
