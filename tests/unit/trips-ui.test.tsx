@@ -80,6 +80,34 @@ describe('Frontend Trip kết hợp hồ sơ Auth', () => {
     });
   });
 
+  it('sửa ngày sai rồi sửa lại đúng thì lưu được', async () => {
+    mount();
+    await selectStops();
+    // Giờ đi ở tương lai xa nhưng giờ đến lại trước giờ đi: phải báo lỗi.
+    const wrongDeparture = toVietnamInput(Date.now() + 400 * 86400000);
+    const wrongArrival = toVietnamInput(Date.now() + 2 * 3600000);
+    fireEvent.change(screen.getByLabelText('Giờ đi (giờ Việt Nam)'), { target: { value: wrongDeparture } });
+    fireEvent.change(screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)'), { target: { value: wrongArrival } });
+    // Ô giờ đến không được lấy giờ đi làm min, nếu không trình duyệt khoá luôn các ngày sớm hơn
+    // và người dùng không sửa lại được sau khi nhập sai.
+    expect((screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)') as HTMLInputElement).min).not.toBe(wrongDeparture);
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Giờ đến phải sau giờ đi');
+    expect(mocks.api).not.toHaveBeenCalledWith('createTrip', expect.anything());
+
+    // Sửa lại cả hai mốc: lần lưu này phải đi tiếp, không được giữ lỗi cũ.
+    const departure = toVietnamInput(Date.now() + 3600000);
+    const arrival = toVietnamInput(Date.now() + 7200000);
+    fireEvent.change(screen.getByLabelText('Giờ đi (giờ Việt Nam)'), { target: { value: departure } });
+    fireEvent.change(screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)'), { target: { value: arrival } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    expect(await screen.findByText('Đã mở chuyến vừa lưu')).toBeTruthy();
+    expect(mocks.api).toHaveBeenCalledWith('createTrip', {
+      stops: places, departureTimeMs: Date.parse(departure + ':00+07:00'),
+      arrivalTimeMs: Date.parse(arrival + ':00+07:00'), note: '',
+    });
+  });
+
   it('kiểm tra hợp lệ ngày/giờ trên trang tìm kiếm và form đăng chuyến', async () => {
     expect(isValidVietnamDate('2026-10-27')).toBe(true);
     expect(isValidVietnamDate('2026-02-30')).toBe(false);

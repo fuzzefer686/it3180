@@ -7,7 +7,7 @@ import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
 import { PlaceSearch } from './PlaceSearch';
 import { RouteSummary } from './RouteSummary';
-import { fromVietnamInput, toVietnamInput, tripErrorText } from './format';
+import { fromVietnamInput, toVietnamInput, tripErrorText, tripTime } from './format';
 
 const preloadRouteMap = () => import('./RouteMap');
 const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
@@ -80,11 +80,23 @@ export function TripFormPage() {
     event.preventDefault(); setError('');
     let selected: TripStopInput[];
     try { selected = selectedStops(); } catch { setError('Hãy chọn tất cả điểm dừng từ gợi ý địa chỉ.'); return; }
-    const input: SaveTripInput = { stops: selected, departureTimeMs: fromVietnamInput(departure), arrivalTimeMs: fromVietnamInput(arrival), note: note.trim() };
-    if (!Number.isFinite(input.departureTimeMs) || !Number.isFinite(input.arrivalTimeMs)
-      || input.departureTimeMs <= Date.now() || input.arrivalTimeMs <= input.departureTimeMs) {
-      setError('Chọn giờ đi trong tương lai và giờ đến sau giờ đi.'); return;
+    const departureTimeMs = fromVietnamInput(departure);
+    const arrivalTimeMs = fromVietnamInput(arrival);
+    // Báo đúng lỗi đang có để người dùng biết sửa ô nào, thay vì một câu gộp chung.
+    if (!Number.isFinite(departureTimeMs)) {
+      setError('Hãy chọn ngày và giờ đi trước khi lưu.'); return;
     }
+    if (departureTimeMs <= Date.now() + 30_000) {
+      setError('Giờ đi phải sau thời điểm hiện tại. Bây giờ là ' + tripTime(Date.now()) + '.'); return;
+    }
+    if (!Number.isFinite(arrivalTimeMs)) {
+      setError('Hãy chọn ngày và giờ đến dự kiến trước khi lưu.'); return;
+    }
+    if (arrivalTimeMs <= departureTimeMs) {
+      setError('Giờ đến phải sau giờ đi. Giờ đi đang là ' + tripTime(departureTimeMs)
+        + ', giờ đến đang là ' + tripTime(arrivalTimeMs) + '.'); return;
+    }
+    const input: SaveTripInput = { stops: selected, departureTimeMs, arrivalTimeMs, note: note.trim() };
     setBusy(true);
     try {
       const result = tripId ? await callFunction('updateTrip', { ...input, tripId, routeVersion }) : await callFunction('createTrip', input);
@@ -145,7 +157,9 @@ export function TripFormPage() {
             </div>
             <div className="trip-form-grid">
               <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
-              <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required min={departure || minNow} value={arrival} onChange={event => { setArrival(event.target.value); setError(''); }} /></label>
+              {/* min chỉ chặn quá khứ. Không dùng departure làm min vì khi giờ đi bị nhập sai (quá xa),
+                  trình duyệt sẽ khoá luôn các ngày sớm hơn ở ô giờ đến và người dùng không sửa lại được. */}
+              <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={arrival} onChange={event => { setArrival(event.target.value); setError(''); }} /></label>
             </div>
             <label className="trip-field"><span>Ghi chú</span><textarea rows={3} maxLength={1000} placeholder="Ví dụ: Có sẵn 1 mũ bảo hiểm phụ, nhận balo gọn nhẹ…" value={note} onChange={event => setNote(event.target.value)} /></label>
             <div className="trip-actions">
