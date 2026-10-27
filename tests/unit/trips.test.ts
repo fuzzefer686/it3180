@@ -108,32 +108,43 @@ describe('Trip trên Supabase', () => {
       spy.mockRestore();
     }
   });
-  it('dự phòng sang autocomplete/v3 khi v4 lỗi tạm thời', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response('<html>504 Gateway Time-out</html>', { status: 504 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify([
-        { ref_id: 'auto:v3-ref', display: '117 Phố Thái Hà' },
-      ]), { status: 200 }));
+  it('gọi autocomplete v4 và v3 song song, lấy kết quả về trước', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (new URL(url).pathname.includes('autocomplete/v4')) {
+        return new Response(JSON.stringify([{ ref_id: 'auto:v4', display: '117 Phố Thái Hà v4' }]), { status: 200 });
+      }
+      return new Response(JSON.stringify([{ ref_id: 'auto:v3', display: '117 Phố Thái Hà v3' }]), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const items = await searchPlaces('Race Thai Ha', 'race-key');
+    expect(items).toEqual([{ refId: 'auto:v4', label: '117 Phố Thái Hà v4' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toContain('autocomplete/v4');
+    expect(new URL(fetchMock.mock.calls[1][0]).pathname).toContain('autocomplete/v3');
+  });
+  it('v3 thắng khi v4 trả 504', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (new URL(url).pathname.includes('autocomplete/v4')) {
+        return new Response('<html>504 Gateway Time-out</html>', { status: 504 });
+      }
+      return new Response(JSON.stringify([{ ref_id: 'auto:v3-ref', display: '117 Phố Thái Hà' }]), { status: 200 });
+    });
     vi.stubGlobal('fetch', fetchMock);
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const info = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
-      const items = await searchPlaces('117 Thái Hà Hà Nội', 'fallback-key');
+      const items = await searchPlaces('117 Thái Hà Hà Nội song song', 'race-key-2');
       expect(items).toEqual([{ refId: 'auto:v3-ref', label: '117 Phố Thái Hà' }]);
-      expect(new URL(fetchMock.mock.calls[0][0]).pathname).toContain('autocomplete/v4');
-      expect(new URL(fetchMock.mock.calls[1][0]).pathname).toContain('autocomplete/v3');
     } finally {
       errors.mockRestore();
-      info.mockRestore();
     }
   });
-  it('không dự phòng khi khoá bị từ chối, và cache kết quả tìm địa điểm', async () => {
+  it('cả hai cùng lỗi khoá thì trả MAP_INVALID_KEY; kết quả thành công được cache', async () => {
     const rejected = vi.fn().mockResolvedValue(new Response('', { status: 403 }));
     vi.stubGlobal('fetch', rejected);
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       await expect(searchPlaces('Ben Xe Mien Dong', 'bad-key')).rejects.toMatchObject({ code: 'MAP_INVALID_KEY' });
-      expect(rejected).toHaveBeenCalledTimes(1);
+      expect(rejected).toHaveBeenCalledTimes(2);
     } finally {
       errors.mockRestore();
     }
@@ -142,9 +153,10 @@ describe('Trip trên Supabase', () => {
     ]), { status: 200 }));
     vi.stubGlobal('fetch', okMock);
     const first = await searchPlaces('Ben Xe Mien Dong', 'good-key');
+    expect(okMock).toHaveBeenCalledTimes(2);
     const second = await searchPlaces('  ben xe mien dong ', 'good-key');
     expect(second).toEqual(first);
-    expect(okMock).toHaveBeenCalledTimes(1);
+    expect(okMock).toHaveBeenCalledTimes(2);
   });
   it('Edge từ chối token thiếu/sai trước khi kiểm tra quyền hoặc gọi VietMap', async () => {    const authenticate = vi.fn().mockResolvedValue(null);
     const rpc = vi.fn();

@@ -23,17 +23,22 @@ async function logVietmapFailure(
   console.error('[vietmap]', kind, path, safe, '|', fingerprint, query ? '| query=' + query : '');
 }
 
-async function requestVietmap(path: string, params: URLSearchParams, key: string): Promise<unknown> {
+async function requestVietmap(
+  path: string, params: URLSearchParams, key: string, cancel?: AbortSignal,
+): Promise<unknown> {
   const trimmed = key.trim();
   if (!trimmed) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
   // Giữ bản query chưa có khoá để log được tham số thật khi VietMap trả 400.
   const query = params.toString();
   params.set('apikey', trimmed);
   const url = 'https://maps.vietmap.vn/api/' + path + '?' + params.toString();
+  const timeout = AbortSignal.timeout(7000);
   let response: Response;
   try {
-    response = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    response = await fetch(url, { signal: cancel ? AbortSignal.any([timeout, cancel]) : timeout });
   } catch (error) {
+    // Bị huỷ vì request song song kia đã thắng: không phải lỗi, không ghi log.
+    if (cancel?.aborted) throw mapError();
     // Timeout, DNS, TLS hoặc mất kết nối: thông điệp có thể chứa URL nên phải lọc khoá trước khi log.
     const name = error instanceof Error ? error.name : 'Error';
     const message = error instanceof Error ? error.message : String(error);
@@ -61,17 +66,25 @@ const suggestionSchema = z.object({
   display: z.string().min(1).max(300),
 });
 
-// autocomplete/v4 hay trả 504 (nginx upstream timeout ~5 giây) khi VietMap tải cao,
-// trong khi v3 cùng key trả nhanh và cùng trường ref_id/display. Chỉ dự phòng khi lỗi
-// tạm thời; 401/403/429 vẫn là lỗi thật nên không thử lại.
+// autocomplete/v4 hay treo 504 (nginx upstream timeout ~5 giây) khi VietMap tải cao, trong khi
+// autocomplete/v3 trả nhanh và cùng trường ref_id/display. Gọi song song và lấy bản về trước để
+// người dùng không phải chờ ngưỡng timeout của nginx; bản thua bị huỷ để không tốn thêm hạn mức.
 async function requestPlaces(text: string, key: string): Promise<unknown> {
+  const cancel = new AbortController();
+  const attempts = [
+    requestVietmap('autocomplete/v4', new URLSearchParams({ text, display_type: '1' }), key, cancel.signal),
+    requestVietmap('autocomplete/v3', new URLSearchParams({ text }), key, cancel.signal),
+  ];
   try {
-    const params = new URLSearchParams({ text, display_type: '1' });
-    return await requestVietmap('autocomplete/v4', params, key);
-  } catch (error) {
-    if (!(error instanceof TripError) || error.code !== 'MAP_UNAVAILABLE') throw error;
-    console.log('[vietmap] fallback autocomplete/v3');
-    return requestVietmap('autocomplete/v3', new URLSearchParams({ text }), key);
+    return await Promise.any(attempts);
+  } catch {
+    // Cả hai cùng lỗi: ưu tiên lỗi cụ thể (khoá/hạn mức) hơn lỗi chung.
+    const errors = (await Promise.allSettled(attempts))
+      .flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+      .filter((reason): reason is TripError => reason instanceof TripError);
+    throw errors.find(reason => reason.code !== 'MAP_UNAVAILABLE') ?? errors[0] ?? mapError();
+  } finally {
+    cancel.abort();
   }
 }
 
