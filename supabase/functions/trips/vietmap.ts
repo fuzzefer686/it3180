@@ -2,18 +2,43 @@ import { z } from 'zod';
 import type { RouteStop } from '../../../shared/contracts.ts';
 import type { PlaceSuggestion, RouteSnapshot, TripStopInput } from '../../../shared/trips.ts';
 import { decodeTripPolyline, encodeTripPolyline } from '../../../shared/trip-polyline.ts';
-import { mapError, tripError } from '../../../shared/trip-errors.ts';
+import { mapError, mapKeyError, mapQuotaError, tripError } from '../../../shared/trip-errors.ts';
 import { validateStops } from '../../../shared/trip-schemas.ts';
+
+// Ghi log nguyên nhân thật để Dashboard Logs chỉ ra được lỗi, nhưng không bao giờ ghi URL/khoá.
+function logVietmapFailure(kind: string, path: string, detail: string, key: string): void {
+  const secret = key.trim();
+  const safe = (secret ? detail.split(secret).join('[key]') : detail).slice(0, 300);
+  console.error('[vietmap]', kind, path, safe);
+}
 
 async function requestVietmap(path: string, params: URLSearchParams, key: string): Promise<unknown> {
   if (!key.trim()) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
   params.set('apikey', key.trim());
   const url = 'https://maps.vietmap.vn/api/' + path + '?' + params.toString();
+  let response: Response;
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
-    if (!response.ok) throw mapError();
+    response = await fetch(url, { signal: AbortSignal.timeout(7000) });
+  } catch (error) {
+    // Timeout, DNS, TLS hoặc mất kết nối: thông điệp có thể chứa URL nên phải lọc khoá trước khi log.
+    const name = error instanceof Error ? error.name : 'Error';
+    const message = error instanceof Error ? error.message : String(error);
+    logVietmapFailure('fetch', path, name + ': ' + message, key);
+    throw mapError();
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    logVietmapFailure('http', path, response.status + ' ' + body, key);
+    if (response.status === 401 || response.status === 403) throw mapKeyError();
+    if (response.status === 429) {
+      throw mapQuotaError(Number(response.headers.get('retry-after')) || null);
+    }
+    throw mapError();
+  }
+  try {
     return await response.json();
-  } catch {
+  } catch (error) {
+    logVietmapFailure('json', path, error instanceof Error ? error.message : String(error), key);
     throw mapError();
   }
 }
@@ -25,7 +50,10 @@ export async function searchPlaces(text: string, key: string): Promise<PlaceSugg
   const params = new URLSearchParams({ text, display_type: '1' });
   const data = await requestVietmap('autocomplete/v4', params, key);
   const result = z.array(suggestionSchema).safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    logVietmapFailure('schema', 'autocomplete/v4', JSON.stringify(data).slice(0, 200), key);
+    throw mapError();
+  }
   const items: PlaceSuggestion[] = [];
   for (const item of result.data.slice(0, 10)) {
     items.push({ refId: item.ref_id, label: item.display });
@@ -40,7 +68,10 @@ const placeSchema = z.object({
 export async function getPlace(refId: string, key: string): Promise<TripStopInput> {
   const data = await requestVietmap('place/v4', new URLSearchParams({ refid: refId }), key);
   const result = placeSchema.safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    logVietmapFailure('schema', 'place/v4', JSON.stringify(data).slice(0, 200), key);
+    throw mapError();
+  }
   return { label: result.data.display, latitude: result.data.lat, longitude: result.data.lng };
 }
 const routeSchema = z.object({
@@ -64,12 +95,18 @@ async function requestLeg(previous: TripStopInput, current: TripStopInput, key: 
   params.append('point', current.latitude + ',' + current.longitude);
   const data = await requestVietmap('route/v4', params, key);
   const result = routeSchema.safeParse(data);
-  if (!result.success) throw mapError();
+  if (!result.success) {
+    // Chỉ log tên field sai; body route chứa polyline rất dài nên không log toàn bộ.
+    logVietmapFailure('schema', 'route/v4',
+      result.error.issues.map(issue => issue.path.join('.') + ': ' + issue.message).join('; '), key);
+    throw mapError();
+  }
   const leg = result.data.paths[0];
   let coordinates: [number, number][];
   try {
     coordinates = decodeTripPolyline(leg.points);
   } catch {
+    logVietmapFailure('polyline', 'route/v4', 'không giải mã được points', key);
     throw mapError();
   }
   return {

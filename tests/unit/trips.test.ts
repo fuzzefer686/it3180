@@ -73,6 +73,36 @@ describe('Trip trên Supabase', () => {
       expect(String(error)).not.toContain('secret-key');
     }
   });
+  it('phân biệt hết hạn mức, khoá bị từ chối và lỗi mạng; log không chứa khoá', async () => {
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args.map(value => String(value)).join(' '));
+    });
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"message":"quota"}', {
+        status: 429, headers: { 'retry-after': '30' },
+      })));
+      await expect(computeRoute(stops, 'secret-key')).rejects.toMatchObject({ code: 'MAP_QUOTA', status: 429 });
+      await expect(computeRoute(stops, 'secret-key')).rejects.toThrow('30 giây');
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 403 })));
+      await expect(computeRoute(stops, 'secret-key')).rejects.toMatchObject({ code: 'MAP_INVALID_KEY', status: 503 });
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{not-json', { status: 200 })));
+      await expect(computeRoute(stops, 'secret-key')).rejects.toMatchObject({ code: 'MAP_UNAVAILABLE' });
+
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(
+        new TypeError('connect failed https://maps.vietmap.vn/api/route/v4?apikey=secret-key')));
+      await expect(computeRoute(stops, 'secret-key')).rejects.toMatchObject({ code: 'MAP_UNAVAILABLE' });
+
+      const text = logged.join('\n');
+      expect(text).toContain('[vietmap]');
+      expect(text).toContain('[key]');
+      expect(text).not.toContain('secret-key');
+    } finally {
+      spy.mockRestore();
+    }
+  });
   it('Edge từ chối token thiếu/sai trước khi kiểm tra quyền hoặc gọi VietMap', async () => {
     const authenticate = vi.fn().mockResolvedValue(null);
     const rpc = vi.fn();

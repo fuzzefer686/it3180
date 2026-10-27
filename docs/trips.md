@@ -91,6 +91,25 @@ User ACTIVE xem được bản đồ trong chi tiết chuyến. Trang tìm chuy�
 bản đồ riêng. Nếu `list_trips` trả 404 thì server chưa có RPC khớp; key Tilemap
 không sửa được lỗi đó. Nhánh Git được push không tự cập nhật Supabase.
 
+## Khi VietMap lỗi (Edge trả 5xx)
+
+Frontend không nhận lỗi thô của nhà cung cấp; nó nhận một trong các mã dưới đây. Nguyên nhân thật
+được ghi vào Dashboard → Edge Functions → `trips` → Logs với tiền tố `[vietmap]`.
+
+| Mã trả về | HTTP | Nghĩa | Việc cần làm |
+|---|---|---|---|
+| `MAP_NOT_CONFIGURED` | 412 | Secret `VIETMAP_REST_KEY` rỗng | Đặt secret rồi deploy lại `trips` |
+| `MAP_INVALID_KEY` | 503 | VietMap trả 401/403 cho key | Kiểm tra key và quyền dịch vụ trên trang VietMap |
+| `MAP_QUOTA` | 429 | VietMap trả 429 (hết hạn mức hoặc giới hạn tần suất) | Chờ theo `Retry-After` hoặc nâng gói; giảm số lần gọi |
+| `MAP_UNAVAILABLE` | 503 | Timeout 7 giây, lỗi mạng hoặc JSON sai dạng | Xem log `[vietmap] fetch/http/schema` |
+
+Log chỉ ghi tên endpoint, mã HTTP và tối đa 300 ký tự đầu của body; chuỗi trùng key được thay
+bằng `[key]` nên không đưa key vào log.
+
+Key đúng là điều kiện cần nhưng chưa đủ. Nếu gọi bằng `curl` từ máy cá nhân thấy 200 mà Edge vẫn
+503 thì đọc log để biết VietMap trả gì cho IP của Edge (thường là 429 do dùng chung IP, hoặc 403
+do chặn theo IP) trước khi sửa secret hay deploy lại frontend.
+
 ## Code và kiểm thử
 
 - `web/src/modules/trips/`: màn hình, tìm địa điểm, RouteMap và hiển thị tuyến.

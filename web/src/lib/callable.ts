@@ -8,6 +8,8 @@ export { errorMessage } from './errors';
 const edgeErrorSchema = z.object({ error: z.object({ code: z.string() }) });
 const edgeMessages: Record<string, string> = {
   MAP_NOT_CONFIGURED: 'Bản đồ chưa được cấu hình. Hãy liên hệ người phụ trách backend.',
+  MAP_INVALID_KEY: 'VietMap từ chối khoá bản đồ. Hãy báo người phụ trách backend.',
+  MAP_QUOTA: 'VietMap đang giới hạn số lần tra cứu. Vui lòng thử lại sau ít phút.',
   MAP_UNAVAILABLE: 'VietMap chưa phản hồi được. Vui lòng thử lại.',
   ROUTE_TOO_LARGE: 'Tuyến quá dài. Hãy chia thành chuyến ngắn hơn.',
   INVALID_INPUT: 'Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.',
