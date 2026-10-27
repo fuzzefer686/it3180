@@ -4,6 +4,28 @@ Tài liệu này gom hướng dẫn Auth, cấu hình đăng ký và các việc
 
 Yêu cầu hiện hành ngày 22/10/2026: [đăng ký/đăng nhập và tự trở về trang chủ](../web/src/modules/auth/SUPABASE_SIGNUP_FIX.md). Hỗ trợ cả server có hoặc không yêu cầu xác minh email; trigger tạo hồ sơ ngay khi Auth insert, `get_my_profile` giữ bootstrap dự phòng, idempotent.
 
+## Cập nhật 27/10/2026 — role USER + DRIVER mặc định
+
+Migration `supabase/migrations/20261027000100_auth_default_driver_role.sql`
+thay thế quy tắc role của bản 26/10 bên dưới. **Người dùng đã chạy migration trên
+server; kiểm tra chỉ đọc ngày 28/10/2026 xác nhận 6/6 tài khoản có USER + DRIVER,
+VERIFIED cả hai.** Default roles, trigger signup, CHECK và `update_my_profile`
+trên server khớp migration trong repo.
+
+- Tài khoản mới và hồ sơ được bootstrap có `USER` + `DRIVER`, xác minh sinh viên
+  và tài xế là `VERIFIED`. Hồ sơ cũ cũng được bổ sung `DRIVER`, giữ `ADMIN`,
+  trạng thái `LOCKED` và thông tin cá nhân/xe. Bù hồ sơ Auth còn thiếu nếu có.
+- CHECK `users_driver_eligible` chỉ yêu cầu hai trạng thái VERIFIED khi có DRIVER;
+  không bắt có xe để mang role. Việc đăng chuyến/nhận khách vẫn cần đủ thông tin
+  xe, tài khoản ACTIVE và xác minh, do RPC Auth/Trip/Booking kiểm tra.
+- Xóa thông tin xe không xóa role DRIVER, nhưng `eligibility.canDrive` trở thành
+  false. Admin vẫn có thể thu hồi quyền bằng thao tác từ chối xác minh; sửa hồ sơ
+  không tự khôi phục role khi đã bị admin từ chối.
+- Không đổi shared contract, RLS hoặc quyền ghi bảng của client. Module 3/4 phải
+  dùng `eligibility.canDrive` và kiểm tra backend, không chỉ kiểm tra role DRIVER.
+  Trước khi cập nhật server, chạy integration Supabase local bằng Docker theo
+  quy trình repo; không chạy lại các migration cũ đã áp dụng.
+
 ## Cập nhật 26/10/2026 — mặc định xác minh sinh viên và tài xế
 
 Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrations/20261026000100_auth_default_verified.sql`:
@@ -14,7 +36,19 @@ Bản demo bỏ bước admin duyệt hồ sơ. Migration mới `supabase/migrat
 - Sửa hồ sơ không còn đưa trạng thái về `PENDING` hoặc thu hồi `DRIVER`; `canBook` đúng với mọi tài khoản `ACTIVE`.
 - Admin vẫn dùng được `admin_review_user`/`admin_set_user_status` (từ chối, khóa) khi cần, nhưng đó không còn là bước bắt buộc.
 
-Ảnh hưởng: module 3/4 gọi `private.require_eligible_user(true)` vẫn phải có thông tin xe như trước; không đổi contract `UserProfile`, không đổi RLS/grants. Lead cần review rồi `supabase db push` (chỉ file `20261026000100...`) và chạy `npm run test:integration` khi có Docker.
+Ảnh hưởng: module 3/4 gọi `private.require_eligible_user(true)` vẫn phải có thông tin xe như trước; không đổi contract `UserProfile`, không đổi RLS/quyền bảng.
+
+Ngày 27/10/2026, theo yêu cầu người dùng, đã áp dụng riêng SQL của migration
+`20261026000100_auth_default_verified.sql` lên Supabase dev
+`wrvcvxirfwxgkaranlgk`. Kiểm tra sau cập nhật: 6/6 hồ sơ đã VERIFIED cả sinh viên
+và tài xế, không còn hồ sơ chờ xác minh; default hai cột và trigger signup đều
+dùng VERIFIED. `update_my_profile` không đưa hồ sơ về PENDING khi sửa thông tin.
+Giữ trạng thái khóa/quyền ADMIN; DRIVER vẫn phụ thuộc thông tin xe.
+
+Lần áp dụng riêng SQL này không ghi version vào migration history; server vẫn
+chỉ ghi nhận baseline. Lead cần đối chiếu lịch sử với schema thực tế trước khi
+dùng `db push`, không chạy lại cả chuỗi migration. Test Supabase local qua Docker
+vẫn thực hiện bằng `npm run test:integration` khi Docker sẵn sàng.
 
 ## Yêu cầu và phần đã làm
 

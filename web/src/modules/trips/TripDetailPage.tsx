@@ -4,6 +4,8 @@ import { ArrowLeft, CalendarClock, Clock3, RefreshCw, UserCheck } from 'lucide-r
 import type { TripDetails } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
+import { BookingList } from '../bookings/BookingList';
+import { BookingSubmit } from '../bookings/BookingSubmit';
 import { RouteSummary } from './RouteSummary';
 import { TripOwnerActions } from './TripOwnerActions';
 import { distanceText, estimatedPointsText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
@@ -18,6 +20,7 @@ export function TripDetailPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [bookingPending, setBookingPending] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [pickup, setPickup] = useState(0);
@@ -82,7 +85,7 @@ export function TripDetailPage() {
   return <section className="trip-page">
     <div className="trip-top-bar">
       <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
-      <button className="button secondary compact" type="button" disabled={busy || loading} onClick={() => setRefresh(refresh + 1)}>
+      <button className="button secondary compact" type="button" disabled={busy || loading || bookingPending} onClick={() => setRefresh(refresh + 1)}>
         <RefreshCw size={14}/> Tải lại chuyến
       </button>
     </div>
@@ -119,19 +122,21 @@ export function TripDetailPage() {
 
         <aside className="trip-detail-side">
           {isOwner && <TripOwnerActions trip={trip} canDrive={Boolean(profile?.eligibility.canDrive)} busy={busy} onStatusChange={changeStatus} />}
+          {isOwner && <BookingList key={`${trip.id}:${trip.status}:${trip.confirmedBookingId}:${trip.hasServedPassenger}`}
+            tripId={trip.id} onChanged={() => setRefresh(value => value + 1)} />}
           <div className="trip-panel">
             <h2>Quãng đường bạn muốn đi</h2>
             <p className="trip-muted">Chọn điểm đón và điểm trả dọc lộ trình để tra cứu khoảng cách thực tế trên tuyến.</p>
             <div className="trip-field">
               <label className="trip-field"><span>Điểm đón</span>
-                <select aria-label="Điểm đón" value={pickup} onChange={event => {
+                <select aria-label="Điểm đón" value={pickup} disabled={bookingPending} onChange={event => {
                   const next = Number(event.target.value); setPickup(next); if (dropoff <= next) setDropoff(next + 1);
                 }}>
                   {trip.stops.slice(0, -1).map(stop => <option key={stop.id} value={stop.order}>{String.fromCharCode(65 + stop.order)}. {stop.label}</option>)}
                 </select>
               </label>
               <label className="trip-field"><span>Điểm trả</span>
-                <select aria-label="Điểm trả" value={dropoff} onChange={event => setDropoff(Number(event.target.value))}>
+                <select aria-label="Điểm trả" value={dropoff} disabled={bookingPending} onChange={event => setDropoff(Number(event.target.value))}>
                   {trip.stops.slice(pickup + 1).map(stop => <option key={stop.id} value={stop.order}>{String.fromCharCode(65 + stop.order)}. {stop.label}</option>)}
                 </select>
               </label>
@@ -144,8 +149,8 @@ export function TripDetailPage() {
               {distance === null && !distanceError && <p role="status" className="trip-muted">Đang lấy khoảng cách…</p>}
               {distanceError && <p role="alert" className="form-error">{distanceError}</p>}
             </div>
-            <button className="button primary" type="button" disabled>Gửi yêu cầu đi cùng (Chưa mở)</button>
-            <p className="trip-muted">Chức năng gửi yêu cầu đi cùng chưa sẵn sàng.</p>
+            <BookingSubmit key={user.id + ':' + trip.id} trip={trip} pickupStopId={trip.stops[pickup].id}
+              dropoffStopId={trip.stops[dropoff].id} distanceMeters={distance} onPendingChange={setBookingPending} />
           </div>
         </aside>
       </div>

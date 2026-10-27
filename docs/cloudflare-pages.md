@@ -71,7 +71,7 @@ Không xóa dự án Pages. Bỏ file Workers trong Git không tự xóa Worker 
 | Sai mật khẩu hoặc email chưa xác nhận | Kiểm tra Auth user trên server, không dùng tài khoản seed local; nếu cần xác minh thì mở email mới nhất hoặc dùng nút gửi lại trên form |
 | URL sâu lỗi | Output có đúng `web/dist`, có `index.html` và không có `404.html` ở gốc không |
 | Còn thấy hai build trên PR | Worker vẫn còn Git integration hoặc chưa bị xóa trên Dashboard |
-| Link xác minh quay sai website | Cho phép `https://feat-auth.it3180.pages.dev/tai-khoan`, đặt Site URL `https://feat-auth.it3180.pages.dev` và kiểm tra template ConfirmationURL; gửi email mới sau khi sửa |
-| Login vẫn ở localhost hoặc bản online chưa tự mở trang chủ | Deploy đúng bản có `auth-redirect.ts`; đích thành công cố định `https://feat-auth.it3180.pages.dev/chuyen-di`, phiên đổi origin được SDK nhận qua fragment |
+| Link xác minh quay sai website | Thêm URL `/tai-khoan` của đúng nhánh Preview vào Supabase Redirect URLs (ví dụ `https://feat-4-booking.it3180.pages.dev/tai-khoan`), kiểm tra template ConfirmationURL và gửi email mới |
+| Login bị chuyển sang production hoặc nhánh khác | Phát hành bản sửa giữ nguyên origin hiện tại; login thành công chỉ chuyển nội bộ tới `/chuyen-di`, không chuyển phiên qua domain khác |
 
 Push/merge Git chỉ cập nhật frontend theo cấu hình Pages. Migrations, quyền truy cập và API Supabase vẫn qua review/test local rồi lead cập nhật server; không reset database online hoặc bỏ guard deploy để chạy nhanh.
