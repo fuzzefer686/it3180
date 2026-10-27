@@ -6,15 +6,29 @@ import { mapError, mapKeyError, mapQuotaError, tripError } from '../../../shared
 import { validateStops } from '../../../shared/trip-schemas.ts';
 
 // Ghi log nguyên nhân thật để Dashboard Logs chỉ ra được lỗi, nhưng không bao giờ ghi URL/khoá.
-function logVietmapFailure(kind: string, path: string, detail: string, key: string): void {
+// Kèm dấu vân tay (độ dài + 12 ký tự SHA-256) để đối chiếu khoá đang dùng với key thật.
+async function logVietmapFailure(
+  kind: string, path: string, detail: string, key: string, query?: string,
+): Promise<void> {
   const secret = key.trim();
+  let fingerprint = 'key len=' + secret.length;
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+    const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    fingerprint += ' sha256=' + hex.slice(0, 12);
+  } catch {
+    // Môi trường test có thể không có WebCrypto; chỉ log độ dài là đủ để so.
+  }
   const safe = (secret ? detail.split(secret).join('[key]') : detail).slice(0, 300);
-  console.error('[vietmap]', kind, path, safe);
+  console.error('[vietmap]', kind, path, safe, '|', fingerprint, query ? '| query=' + query : '');
 }
 
 async function requestVietmap(path: string, params: URLSearchParams, key: string): Promise<unknown> {
-  if (!key.trim()) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
-  params.set('apikey', key.trim());
+  const trimmed = key.trim();
+  if (!trimmed) throw tripError('Bản đồ chưa được cấu hình.', 'MAP_NOT_CONFIGURED');
+  // Giữ bản query chưa có khoá để log được tham số thật khi VietMap trả 400.
+  const query = params.toString();
+  params.set('apikey', trimmed);
   const url = 'https://maps.vietmap.vn/api/' + path + '?' + params.toString();
   let response: Response;
   try {
@@ -23,12 +37,12 @@ async function requestVietmap(path: string, params: URLSearchParams, key: string
     // Timeout, DNS, TLS hoặc mất kết nối: thông điệp có thể chứa URL nên phải lọc khoá trước khi log.
     const name = error instanceof Error ? error.name : 'Error';
     const message = error instanceof Error ? error.message : String(error);
-    logVietmapFailure('fetch', path, name + ': ' + message, key);
+    await logVietmapFailure('fetch', path, name + ': ' + message, trimmed, query);
     throw mapError();
   }
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    logVietmapFailure('http', path, response.status + ' ' + body, key);
+    await logVietmapFailure('http', path, response.status + ' ' + body, trimmed, query);
     if (response.status === 401 || response.status === 403) throw mapKeyError();
     if (response.status === 429) {
       throw mapQuotaError(Number(response.headers.get('retry-after')) || null);
@@ -38,7 +52,7 @@ async function requestVietmap(path: string, params: URLSearchParams, key: string
   try {
     return await response.json();
   } catch (error) {
-    logVietmapFailure('json', path, error instanceof Error ? error.message : String(error), key);
+    await logVietmapFailure('json', path, error instanceof Error ? error.message : String(error), trimmed);
     throw mapError();
   }
 }
@@ -51,7 +65,7 @@ export async function searchPlaces(text: string, key: string): Promise<PlaceSugg
   const data = await requestVietmap('autocomplete/v4', params, key);
   const result = z.array(suggestionSchema).safeParse(data);
   if (!result.success) {
-    logVietmapFailure('schema', 'autocomplete/v4', JSON.stringify(data).slice(0, 200), key);
+    await logVietmapFailure('schema', 'autocomplete/v4', JSON.stringify(data).slice(0, 200), key);
     throw mapError();
   }
   const items: PlaceSuggestion[] = [];
@@ -69,7 +83,7 @@ export async function getPlace(refId: string, key: string): Promise<TripStopInpu
   const data = await requestVietmap('place/v4', new URLSearchParams({ refid: refId }), key);
   const result = placeSchema.safeParse(data);
   if (!result.success) {
-    logVietmapFailure('schema', 'place/v4', JSON.stringify(data).slice(0, 200), key);
+    await logVietmapFailure('schema', 'place/v4', JSON.stringify(data).slice(0, 200), key);
     throw mapError();
   }
   return { label: result.data.display, latitude: result.data.lat, longitude: result.data.lng };
@@ -97,7 +111,7 @@ async function requestLeg(previous: TripStopInput, current: TripStopInput, key: 
   const result = routeSchema.safeParse(data);
   if (!result.success) {
     // Chỉ log tên field sai; body route chứa polyline rất dài nên không log toàn bộ.
-    logVietmapFailure('schema', 'route/v4',
+    await logVietmapFailure('schema', 'route/v4',
       result.error.issues.map(issue => issue.path.join('.') + ': ' + issue.message).join('; '), key);
     throw mapError();
   }
@@ -106,7 +120,7 @@ async function requestLeg(previous: TripStopInput, current: TripStopInput, key: 
   try {
     coordinates = decodeTripPolyline(leg.points);
   } catch {
-    logVietmapFailure('polyline', 'route/v4', 'không giải mã được points', key);
+    await logVietmapFailure('polyline', 'route/v4', 'không giải mã được points', key);
     throw mapError();
   }
   return {

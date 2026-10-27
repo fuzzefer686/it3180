@@ -103,8 +103,16 @@ Frontend không nhận lỗi thô của nhà cung cấp; nó nhận một trong 
 | `MAP_QUOTA` | 429 | VietMap trả 429 (hết hạn mức hoặc giới hạn tần suất) | Chờ theo `Retry-After` hoặc nâng gói; giảm số lần gọi |
 | `MAP_UNAVAILABLE` | 503 | Timeout 7 giây, lỗi mạng hoặc JSON sai dạng | Xem log `[vietmap] fetch/http/schema` |
 
-Log chỉ ghi tên endpoint, mã HTTP và tối đa 300 ký tự đầu của body; chuỗi trùng key được thay
-bằng `[key]` nên không đưa key vào log.
+Log chỉ ghi tên endpoint, mã HTTP, query không chứa khoá và tối đa 300 ký tự đầu của body;
+chuỗi trùng key được thay bằng `[key]` nên không đưa key vào log. Mỗi dòng log còn kèm dấu vân tay
+`key len=<số ký tự> sha256=<12 ký tự đầu SHA-256>` để đối chiếu khoá đang dùng với key thật:
+
+```bash
+printf '%s' 'KEY_TREN_TRANG_VIETMAP' | shasum -a 256 | cut -c1-12
+```
+
+Hai chuỗi `sha256` trùng nhau nghĩa là Edge đang dùng đúng key; khác nhau thì secret chưa được cập
+nhật (thường do thiếu quyền Owner/Administrator hoặc thao tác trên project khác).
 
 Key đúng là điều kiện cần nhưng chưa đủ. Nếu gọi bằng `curl` từ máy cá nhân thấy 200 mà Edge vẫn
 503 thì đọc log để biết VietMap trả gì cho IP của Edge (thường là 429 do dùng chung IP, hoặc 403
