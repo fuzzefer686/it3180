@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Eye, EyeOff, LockKeyhole, LogOut, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -7,7 +7,7 @@ import { useSession } from './SessionProvider';
 import { ProfileForm } from './ProfileForm';
 import { ProfileSummaryCard } from './ProfileSummaryCard';
 import { loginInputSchema, signupInputSchema } from './auth-validation';
-import { AUTH_EMAIL_REDIRECT_URL, AUTH_SITE_ORIGIN, AUTH_SUCCESS_PATH, authBrowser, authCallbackError, authSessionRedirectUrl, isAuthCallback } from './auth-redirect';
+import { AUTH_SUCCESS_PATH, authEmailRedirectUrl, authCallbackError, isAuthCallback } from './auth-redirect';
 
 export function AuthPage() {
   const { user, profile, loading, profileLoading, profileError, refreshProfile } = useSession();
@@ -33,22 +33,6 @@ export function AuthPage() {
     profile?.uid === user.id && !profileLoading && !profileError);
   const readyToRedirect = Boolean(!loading && user && (authCompleted || arrivedFromAuth || signupConfirmed) && !busy && !error &&
     (!signupResult?.requiresConfirmation || signupConfirmed));
-  const onAuthSite = authBrowser.origin() === AUTH_SITE_ORIGIN;
-  const uid = user?.id;
-
-  useEffect(() => {
-    if (!readyToRedirect || onAuthSite) return;
-    let active = true;
-    async function returnToWebsite() {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (!data.session || data.session.user.id !== uid) throw { code: 'auth_session_missing' };
-      const url = authSessionRedirectUrl(data.session);
-      if (active) authBrowser.replace(url);
-    }
-    void returnToWebsite().catch(err => { if (active) setError(errorMessage(err)); });
-    return () => { active = false; };
-  }, [readyToRedirect, onAuthSite, uid]);
 
   const clearMessages = () => setError('');
 
@@ -63,7 +47,7 @@ export function AuthPage() {
     try {
       if (signingUp) {
         setSignupResult(null); setResendNotice(''); setAuthCompleted(false);
-        const { data, error } = await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: AUTH_EMAIL_REDIRECT_URL } });
+        const { data, error } = await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: authEmailRedirectUrl() } });
         if (error) throw error;
         if (!data.user && !data.session) throw { code: 'auth_signup_result_missing' };
         setSignupResult({ email: credentials.email, requiresConfirmation: !data.session });
@@ -96,7 +80,7 @@ export function AuthPage() {
     pending.current = true; setBusy(true); clearMessages(); setResendNotice('');
     try {
       const { error } = await supabase.auth.resend({ type: 'signup', email: signupResult.email,
-        options: { emailRedirectTo: AUTH_EMAIL_REDIRECT_URL } });
+        options: { emailRedirectTo: authEmailRedirectUrl() } });
       if (error) throw error;
       setResendNotice('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh mới nhất.');
     } catch (err) { setError(errorMessage(err)); }
@@ -104,7 +88,7 @@ export function AuthPage() {
   }
 
   if (readyToRedirect) {
-    return onAuthSite ? <Navigate to={AUTH_SUCCESS_PATH} replace/> : <p role="status">Đang trở về website Về Cùng…</p>;
+    return <Navigate to={AUTH_SUCCESS_PATH} replace/>;
   }
 
   return <div className="inner-page account-page">

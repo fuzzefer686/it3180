@@ -5,7 +5,7 @@ import { authReturnPath, loginInputSchema, signupInputSchema } from '../../web/s
 import { profileFixture, profileInputFixture } from '../fixtures/auth';
 import { errorMessage } from '../../web/src/lib/errors';
 import { readSupabaseConfig } from '../../web/src/lib/supabase-config';
-import { AUTH_EMAIL_REDIRECT_URL, AUTH_SUCCESS_PATH, AUTH_SUCCESS_URL, authCallbackError, isAuthCallback } from '../../web/src/modules/auth/auth-redirect';
+import { AUTH_SUCCESS_PATH, authCallbackError, isAuthCallback } from '../../web/src/modules/auth/auth-redirect';
 
 describe('Contract và cấu hình Supabase', () => {
   it('không nhận quyền lạ hoặc field giả quyền trong API nền', () => {
@@ -80,10 +80,8 @@ describe('Contract và cấu hình Supabase', () => {
     expect(errorMessage({ code: 'weak_password' })).toContain('Mật khẩu');
     expect(errorMessage({ code: 'user_already_exists', message: 'internal auth detail' })).not.toContain('internal');
   });
-  it('callback dùng website đã chốt và đích thành công là trang chủ chuyến đi', () => {
-    expect(AUTH_EMAIL_REDIRECT_URL).toBe('https://it3180.pages.dev/tai-khoan');
+  it('đích thành công là đường dẫn nội bộ; nhận biết callback Auth', () => {
     expect(AUTH_SUCCESS_PATH).toBe('/chuyen-di');
-    expect(AUTH_SUCCESS_URL).toBe('https://it3180.pages.dev/chuyen-di');
     expect(isAuthCallback({ hash: '#access_token=demo&type=signup', search: '' })).toBe(true);
     expect(isAuthCallback({ hash: '', search: '?code=demo' })).toBe(true);
     expect(isAuthCallback({ hash: '', search: '' })).toBe(false);

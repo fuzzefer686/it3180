@@ -1,32 +1,14 @@
-import type { Session } from '@supabase/supabase-js';
-
-export const AUTH_SITE_ORIGIN = 'https://it3180.pages.dev';
-// Website đã chốt cho link xác minh email; không gửi link xác minh về localhost.
-// URL này phải được cho phép trong Supabase Authentication → URL Configuration.
-export const AUTH_EMAIL_REDIRECT_URL = `${AUTH_SITE_ORIGIN}/tai-khoan`;
 export const AUTH_SUCCESS_PATH = '/chuyen-di';
-export const AUTH_SUCCESS_URL = `${AUTH_SITE_ORIGIN}${AUTH_SUCCESS_PATH}`;
 
 export const authBrowser = {
   origin: () => window.location.origin,
-  replace: (url: string) => window.location.replace(url),
 };
 
-// Khác origin thì localStorage không được chia sẻ. Dùng callback implicit của SDK
-// trên đúng website tin cậy; token chỉ nằm sau #, không gửi tới server Pages.
-// SDK đích xác minh user, lưu phiên và xóa fragment. Không nhận URL đích từ input.
-export function authSessionRedirectUrl(session: Session): string {
-  if (!session.access_token || !session.refresh_token || !Number.isFinite(session.expires_in) || session.expires_in <= 0) {
-    throw { code: 'auth_session_missing' };
-  }
-  const fragment = new URLSearchParams({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-    expires_in: String(session.expires_in),
-    token_type: session.token_type,
-  });
-  if (session.expires_at) fragment.set('expires_at', String(session.expires_at));
-  return `${AUTH_SUCCESS_URL}#${fragment}`;
+// Mỗi preview/local nhận email xác minh về chính website đang mở.
+// URL này cần được cho phép trong Supabase Authentication → URL Configuration.
+// Không lấy domain đích từ query, router state hoặc dữ liệu người dùng nhập.
+export function authEmailRedirectUrl(): string {
+  return new URL('/tai-khoan', authBrowser.origin()).href;
 }
 
 export function isAuthCallback(location: { search: string; hash: string }): boolean {
