@@ -37,6 +37,8 @@ function databaseError(error: NonNullable<RpcResult['error']>): TripError {
   if (error.code === 'PT409') return new TripError('TRIP_CHANGED', 'Chuyến đã thay đổi hoặc không còn được sửa. Hãy tải lại.', 409);
   if (error.code === 'PT404') return new TripError('TRIP_NOT_FOUND', 'Không tìm thấy chuyến đi này.', 404);
   if (error.code === 'PT400') return new TripError('INVALID_INPUT', 'Dữ liệu chuyến đi chưa hợp lệ.', 400);
+  // Lỗi chưa phân loại: log mã để tra cứu, nhưng phản hồi cho client vẫn giữ nguyên câu chung.
+  console.error('[trips] database', error.code ?? 'unknown', (error.message ?? '').slice(0, 200));
   return new TripError('SERVER_ERROR', 'Không xử lý được chuyến đi. Vui lòng thử lại.', 500);
 }
 
@@ -90,6 +92,8 @@ export async function handleTripRequest(request: Request, dependencies: Dependen
   } catch (error) {
     if (error instanceof z.ZodError) return respond({ error: { code: 'INVALID_INPUT', message: 'Dữ liệu chưa hợp lệ.' } }, 400);
     if (error instanceof TripError) return respond({ error: { code: error.code, message: error.message } }, error.status);
+    // Lỗi ngoài dự kiến: log để tra cứu trên Dashboard, không trả chi tiết cho trình duyệt.
+    console.error('[trips] unhandled', error instanceof Error ? error.name + ': ' + error.message : 'unknown');
     return respond({ error: { code: 'SERVER_ERROR', message: 'Không xử lý được yêu cầu. Vui lòng thử lại.' } }, 500);
   }
 }
