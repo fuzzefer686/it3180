@@ -22,6 +22,8 @@
 .trip-detail-side { display: grid; gap: 20px; }
 
 .trip-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.trip-datetime-field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.trip-datetime-field .trip-mini-btn { justify-self: start; }
 .trip-field { display: grid; gap: 7px; font-size: 13px; font-weight: 600; min-width: 0; color: var(--text); }
 .trip-field input, .trip-field textarea, .trip-field select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; background: var(--bg); color: var(--text); font: inherit; font-weight: 400; font-size: 14px; transition: border-color .16s, background .16s; }
 .trip-field input:focus, .trip-field textarea:focus, .trip-field select:focus { background: var(--surface); border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }

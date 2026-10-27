@@ -15,14 +15,29 @@ const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.
 interface DraftStop { key: string; place: TripStopInput | null }
 interface Preview { stops: RouteStop[]; route: RouteSnapshot }
 function emptyStop(): DraftStop { return { key: crypto.randomUUID(), place: null }; }
+const MINUTE_MS = 60_000;
+// Làm tròn lên mốc gần nhất để giờ điền sẵn luôn ở tương lai và dễ đọc (13:30, 14:00…).
+function ceilToSlot(milliseconds: number, slotMinutes: number): number {
+  const slot = slotMinutes * MINUTE_MS;
+  return Math.ceil(milliseconds / slot) * slot;
+}
+function defaultSchedule(): { departure: string; arrival: string } {
+  const departureTimeMs = ceilToSlot(Date.now() + MINUTE_MS, 30);
+  return {
+    departure: toVietnamInput(departureTimeMs),
+    arrival: toVietnamInput(departureTimeMs + 2 * 60 * MINUTE_MS),
+  };
+}
 
 export function TripFormPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
   const { user, profile, loading, profileLoading } = useSession();
   const [stops, setStops] = useState<DraftStop[]>(() => [emptyStop(), emptyStop()]);
-  const [departure, setDeparture] = useState('');
-  const [arrival, setArrival] = useState('');
+  // Chuyến mới: điền sẵn mốc 30 phút kế tiếp và giờ đến +2 giờ để không phải nhập từ đầu.
+  // Chuyến đang sửa: để trống, dữ liệu thật do server trả về.
+  const [departure, setDeparture] = useState(() => (tripId ? '' : defaultSchedule().departure));
+  const [arrival, setArrival] = useState(() => (tripId ? '' : defaultSchedule().arrival));
   const [note, setNote] = useState('');
   const [routeVersion, setRouteVersion] = useState(1);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -60,6 +75,17 @@ export function TripFormPage() {
     });
   }
   function changeStops(next: DraftStop[]) { setStops(next); setPreview(null); setError(''); }
+
+  // Nút "Bây giờ": điền mốc 5 phút kế tiếp (luôn ở tương lai) và đẩy giờ đến theo nếu đang thiếu/cũ.
+  function fillFromNow() {
+    const departureTimeMs = ceilToSlot(Date.now() + MINUTE_MS, 5);
+    const arrivalTimeMs = fromVietnamInput(arrival);
+    setDeparture(toVietnamInput(departureTimeMs));
+    if (!Number.isFinite(arrivalTimeMs) || arrivalTimeMs <= departureTimeMs) {
+      setArrival(toVietnamInput(departureTimeMs + 2 * 60 * MINUTE_MS));
+    }
+    setError('');
+  }
 
   async function previewRoute() {
     setError('');
@@ -158,7 +184,10 @@ export function TripFormPage() {
               <span className="trip-muted">Điểm A là nơi xuất phát, điểm cuối là nơi kết thúc.</span>
             </div>
             <div className="trip-form-grid">
-              <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
+              <div className="trip-datetime-field">
+                <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
+                <button type="button" className="trip-mini-btn" onClick={fillFromNow}>Bây giờ</button>
+              </div>
               {/* min chỉ chặn quá khứ. Không dùng departure làm min vì khi giờ đi bị nhập sai (quá xa),
                   trình duyệt sẽ khoá luôn các ngày sớm hơn ở ô giờ đến và người dùng không sửa lại được. */}
               <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={arrival} onChange={event => { setArrival(event.target.value); setError(''); }} /></label>

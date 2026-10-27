@@ -120,6 +120,36 @@ describe('Frontend Trip kết hợp hồ sơ Auth', () => {
     expect(mocks.api).not.toHaveBeenCalledWith('createTrip', expect.anything());
   });
 
+  it('chuyến mới điền sẵn giờ đi và giờ đến hợp lệ', async () => {
+    mount();
+    await selectStops();
+    const departureValue = (screen.getByLabelText('Giờ đi (giờ Việt Nam)') as HTMLInputElement).value;
+    const arrivalValue = (screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)') as HTMLInputElement).value;
+    expect(departureValue).not.toBe('');
+    expect(fromVietnamInput(departureValue)).toBeGreaterThan(Date.now());
+    expect(fromVietnamInput(arrivalValue)).toBeGreaterThan(fromVietnamInput(departureValue));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    expect(await screen.findByText('Đã mở chuyến vừa lưu')).toBeTruthy();
+  });
+
+  it('nút Bây giờ sửa giờ đi đã qua và đẩy giờ đến theo', async () => {
+    mount();
+    await selectStops();
+    fireEvent.change(screen.getByLabelText('Giờ đi (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() - 3600000) } });
+    fireEvent.change(screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() - 1800000) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Giờ đi đã qua');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bây giờ' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    const departureValue = (screen.getByLabelText('Giờ đi (giờ Việt Nam)') as HTMLInputElement).value;
+    const arrivalValue = (screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)') as HTMLInputElement).value;
+    expect(fromVietnamInput(departureValue)).toBeGreaterThan(Date.now());
+    expect(fromVietnamInput(arrivalValue) - fromVietnamInput(departureValue)).toBe(120 * 60000);
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
+    expect(await screen.findByText('Đã mở chuyến vừa lưu')).toBeTruthy();
+  });
+
   it('kiểm tra hợp lệ ngày/giờ trên trang tìm kiếm và form đăng chuyến', async () => {
     expect(isValidVietnamDate('2026-10-27')).toBe(true);
     expect(isValidVietnamDate('2026-02-30')).toBe(false);
