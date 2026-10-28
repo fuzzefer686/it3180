@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot, SaveTripInput, TripStopInput } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
@@ -173,14 +173,18 @@ export function TripFormPage() {
                     setPreview(null); setError('');
                   }} />
                   <div className="trip-stop-controls">
-                    <button type="button" className="trip-mini-btn" disabled={index === 0} onClick={() => {
+                    {/* Dùng icon thay chữ "Lên/Xuống" để không nhầm với điểm lên xe, xuống xe. */}
+                    <button type="button" className="trip-mini-btn icon" disabled={index === 0}
+                      aria-label={`Đưa điểm ${code} lên trước`} title="Đổi thứ tự: đưa lên trước" onClick={() => {
                       const next = [...stops]; next[index] = stops[index - 1]; next[index - 1] = stop; changeStops(next);
-                    }}>Lên</button>
-                    <button type="button" className="trip-mini-btn" disabled={index === stops.length - 1} onClick={() => {
+                    }}><ArrowUp size={16} aria-hidden="true"/></button>
+                    <button type="button" className="trip-mini-btn icon" disabled={index === stops.length - 1}
+                      aria-label={`Đưa điểm ${code} ra sau`} title="Đổi thứ tự: đưa ra sau" onClick={() => {
                       const next = [...stops]; next[index] = stops[index + 1]; next[index + 1] = stop; changeStops(next);
-                    }}>Xuống</button>
-                    <button type="button" className="trip-mini-btn danger" disabled={stops.length <= 2}
-                      onClick={() => changeStops(stops.filter(row => row.key !== stop.key))}>Xóa</button>
+                    }}><ArrowDown size={16} aria-hidden="true"/></button>
+                    <button type="button" className="trip-mini-btn icon danger" disabled={stops.length <= 2}
+                      aria-label={`Xóa điểm ${code}`} title="Xóa điểm dừng"
+                      onClick={() => changeStops(stops.filter(row => row.key !== stop.key))}><Trash2 size={16} aria-hidden="true"/></button>
                   </div>
                 </div>;
               })}
