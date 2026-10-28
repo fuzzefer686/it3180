@@ -4,7 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import type { ListTripsInput, TripCursor, TripListItem } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
-import { distanceText, tripClock, tripDay, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
+import { distanceText, placeName, routeAreaText, tripClock, tripDay, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
 
 export function TripResults({ filters }: { filters: ListTripsInput }) {
   const { user, loading: sessionLoading } = useSession();
@@ -62,16 +62,20 @@ export function TripResults({ filters }: { filters: ListTripsInput }) {
     {items.length > 0 && (
       <ol className="trip-list">
         {items.map(trip => {
-          const via = trip.stopLabels.slice(1, -1);
+          const from = trip.stopLabels[0];
+          const to = trip.stopLabels[trip.stopLabels.length - 1];
+          const via = trip.stopLabels.slice(1, -1).map(placeName);
+          const area = routeAreaText(from, to);
+          const viaText = via.length > 0 ? `Qua ${via.join(' · ')}` : 'Không dừng giữa đường';
           return <li key={trip.id}>
-            <Link className="trip-row" to={'/chuyen-di/' + trip.id} aria-label={`Xem chi tiết chuyến ${trip.stopLabels[0]} đến ${trip.stopLabels[trip.stopLabels.length - 1]}, ${tripTime(trip.departureTimeMs)}`}>
+            <Link className="trip-row" to={'/chuyen-di/' + trip.id} title={`${from} → ${to}`} aria-label={`Xem chi tiết chuyến ${placeName(from)} đến ${placeName(to)}, ${tripTime(trip.departureTimeMs)}`}>
               <span className="trip-row-time">
                 <strong>{tripClock(trip.departureTimeMs)}</strong>
                 <span>{tripDay(trip.departureTimeMs)}</span>
               </span>
               <span className="trip-row-route">
-                <strong>{trip.stopLabels[0]} <span aria-hidden="true">→</span> {trip.stopLabels[trip.stopLabels.length - 1]}</strong>
-                <span>{via.length > 0 ? `Qua ${via.join(' · ')}` : 'Không dừng giữa đường'}</span>
+                <strong>{placeName(from)} <span aria-hidden="true">→</span> {placeName(to)}</strong>
+                <span>{area ? `${area} · ${viaText}` : viaText}</span>
               </span>
               <span className="trip-row-meta">
                 <strong>{distanceText(trip.totalDistanceMeters)}</strong>

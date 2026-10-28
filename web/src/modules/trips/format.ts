@@ -26,6 +26,25 @@ export function tripTime(milliseconds: number): string {
   });
 }
 
+// Nhãn VietMap có dạng "Tên địa điểm, Phường…, Tỉnh/Thành phố": danh sách và tiêu đề chỉ cần tên
+// và tỉnh, địa chỉ đầy đủ vẫn hiện ở danh sách điểm dừng.
+export function placeName(label: string): string {
+  return label.split(',')[0].trim() || label;
+}
+
+export function placeArea(label: string): string {
+  const parts = label.split(',');
+  if (parts.length < 2) return '';
+  return parts[parts.length - 1].trim().replace(/^(Thành phố|Tỉnh|TP\.?)\s+/i, '');
+}
+
+export function routeAreaText(from: string, to: string): string {
+  const a = placeArea(from);
+  const b = placeArea(to);
+  if (!a || !b) return '';
+  return a === b ? 'Trong ' + a : a + ' → ' + b;
+}
+
 // Tách giờ và ngày để danh sách chuyến đọc theo cột như bảng giờ xe.
 export function tripClock(milliseconds: number): string {
   return new Date(milliseconds).toLocaleTimeString('vi-VN', {

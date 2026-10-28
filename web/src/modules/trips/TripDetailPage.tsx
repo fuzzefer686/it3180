@@ -6,7 +6,7 @@ import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
 import { RouteSummary } from './RouteSummary';
 import { TripOwnerActions } from './TripOwnerActions';
-import { distanceText, estimatedPointsText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
+import { distanceText, estimatedPointsText, placeName, routeAreaText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
 
 const preloadRouteMap = () => import('./RouteMap');
 const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
@@ -98,7 +98,12 @@ export function TripDetailPage() {
             {trip.confirmedBookingId || trip.hasServedPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách'}
           </span>
         </div>
-        <h1>{trip.stops[0].label} → {trip.stops[trip.stops.length - 1].label}</h1>
+        <div className="trip-heading-title">
+          <h1>{placeName(trip.stops[0].label)} → {placeName(trip.stops[trip.stops.length - 1].label)}</h1>
+          {routeAreaText(trip.stops[0].label, trip.stops[trip.stops.length - 1].label) && (
+            <p className="trip-muted">{routeAreaText(trip.stops[0].label, trip.stops[trip.stops.length - 1].label)}</p>
+          )}
+        </div>
         <dl className="trip-meta-grid">
           <div className="trip-meta-item"><dt>Tài xế</dt><dd>{trip.driverName}</dd></div>
           <div className="trip-meta-item"><dt>Khởi hành</dt><dd>{tripTime(trip.departureTimeMs)}</dd></div>

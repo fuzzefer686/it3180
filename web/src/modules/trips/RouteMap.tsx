@@ -13,6 +13,16 @@ interface RouteMapProps {
   highlightOrders?: [number, number];
 }
 
+const mapLocale = {
+  'CooperativeGesturesHandler.WindowsHelpText': 'Giữ Ctrl và lăn chuột để phóng to bản đồ',
+  'CooperativeGesturesHandler.MacHelpText': 'Giữ ⌘ và lăn chuột để phóng to bản đồ',
+  'CooperativeGesturesHandler.MobileHelpText': 'Dùng hai ngón tay để di chuyển bản đồ',
+  'NavigationControl.ZoomIn': 'Phóng to',
+  'NavigationControl.ZoomOut': 'Thu nhỏ',
+  'NavigationControl.ResetBearing': 'Xoay về hướng bắc',
+  'AttributionControl.ToggleAttribution': 'Thông tin bản quyền bản đồ',
+};
+
 // Màu tuyến lấy từ token CSS để đổi theo giao diện sáng/tối.
 function routeColors() {
   const style = getComputedStyle(document.documentElement);
@@ -54,6 +64,9 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
         style: 'https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=' + encodeURIComponent(mapKey),
         center: [stops[0].longitude, stops[0].latitude],
         zoom: 12,
+        // Lăn chuột qua bản đồ vẫn cuộn trang; giữ Ctrl/⌘ (hoặc dùng hai ngón tay) mới zoom.
+        cooperativeGestures: true,
+        locale: mapLocale,
       });
       mapRef.current = map;
       map.addControl(new vietmap.NavigationControl());

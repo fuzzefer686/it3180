@@ -17,6 +17,15 @@ const links = [
   { to: '/tai-khoan', label: 'Tài khoản', icon: CircleUserRound },
 ];
 
+// Trang con không có mục menu riêng nên đặt tên tab cụ thể hơn tên mục cha.
+const pageTitles: Array<[RegExp, string]> = [
+  [/^\/quan-tri$/, 'Quản trị hồ sơ'],
+  [/^\/chuyen-di\/dang$/, 'Đăng chuyến'],
+  [/^\/chuyen-di\/cua-toi$/, 'Chuyến tôi đăng'],
+  [/^\/chuyen-di\/[^/]+\/sua$/, 'Sửa chuyến'],
+  [/^\/chuyen-di\/[^/]+$/, 'Chi tiết chuyến'],
+];
+
 export function App() {
   const { pathname } = useLocation();
   const { profile } = useSession();
@@ -24,7 +33,7 @@ export function App() {
 
   useEffect(() => {
     const matched = links.find(link => pathname === link.to || pathname.startsWith(link.to + '/'));
-    const label = pathname === '/quan-tri' ? 'Quản trị hồ sơ' : matched?.label;
+    const label = pageTitles.find(([pattern]) => pattern.test(pathname))?.[1] ?? matched?.label;
     document.title = label ? `${label} | Về Cùng` : 'Về Cùng · Ghép xe sinh viên';
     window.scrollTo(0, 0);
   }, [pathname]);
