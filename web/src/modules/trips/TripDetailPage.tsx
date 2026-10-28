@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, Clock3, RefreshCw, UserCheck } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import type { TripDetails } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
@@ -99,13 +99,14 @@ export function TripDetailPage() {
           </span>
         </div>
         <h1>{trip.stops[0].label} → {trip.stops[trip.stops.length - 1].label}</h1>
-        <div className="trip-meta-grid">
-          <div className="trip-meta-item"><span><UserCheck size={14}/> Tài xế</span><strong>{trip.driverName}</strong></div>
-          <div className="trip-meta-item"><span><CalendarClock size={14}/> Khởi hành</span><strong>{tripTime(trip.departureTimeMs)}</strong></div>
-          <div className="trip-meta-item"><span><Clock3 size={14}/> Đến dự kiến</span><strong>{trip.arrivalTimeMs === null ? 'Chưa có thông tin' : tripTime(trip.arrivalTimeMs)}</strong></div>
-        </div>
+        <dl className="trip-meta-grid">
+          <div className="trip-meta-item"><dt>Tài xế</dt><dd>{trip.driverName}</dd></div>
+          <div className="trip-meta-item"><dt>Khởi hành</dt><dd>{tripTime(trip.departureTimeMs)}</dd></div>
+          <div className="trip-meta-item"><dt>Đến dự kiến</dt><dd>{trip.arrivalTimeMs === null ? 'Chưa có thông tin' : tripTime(trip.arrivalTimeMs)}</dd></div>
+          <div className="trip-meta-item"><dt>Tổng quãng đường</dt><dd>{distanceText(trip.route.totalDistanceMeters)}</dd></div>
+        </dl>
         {trip.note && <div className="trip-note-card"><strong>Ghi chú từ tài xế</strong><p className="trip-note">{trip.note}</p></div>}
-        {trip.cancellationReason && <p className="notice">Lý do hủy: {trip.cancellationReason}</p>}
+        {trip.cancellationReason && <p className="notice danger">Lý do hủy: {trip.cancellationReason}</p>}
       </header>
 
       <div className="trip-detail-layout">
@@ -139,7 +140,7 @@ export function TripDetailPage() {
             <div className="trip-segment-box">
               {distance !== null && <>
                 <div className="trip-segment-row"><span>Khoảng cách theo tuyến</span><strong>{distanceText(distance)}</strong></div>
-                <div className="trip-segment-row"><span className="trip-muted">Điểm mô phỏng dự kiến (5.000đ/km)</span><span className="status-pill amber">{estimatedPointsText(distance)}</span></div>
+                <div className="trip-segment-row"><span className="trip-muted">Điểm mô phỏng dự kiến (5.000 điểm/km)</span><strong>{estimatedPointsText(distance)}</strong></div>
               </>}
               {distance === null && !distanceError && <p role="status" className="trip-muted">Đang lấy khoảng cách…</p>}
               {distanceError && <p role="alert" className="form-error">{distanceError}</p>}

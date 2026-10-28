@@ -26,6 +26,19 @@ export function tripTime(milliseconds: number): string {
   });
 }
 
+// Tách giờ và ngày để danh sách chuyến đọc theo cột như bảng giờ xe.
+export function tripClock(milliseconds: number): string {
+  return new Date(milliseconds).toLocaleTimeString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+export function tripDay(milliseconds: number): string {
+  return new Date(milliseconds).toLocaleDateString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short', day: '2-digit', month: '2-digit',
+  });
+}
+
 export function toVietnamInput(milliseconds: number): string {
   return new Date(milliseconds + 7 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }

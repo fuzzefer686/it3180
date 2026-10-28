@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Compass, Plus } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot, SaveTripInput, TripStopInput } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
@@ -143,7 +143,6 @@ export function TripFormPage() {
   return <section className="trip-page">
     <div className="trip-top-bar">
       <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
-      <span className="status-pill teal">Từ 2 đến 8 điểm dừng xe máy</span>
     </div>
     <div className="trip-page-header">
       <div><h1>{tripId ? 'Sửa chuyến đi' : 'Đăng chuyến đi'}</h1><p className="trip-muted">Chọn lộ trình xe máy và các điểm bạn có thể đón, trả người đi cùng dọc đường.</p></div>
@@ -155,6 +154,7 @@ export function TripFormPage() {
         <form noValidate onSubmit={save} className="trip-panel">
           <fieldset disabled={busy}>
             <legend>Các điểm dừng theo thứ tự</legend>
+            <p className="trip-muted trip-legend-hint">Từ 2 đến 8 điểm. Người đi cùng có thể lên, xuống ở bất kỳ điểm nào.</p>
             <div className="trip-stops-builder">
               {stops.map((stop, index) => {
                 const code = String.fromCharCode(65 + index);
@@ -210,7 +210,6 @@ export function TripFormPage() {
             </div>
           ) : (
             <div className="trip-preview-placeholder">
-              <span className="trip-preview-icon"><Compass size={26}/></span>
               <h2>Xem trước tuyến VietMap</h2>
               <p className="trip-muted">Sau khi chọn đủ điểm dừng từ gợi ý địa chỉ, bấm “Xem trước tuyến” để kiểm tra đường đi xe máy và khoảng cách từng chặng trước khi lưu.</p>
             </div>

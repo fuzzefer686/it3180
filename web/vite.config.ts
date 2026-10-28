@@ -12,5 +12,21 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     server: { port: 5173, strictPort: true },
+    build: {
+      // SDK VietMap (~770 KB) chỉ tải khi mở bản đồ nên được phép vượt mức cảnh báo mặc định.
+      chunkSizeWarningLimit: 800,
+      rolldownOptions: {
+        output: {
+          // Tách thư viện ít thay đổi để trình duyệt giữ cache khi code app đổi.
+          codeSplitting: {
+            groups: [
+              { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+              { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+              { name: 'zod', test: /node_modules[\\/]zod[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
   };
 });

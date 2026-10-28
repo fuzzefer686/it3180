@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Clock3, MapPin, Route } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { ListTripsInput, TripCursor, TripListItem } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
-import { distanceText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
+import { distanceText, tripClock, tripDay, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
 
 export function TripResults({ filters }: { filters: ListTripsInput }) {
   const { user, loading: sessionLoading } = useSession();
@@ -47,45 +47,46 @@ export function TripResults({ filters }: { filters: ListTripsInput }) {
   return <section className="trip-results" aria-label="Kết quả tìm chuyến" aria-busy={busy}>
     {busy && <div className="content-skeleton compact" role="status"><p className="trip-muted">Đang tìm chuyến…</p><div/><div/></div>}
     {error && (
-      <div role="alert" className="trip-actions">
-        <p className="form-error">{error}</p>
-        <button className="button secondary" type="button" onClick={() => setRefresh(refresh + 1)}>Thử lại</button>
+      <div role="alert" className="notice danger">
+        <span>{error}</span>
+        <button className="button secondary compact notice-action" type="button" onClick={() => setRefresh(refresh + 1)}>Thử lại</button>
       </div>
     )}
     {!busy && !error && items.length === 0 && (
       <p className="notice">
-        Chưa có chuyến phù hợp trong trang này.{nextCursor ? ' Bạn có thể xem trang tiếp theo.' : ''}
+        {filters.mine && !cursor
+          ? 'Bạn chưa đăng chuyến nào. Bấm “Đăng chuyến” để mở chuyến đầu tiên.'
+          : `Chưa có chuyến phù hợp trong trang này.${nextCursor ? ' Bạn có thể xem trang tiếp theo.' : ''}`}
       </p>
     )}
-    <div className="trip-cards">
-      {items.map(trip => {
-        const midCount = Math.max(0, trip.stopLabels.length - 2);
-        return <Link className="trip-card" key={trip.id} to={'/chuyen-di/' + trip.id}>
-          <div className="trip-card-top">
-            <span className={`status-pill ${tripStatusTone[trip.status]}`}>{tripStatusText[trip.status]}</span>
-            <span className={`status-pill ${trip.hasPassenger ? 'amber' : 'teal'}`}>
-              {trip.hasPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách'}
-            </span>
-          </div>
-          <h3>{trip.stopLabels[0]} → {trip.stopLabels[trip.stopLabels.length - 1]}</h3>
-          <p className="trip-card-stops">
-            <MapPin size={14}/>
-            {midCount > 0 ? `Qua ${midCount} điểm dừng trung gian (${trip.stopLabels.slice(1, -1).join(' · ')})` : 'Lộ trình trực tiếp 2 điểm A → B'}
-          </p>
-          <div className="trip-card-meta">
-            <span><Clock3 size={15}/> {tripTime(trip.departureTimeMs)}</span>
-            <span><Route size={15}/> {distanceText(trip.totalDistanceMeters)}</span>
-          </div>
-          <div className="trip-card-footer">
-            <span className="trip-driver-chip">
-              <span className="trip-driver-avatar" aria-hidden="true">{trip.driverName.slice(0, 1).toUpperCase()}</span>
-              <span>{trip.driverName}</span>
-            </span>
-            <span className="trip-card-link">Xem chi tiết <ArrowRight size={15}/></span>
-          </div>
-        </Link>;
-      })}
-    </div>
+    {items.length > 0 && (
+      <ol className="trip-list">
+        {items.map(trip => {
+          const via = trip.stopLabels.slice(1, -1);
+          return <li key={trip.id}>
+            <Link className="trip-row" to={'/chuyen-di/' + trip.id} aria-label={`Xem chi tiết chuyến ${trip.stopLabels[0]} đến ${trip.stopLabels[trip.stopLabels.length - 1]}, ${tripTime(trip.departureTimeMs)}`}>
+              <span className="trip-row-time">
+                <strong>{tripClock(trip.departureTimeMs)}</strong>
+                <span>{tripDay(trip.departureTimeMs)}</span>
+              </span>
+              <span className="trip-row-route">
+                <strong>{trip.stopLabels[0]} <span aria-hidden="true">→</span> {trip.stopLabels[trip.stopLabels.length - 1]}</strong>
+                <span>{via.length > 0 ? `Qua ${via.join(' · ')}` : 'Không dừng giữa đường'}</span>
+              </span>
+              <span className="trip-row-meta">
+                <strong>{distanceText(trip.totalDistanceMeters)}</strong>
+                <span>{trip.driverName}</span>
+              </span>
+              <span className="trip-row-status">
+                <span className={`status-pill ${tripStatusTone[trip.status]}`}>{tripStatusText[trip.status]}</span>
+                <span>{trip.hasPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách'}</span>
+              </span>
+              <ChevronRight className="trip-row-chevron" size={18} aria-hidden="true"/>
+            </Link>
+          </li>;
+        })}
+      </ol>
+    )}
     {(cursor || nextCursor) && (
       <div className="trip-actions">
         {cursor && <button className="button secondary" type="button" disabled={busy} onClick={() => setCursor(null)}>Về trang đầu</button>}

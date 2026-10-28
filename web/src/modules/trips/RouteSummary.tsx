@@ -1,4 +1,3 @@
-import { Clock3, Route } from 'lucide-react';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot } from '../../../../shared/trips';
 import { distanceText } from './format';
@@ -6,16 +5,13 @@ import { distanceText } from './format';
 export function RouteSummary({ stops, route }: { stops: RouteStop[]; route: RouteSnapshot }) {
   const hasSegmentDuration = route.segments.some(segment => segment.durationMs !== null);
   return <div className="trip-route-summary">
-    <div className="trip-metrics">
-      <span className="trip-metric-pill">
-        <Route size={16}/> Tổng lộ trình: <strong>{distanceText(route.totalDistanceMeters)}</strong>
-      </span>
+    <dl className="trip-metrics">
+      <div><dt>Tổng lộ trình</dt><dd>{distanceText(route.totalDistanceMeters)}</dd></div>
       {route.totalDurationMs !== null && (
-        <span className="trip-metric-pill">
-          <Clock3 size={16}/> Khoảng <strong>{Math.ceil(route.totalDurationMs / 60000)} phút</strong> đi xe máy
-        </span>
+        <div><dt>Thời gian xe máy</dt><dd>Khoảng {Math.ceil(route.totalDurationMs / 60000)} phút</dd></div>
       )}
-    </div>
+      <div><dt>Số điểm dừng</dt><dd>{stops.length}</dd></div>
+    </dl>
 
     <ol className="trip-stops">
       {stops.map(stop => {

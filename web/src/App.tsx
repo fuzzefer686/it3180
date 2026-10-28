@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Bike, CalendarDays, Compass, CircleUserRound, ShieldCheck, WalletCards } from 'lucide-react';
+import { CalendarDays, Compass, CircleUserRound, ShieldCheck, WalletCards } from 'lucide-react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './components/ThemeToggle';
 import { AuthPage } from './modules/auth/AuthPage';
@@ -24,7 +24,8 @@ export function App() {
 
   useEffect(() => {
     const matched = links.find(link => pathname === link.to || pathname.startsWith(link.to + '/'));
-    document.title = `${pathname === '/quan-tri' ? 'Quản trị hồ sơ' : matched?.label ?? 'Về Cùng'} | Về Cùng`;
+    const label = pathname === '/quan-tri' ? 'Quản trị hồ sơ' : matched?.label;
+    document.title = label ? `${label} | Về Cùng` : 'Về Cùng · Ghép xe sinh viên';
     window.scrollTo(0, 0);
   }, [pathname]);
 
@@ -33,7 +34,6 @@ export function App() {
     <header className="site-header">
       <div className="header-inner">
         <Link className="brand" to="/chuyen-di" aria-label="Về Cùng, tìm chuyến">
-          <span className="brand-mark"><Bike size={22}/></span>
           về cùng<span className="brand-period">.</span>
         </Link>
         <nav className="main-nav" aria-label="Điều hướng chính">
@@ -72,8 +72,7 @@ export function App() {
     </main>
     <footer className="site-footer">
       <span className="footer-brand">về cùng<span className="footer-dot">.</span></span>
-      <span>Một người bạn đồng hành, một chuyến về quê an tâm hơn.</span>
-      <span className="status-pill neutral">Ghép xe máy sinh viên</span>
+      <span>Ghép xe máy cho sinh viên về quê · Đồ án IT3180</span>
     </footer>
   </div>;
 }
