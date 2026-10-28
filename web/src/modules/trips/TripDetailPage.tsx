@@ -12,6 +12,8 @@ import { distanceText, estimatedPointsText, tripErrorText, tripStatusText, tripS
 
 const preloadRouteMap = () => import('./RouteMap');
 const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
+const pickupRequiredNotice = 'Không thể kết thúc chuyến khi chưa đón khách đã nhận. Khi khách lên xe, hãy bấm “Đã đón khách” trong “Hàng chờ và khách của chuyến”. Sau khi khách xuống xe, bấm “Đã trả khách” rồi mới kết thúc chuyến.';
+const dropoffRequiredNotice = 'Không thể kết thúc chuyến khi chưa trả khách. Khi khách đã xuống xe, hãy bấm “Đã trả khách” trong “Hàng chờ và khách của chuyến”, rồi thử kết thúc chuyến lại.';
 
 export function TripDetailPage() {
   const { tripId } = useParams();
@@ -50,7 +52,7 @@ export function TripDetailPage() {
   useEffect(() => {
     let active = true;
     setDistance(null); setDistanceError('');
-    if (!trip || !user || dropoff <= pickup) return;
+    if (!trip || !user || isOwner || dropoff <= pickup) return;
     callFunction('getTripSegmentDistance', {
       tripId: trip.id, pickupStopId: trip.stops[pickup].id, dropoffStopId: trip.stops[dropoff].id,
     }).then(result => {
@@ -59,7 +61,7 @@ export function TripDetailPage() {
       if (active) setDistanceError(tripErrorText(err));
     });
     return () => { active = false; };
-  }, [trip, pickup, dropoff, user?.id]);
+  }, [trip, pickup, dropoff, user?.id, isOwner]);
 
   async function changeStatus(action: 'start' | 'complete' | 'cancel', reason = '') {
     if (!trip) return;
@@ -75,7 +77,13 @@ export function TripDetailPage() {
           ? await callFunction('completeTrip', { tripId: trip.id })
           : await callFunction('cancelTrip', { tripId: trip.id, reason: reason.trim() });
       setTrip(result.trip);
-    } catch (err) { setError(tripErrorText(err)); }
+    } catch (err) {
+      if (action === 'complete' && err && typeof err === 'object'
+        && 'code' in err && err.code === 'PT409'
+        && 'message' in err && err.message === 'Passenger unresolved') {
+        setError(trip.hasServedPassenger ? dropoffRequiredNotice : pickupRequiredNotice);
+      } else setError(tripErrorText(err));
+    }
     finally { setBusy(false); }
   }
 
@@ -115,16 +123,18 @@ export function TripDetailPage() {
         <div className="trip-panel">
           <h2>Bản đồ & lộ trình chi tiết</h2>
           <Suspense fallback={<p role="status">Đang tải bản đồ…</p>}>
-            <RouteMap stops={trip.stops} route={trip.route} highlightOrders={[pickup, dropoff]} />
+            <RouteMap stops={trip.stops} route={trip.route} highlightOrders={isOwner ? undefined : [pickup, dropoff]} />
           </Suspense>
           <RouteSummary stops={trip.stops} route={trip.route} />
         </div>
 
         <aside className="trip-detail-side">
           {isOwner && <TripOwnerActions trip={trip} canDrive={Boolean(profile?.eligibility.canDrive)} busy={busy} onStatusChange={changeStatus} />}
+          {isOwner && trip.status === 'IN_PROGRESS' && trip.confirmedBookingId && !trip.hasServedPassenger
+            && <p className="notice" role="status">{pickupRequiredNotice}</p>}
           {isOwner && <BookingList key={`${trip.id}:${trip.status}:${trip.confirmedBookingId}:${trip.hasServedPassenger}`}
             tripId={trip.id} onChanged={() => setRefresh(value => value + 1)} />}
-          <div className="trip-panel">
+          {!isOwner && <div className="trip-panel">
             <h2>Quãng đường bạn muốn đi</h2>
             <p className="trip-muted">Chọn điểm đón và điểm trả dọc lộ trình để tra cứu khoảng cách thực tế trên tuyến.</p>
             <div className="trip-field">
@@ -151,7 +161,7 @@ export function TripDetailPage() {
             </div>
             <BookingSubmit key={user.id + ':' + trip.id} trip={trip} pickupStopId={trip.stops[pickup].id}
               dropoffStopId={trip.stops[dropoff].id} distanceMeters={distance} onPendingChange={setBookingPending} />
-          </div>
+          </div>}
         </aside>
       </div>
     </>}

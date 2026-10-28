@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { errorMessage } from '../../lib/errors';
+import type { TripDetails } from '../../../../shared/trips';
 
 // Local contract boundary: shared files belong to other owners and stay unchanged.
-const uuid = z.uuid();
+// PostgreSQL uuid accepts any 128-bit value, including IDs without an RFC version.
+// Keep the canonical hexadecimal shape without rejecting IDs already stored by Trip.
+const uuid = z.guid();
 const integer = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 export const bookingActions = ['confirmBooking', 'rejectBooking', 'cancelBooking', 'markPickup', 'markDropoff'] as const;
 export type BookingAction = typeof bookingActions[number];
@@ -49,6 +52,27 @@ export function listMyBookings(input: z.infer<typeof listInput>) {
 }
 export function listTripBookings(input: z.infer<typeof listInput> & { tripId: string }) {
   return rpc('list_trip_bookings', listInput.extend({ tripId: uuid }).parse(input), listSchema);
+}
+export type BookingTripState = Pick<TripDetails, 'status' | 'confirmedBookingId' | 'hasServedPassenger'>;
+export async function getBookingTripState(tripId: string): Promise<BookingTripState> {
+  const { callFunction } = await import('../../lib/callable');
+  const { trip } = await callFunction('getTrip', { tripId: uuid.parse(tripId) });
+  return { status: trip.status, confirmedBookingId: trip.confirmedBookingId, hasServedPassenger: trip.hasServedPassenger };
+}
+export function hasOtherPassenger(booking: Booking, trip?: BookingTripState): boolean {
+  return booking.status === 'WAITING' && trip?.status === 'OPEN'
+    && Boolean(trip.confirmedBookingId && trip.confirmedBookingId !== booking.id);
+}
+export function bookingNotice(booking: Booking, driverView: boolean, trip?: BookingTripState): string {
+  if (hasOtherPassenger(booking, trip)) return driverView
+    ? 'Bạn đã nhận khách khác. Yêu cầu này đang dự phòng.'
+    : 'Tài xế đã nhận khách khác. Yêu cầu của bạn đang dự phòng.';
+  if (booking.status === 'CONFIRMED') return driverView
+    ? 'Đã nhận khách này.' : 'Tài xế đã nhận bạn. Hãy tới điểm đón đã chọn.';
+  if (booking.status === 'EXPIRED') return 'Yêu cầu đã hết hạn. Chuyến không còn nhận yêu cầu chờ.';
+  if (booking.status === 'WAITING' && trip?.status === 'OPEN' && !trip.confirmedBookingId)
+    return driverView ? 'Có yêu cầu chờ.' : 'Yêu cầu đang chờ tài xế nhận.';
+  return '';
 }
 export function changeBooking(action: BookingAction, bookingId: string, reason = '') {
   const names: Record<BookingAction, string> = {

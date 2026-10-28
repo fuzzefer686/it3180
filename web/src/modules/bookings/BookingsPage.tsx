@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Bike, CalendarDays, CheckCircle2, Clock3, ShieldAlert, Ticket } from 'lucide-react';
 import { useSession } from '../auth/SessionProvider';
 import { BookingList } from './BookingList';
+import { DriverBookingList } from './DriverBookingList';
 import type { BookingGroup } from './booking-api';
 
 const filters = ['Đang chờ', 'Sắp đi', 'Lịch sử'] as const;
@@ -10,7 +11,7 @@ const bookingGroups: Record<typeof filters[number], BookingGroup> = { 'Đang ch�
 
 export function BookingsPage() {
   const { user, loading } = useSession();
-  const navigate = useNavigate();
+  const [driverView, setDriverView] = useState(false);
   const [filter, setFilter] = useState<typeof filters[number]>('Đang chờ');
 
   return <div className="inner-page">
@@ -19,18 +20,18 @@ export function BookingsPage() {
         <h1>Chuyến của tôi</h1>
         <p>Hẹn đi cùng, theo dõi xác nhận từ tài xế và xem lại những hành trình đã đi.</p>
       </div>
-      <span className="status-pill teal">Yêu cầu đi cùng</span>
+      <span className="status-pill teal">{driverView ? 'Yêu cầu gửi tới chuyến của tôi' : 'Yêu cầu đi cùng'}</span>
     </header>
 
     <div className="journey-toolbar">
       <div className="segmented-control" aria-label="Vai trò đi xe">
-        <button type="button" aria-pressed={true} className="selected"><Ticket size={17}/> Tôi đi cùng</button>
-        <button type="button" aria-pressed={false} onClick={() => navigate('/chuyen-di/cua-toi')}><Bike size={17}/> Tôi cầm lái</button>
+        <button type="button" aria-pressed={!driverView} className={!driverView ? 'selected' : ''} onClick={() => setDriverView(false)}><Ticket size={17}/> Tôi đi cùng</button>
+        <button type="button" aria-pressed={driverView} className={driverView ? 'selected' : ''} onClick={() => setDriverView(true)}><Bike size={17}/> Tôi cầm lái</button>
       </div>
     </div>
 
     <div className="journey-layout">
-      <section className="journey-panel" aria-label="Yêu cầu đi cùng">
+      <section className="journey-panel" aria-label={driverView ? 'Yêu cầu gửi tới chuyến của tôi' : 'Yêu cầu đi cùng'}>
         <div className="filter-bar" aria-label="Lọc trạng thái chuyến">
           {filters.map(value => (
             <button key={value} type="button" aria-pressed={filter === value}
@@ -42,6 +43,8 @@ export function BookingsPage() {
 
         {loading ? (
           <div className="content-skeleton" role="status" aria-label="Đang tải phiên đăng nhập"><div/><div/><div/></div>
+        ) : user && driverView ? (
+          <DriverBookingList key={user.id + ':' + filter} group={bookingGroups[filter]} />
         ) : user ? (
           <BookingList key={user.id + ':' + filter} group={bookingGroups[filter]} embedded />
         ) : (
