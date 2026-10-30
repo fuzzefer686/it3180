@@ -11,6 +11,20 @@ const verificationTones: Record<Verification, 'emerald' | 'amber' | 'danger'> = 
 };
 const roleLabels = { USER: 'Hành khách', DRIVER: 'Tài xế', ADMIN: 'Quản trị viên' };
 
+// Server chỉ trả về đúng/sai; liệt kê điều còn thiếu để người dùng biết phải làm gì tiếp.
+function missingForDrive(profile: UserProfile): string {
+  if (profile.status !== 'ACTIVE') return 'Tài khoản đang bị khóa.';
+  if (profile.studentVerificationStatus !== 'VERIFIED') return 'Hồ sơ sinh viên chưa được duyệt.';
+  if (!profile.vehicleModel || !profile.vehiclePlate) return 'Chưa khai báo loại xe và biển số ở mục bên dưới.';
+  if (profile.driverVerificationStatus !== 'VERIFIED') return 'Thông tin tài xế chưa được duyệt.';
+  return 'Tài khoản chưa có vai trò tài xế. Lưu lại hồ sơ để cập nhật.';
+}
+
+function missingForBook(profile: UserProfile): string {
+  if (profile.status !== 'ACTIVE') return 'Tài khoản đang bị khóa.';
+  return 'Hồ sơ sinh viên chưa được duyệt.';
+}
+
 export function ProfileSummaryCard({ profile }: { profile: UserProfile }) {
   return <>
     <div className="badge-row">
@@ -29,17 +43,17 @@ export function ProfileSummaryCard({ profile }: { profile: UserProfile }) {
       <div className={`eligibility-card${profile.eligibility.canBook ? ' ready' : ''}`}>
         <span>Đặt chuyến</span>
         <strong>{profile.eligibility.canBook ? 'Đủ điều kiện' : 'Chưa đủ điều kiện'}</strong>
+        {!profile.eligibility.canBook && <small>{missingForBook(profile)}</small>}
       </div>
       <div className={`eligibility-card${profile.eligibility.canDrive ? ' ready' : ''}`}>
         <span>Đăng chuyến</span>
         <strong>{profile.eligibility.canDrive ? 'Đủ điều kiện' : 'Chưa đủ điều kiện'}</strong>
+        {!profile.eligibility.canDrive && <small>{missingForDrive(profile)}</small>}
       </div>
     </div>
 
     <dl className="profile-details">
       <div><dt>Vai trò</dt><dd>{profile.roles.map(role => roleLabels[role]).join(', ')}</dd></div>
-      <div><dt>Tài khoản</dt><dd>{profile.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}</dd></div>
-      <div><dt>Tài xế</dt><dd>{verificationLabels[profile.driverVerificationStatus]}</dd></div>
     </dl>
 
     {profile.studentReviewNote && <p className="review-note-box">Ghi chú sinh viên: {profile.studentReviewNote}</p>}

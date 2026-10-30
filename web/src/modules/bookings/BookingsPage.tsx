@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Bike, CalendarDays, CheckCircle2, Clock3, ShieldAlert, Ticket } from 'lucide-react';
+import { ArrowRight, Bike, CalendarDays, Clock3, Ticket } from 'lucide-react';
 import { useSession } from '../auth/SessionProvider';
 
 const filters = ['Đang chờ', 'Sắp đi', 'Lịch sử'] as const;
@@ -64,7 +64,6 @@ export function BookingsPage() {
 
       <aside className="journey-aside">
         <div className="journey-help">
-          <span className="help-icon"><Clock3 size={20}/></span>
           <h2>Chờ xác nhận rồi hãy đi</h2>
           <p>Gửi yêu cầu chưa có nghĩa là bạn đã có chỗ. Hãy kiểm tra xác nhận từ tài xế trước giờ khởi hành ít nhất 30 phút.</p>
           <div className="help-divider"/>
@@ -73,11 +72,10 @@ export function BookingsPage() {
         </div>
 
         <div className="journey-help">
-          <span className="help-icon"><ShieldAlert size={20}/></span>
           <h3>Lưu ý an toàn khi đi cùng</h3>
           <ul className="etiquette-list">
-            <li><CheckCircle2 size={15}/><span>Kiểm tra đúng biển số xe thử nghiệm và tên tài xế trên ứng dụng.</span></li>
-            <li><CheckCircle2 size={15}/><span>Luôn đội mũ bảo hiểm đạt chuẩn suốt chặng đường.</span></li>
+            <li>Kiểm tra đúng biển số xe thử nghiệm và tên tài xế trên ứng dụng.</li>
+            <li>Luôn đội mũ bảo hiểm đạt chuẩn suốt chặng đường.</li>
           </ul>
         </div>
       </aside>

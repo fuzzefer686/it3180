@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Eye, EyeOff, LockKeyhole, LogOut, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, Mail, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { errorMessage } from '../../lib/callable';
 import { useSession } from './SessionProvider';
@@ -109,11 +109,11 @@ export function AuthPage() {
 
   return <div className="inner-page account-page">
     <header className="page-heading">
-      <div><h1>Tài khoản</h1><p>Một hồ sơ sinh viên rõ ràng, thêm an tâm trên mỗi chặng đường về cùng.</p></div>
+      <div><h1>Tài khoản</h1><p>Đăng nhập, hồ sơ sinh viên và đăng ký làm tài xế xe máy.</p></div>
     </header>
     {signupResult && (
       <section className="notice signup-feedback" aria-labelledby="signup-result-title">
-        <ShieldCheck size={24}/>
+        <Mail size={20}/>
         <div>
           <div role="status" aria-live="polite">
             <h2 id="signup-result-title">{signupResult.requiresConfirmation && !signupConfirmed
@@ -170,12 +170,12 @@ export function AuthPage() {
       <aside className="account-story">
         <img src="/images/ride-home.jpg" srcSet="/images/ride-home-small.jpg 720w, /images/ride-home-medium.jpg 960w, /images/ride-home.jpg 1400w" sizes="(min-width: 768px) 50vw, calc(100vw - 40px)" width="1400" height="933" loading="lazy" decoding="async" alt="Chuyến đi xe máy qua những cánh đồng xanh"/>
         <div className="account-story-body">
-          <ShieldCheck size={24}/><h2>Biết người đi cùng.<br/>An tâm trên đường.</h2>
-          <p>Hồ sơ sinh viên và quy trình duyệt tài xế giúp cộng đồng ghép xe minh bạch, văn minh.</p>
+          <h2>Vì sao cần hồ sơ sinh viên</h2>
+          <p>Người đi cùng và tài xế đều là sinh viên đã được duyệt, nên bạn biết mình đi với ai trước khi lên xe.</p>
           <ul className="trust-points">
-            <li><CheckCircle2 size={16}/><span>Thông tin trường học & mã sinh viên (dữ liệu demo)</span></li>
-            <li><CheckCircle2 size={16}/><span>Khai báo xe máy rõ ràng trước khi mở quyền đăng chuyến</span></li>
-            <li><CheckCircle2 size={16}/><span>Phân quyền bảo mật trực tiếp tại cơ sở dữ liệu</span></li>
+            <li>Trường học và mã sinh viên (dữ liệu demo)</li>
+            <li>Khai báo xe máy trước khi được đăng chuyến</li>
+            <li>Quyền truy cập kiểm tra ngay tại cơ sở dữ liệu</li>
           </ul>
         </div>
       </aside>

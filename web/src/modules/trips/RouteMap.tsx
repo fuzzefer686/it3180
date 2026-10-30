@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LocateFixed, Navigation } from 'lucide-react';
+import { LocateFixed } from 'lucide-react';
 import type { Map as VietmapMap } from '@vietmap/vietmap-gl-js';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot } from '../../../../shared/trips';
@@ -11,6 +11,25 @@ interface RouteMapProps {
   stops: RouteStop[];
   route: RouteSnapshot;
   highlightOrders?: [number, number];
+}
+
+const mapLocale = {
+  'CooperativeGesturesHandler.WindowsHelpText': 'Giữ Ctrl và lăn chuột để phóng to bản đồ',
+  'CooperativeGesturesHandler.MacHelpText': 'Giữ ⌘ và lăn chuột để phóng to bản đồ',
+  'CooperativeGesturesHandler.MobileHelpText': 'Dùng hai ngón tay để di chuyển bản đồ',
+  'NavigationControl.ZoomIn': 'Phóng to',
+  'NavigationControl.ZoomOut': 'Thu nhỏ',
+  'NavigationControl.ResetBearing': 'Xoay về hướng bắc',
+  'AttributionControl.ToggleAttribution': 'Thông tin bản quyền bản đồ',
+};
+
+// Màu tuyến lấy từ token CSS để đổi theo giao diện sáng/tối.
+function routeColors() {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    line: style.getPropertyValue('--map-route').trim() || '#1f6b4f',
+    casing: style.getPropertyValue('--map-route-casing').trim() || '#ffffff',
+  };
 }
 
 export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
@@ -27,6 +46,7 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
     let active = true;
     let map: VietmapMap | null = null;
     let observer: ResizeObserver | null = null;
+    let themeObserver: MutationObserver | null = null;
     markersRef.current.clear();
     boundsRef.current = null;
     setError('');
@@ -44,6 +64,9 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
         style: 'https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=' + encodeURIComponent(mapKey),
         center: [stops[0].longitude, stops[0].latitude],
         zoom: 12,
+        // Lăn chuột qua bản đồ vẫn cuộn trang; giữ Ctrl/⌘ (hoặc dùng hai ngón tay) mới zoom.
+        cooperativeGestures: true,
+        locale: mapLocale,
       });
       mapRef.current = map;
       map.addControl(new vietmap.NavigationControl());
@@ -79,15 +102,24 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
             source: sourceId,
             type: 'line',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#0f4c5c', 'line-width': 8, 'line-opacity': 0.28 },
+            paint: { 'line-color': routeColors().casing, 'line-width': 8, 'line-opacity': 0.9 },
           });
           map.addLayer({
             id: sourceId,
             source: sourceId,
             type: 'line',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#0d9488', 'line-width': 5 },
+            paint: { 'line-color': routeColors().line, 'line-width': 5 },
           });
+          if (typeof MutationObserver !== 'undefined' && typeof map.setPaintProperty === 'function') {
+            themeObserver = new MutationObserver(() => {
+              if (!map?.getLayer?.(sourceId)) return;
+              const colors = routeColors();
+              map.setPaintProperty('trip-route-casing', 'line-color', colors.casing);
+              map.setPaintProperty(sourceId, 'line-color', colors.line);
+            });
+            themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+          }
 
           for (const stop of stops) {
             const marker = document.createElement('span');
@@ -118,6 +150,7 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
     return () => {
       active = false;
       observer?.disconnect();
+      themeObserver?.disconnect();
       markersRef.current.clear();
       mapRef.current = null;
       boundsRef.current = null;
@@ -138,7 +171,7 @@ export function RouteMap({ stops, route, highlightOrders }: RouteMapProps) {
 
   return <div className="trip-map-wrap">
     <div className="trip-map-bar">
-      <span className="status-pill teal"><Navigation size={13}/> Tuyến xe máy · VietMap</span>
+      <span className="trip-map-caption">Tuyến xe máy · dữ liệu VietMap</span>
       {ready && (
         <button type="button" className="button secondary compact" onClick={() => {
           if (mapRef.current && boundsRef.current) {

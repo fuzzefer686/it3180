@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Compass, Plus } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { RouteStop } from '../../../../shared/contracts';
 import type { RouteSnapshot, SaveTripInput, TripStopInput } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
@@ -136,14 +136,21 @@ export function TripFormPage() {
   if (loading || profileLoading) return <p role="status">Đang tải tài khoản…</p>;
   if (!user) return <p className="notice"><Link to="/tai-khoan">Đăng nhập để đăng chuyến.</Link></p>;
   if (!profile?.eligibility.canDrive) {
-    return <p className="notice">Bạn cần nhập loại xe và biển số trong hồ sơ để đăng chuyến. <Link to="/tai-khoan">Hoàn thiện hồ sơ</Link></p>;
+    return <section className="trip-page">
+      <div className="trip-top-bar">
+        <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
+      </div>
+      <div className="trip-page-header">
+        <div><h1>{tripId ? 'Sửa chuyến đi' : 'Đăng chuyến đi'}</h1><p className="trip-muted">Tài khoản cần đủ điều kiện tài xế trước khi đăng hoặc sửa chuyến.</p></div>
+      </div>
+      <p className="notice">Bạn cần nhập loại xe và biển số trong hồ sơ để đăng chuyến. <Link to="/tai-khoan">Hoàn thiện hồ sơ</Link></p>
+    </section>;
   }
   const minNow = toVietnamInput(Date.now() + 60_000);
 
   return <section className="trip-page">
     <div className="trip-top-bar">
       <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
-      <span className="status-pill teal">Từ 2 đến 8 điểm dừng xe máy</span>
     </div>
     <div className="trip-page-header">
       <div><h1>{tripId ? 'Sửa chuyến đi' : 'Đăng chuyến đi'}</h1><p className="trip-muted">Chọn lộ trình xe máy và các điểm bạn có thể đón, trả người đi cùng dọc đường.</p></div>
@@ -155,6 +162,7 @@ export function TripFormPage() {
         <form noValidate onSubmit={save} className="trip-panel">
           <fieldset disabled={busy}>
             <legend>Các điểm dừng theo thứ tự</legend>
+            <p className="trip-muted trip-legend-hint">Từ 2 đến 8 điểm. Người đi cùng có thể lên, xuống ở bất kỳ điểm nào.</p>
             <div className="trip-stops-builder">
               {stops.map((stop, index) => {
                 const code = String.fromCharCode(65 + index);
@@ -165,14 +173,18 @@ export function TripFormPage() {
                     setPreview(null); setError('');
                   }} />
                   <div className="trip-stop-controls">
-                    <button type="button" className="trip-mini-btn" disabled={index === 0} onClick={() => {
+                    {/* Dùng icon thay chữ "Lên/Xuống" để không nhầm với điểm lên xe, xuống xe. */}
+                    <button type="button" className="trip-mini-btn icon" disabled={index === 0}
+                      aria-label={`Đưa điểm ${code} lên trước`} title="Đổi thứ tự: đưa lên trước" onClick={() => {
                       const next = [...stops]; next[index] = stops[index - 1]; next[index - 1] = stop; changeStops(next);
-                    }}>Lên</button>
-                    <button type="button" className="trip-mini-btn" disabled={index === stops.length - 1} onClick={() => {
+                    }}><ArrowUp size={16} aria-hidden="true"/></button>
+                    <button type="button" className="trip-mini-btn icon" disabled={index === stops.length - 1}
+                      aria-label={`Đưa điểm ${code} ra sau`} title="Đổi thứ tự: đưa ra sau" onClick={() => {
                       const next = [...stops]; next[index] = stops[index + 1]; next[index + 1] = stop; changeStops(next);
-                    }}>Xuống</button>
-                    <button type="button" className="trip-mini-btn danger" disabled={stops.length <= 2}
-                      onClick={() => changeStops(stops.filter(row => row.key !== stop.key))}>Xóa</button>
+                    }}><ArrowDown size={16} aria-hidden="true"/></button>
+                    <button type="button" className="trip-mini-btn icon danger" disabled={stops.length <= 2}
+                      aria-label={`Xóa điểm ${code}`} title="Xóa điểm dừng"
+                      onClick={() => changeStops(stops.filter(row => row.key !== stop.key))}><Trash2 size={16} aria-hidden="true"/></button>
                   </div>
                 </div>;
               })}
@@ -210,7 +222,6 @@ export function TripFormPage() {
             </div>
           ) : (
             <div className="trip-preview-placeholder">
-              <span className="trip-preview-icon"><Compass size={26}/></span>
               <h2>Xem trước tuyến VietMap</h2>
               <p className="trip-muted">Sau khi chọn đủ điểm dừng từ gợi ý địa chỉ, bấm “Xem trước tuyến” để kiểm tra đường đi xe máy và khoảng cách từng chặng trước khi lưu.</p>
             </div>

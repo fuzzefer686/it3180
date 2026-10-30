@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpDown, CircleHelp, Plus, WalletCards } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSession } from '../auth/SessionProvider';
 
@@ -18,7 +18,6 @@ export function WalletsPage() {
       <section className="balance-panel" aria-labelledby="balance-title">
         <div>
           <div className="balance-top">
-            <span className="balance-icon-box"><WalletCards size={24}/></span>
             <span className="balance-badge">Điểm mô phỏng</span>
           </div>
           <h2 id="balance-title">Số điểm của bạn</h2>
@@ -31,8 +30,7 @@ export function WalletsPage() {
 
       <section className="wallet-explainer">
         <div className="wallet-explainer-head">
-          <CircleHelp size={22}/>
-          <h2>Nguyên tắc tính điểm minh bạch</h2>
+          <h2>Cách tính điểm</h2>
         </div>
         <p>Ví mô phỏng cách chia sẻ chi phí xăng xe giữa sinh viên cùng trường, không liên kết ngân hàng hay ví điện tử thật.</p>
         <div className="wallet-rules">

@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDownUp, ArrowRight, Bike, CalendarDays, CheckCircle2, ChevronDown, MapPin, Plus, Route, Search, ShieldCheck } from 'lucide-react';
+import { ArrowDownUp, CalendarDays, ChevronDown, MapPin, Plus, Search } from 'lucide-react';
 import type { ListTripsInput } from '../../../../shared/trips';
 import { TripResults } from './TripResults';
 import { useSession } from '../auth/SessionProvider';
@@ -43,29 +43,9 @@ export function TripsPage() {
   }
 
   return <>
-    <section className="search-hero" aria-labelledby="search-title">
-      <div className="hero-copy">
-        <span className="eyebrow"><Bike size={16}/> Ghép xe máy cho sinh viên</span>
-        <h1 id="search-title">Cùng đường.<br/><span>Cùng về.</span></h1>
-        <p>Tìm người bạn đồng hành tin cậy cho hành trình về quê hoặc tới trường theo lộ trình xe máy rõ ràng.</p>
-        <div className="hero-trust-row">
-          <span><CheckCircle2 size={15}/> Hồ sơ sinh viên duyệt</span>
-          <span><Route size={15}/> Lộ trình VietMap xe máy</span>
-        </div>
-        <a className="hero-link" href="#trip-search">Bạn muốn về đâu? <ArrowRight size={18}/></a>
-      </div>
-      <div className="hero-photo">
-        <img
-          src="/images/ride-home.jpg"
-          srcSet="/images/ride-home-small.jpg 720w, /images/ride-home-medium.jpg 960w, /images/ride-home.jpg 1400w"
-          sizes="(min-width: 1280px) 620px, (min-width: 768px) 50vw, calc(100vw - 40px)"
-          width="1400"
-          height="933"
-          alt="Hai bạn sinh viên đội mũ bảo hiểm đi cùng xe máy trên đường quê"
-          fetchPriority="high"
-        />
-        <span className="hero-photo-badge"><ShieldCheck size={15}/> Đón & trả linh hoạt dọc các điểm dừng</span>
-      </div>
+    <section className="search-head" aria-labelledby="search-title">
+      <h1 id="search-title">Tìm chuyến xe máy</h1>
+      <p>Đi cùng sinh viên chung tuyến. Bạn chọn điểm đón, điểm trả dọc đường và chờ tài xế xác nhận.</p>
     </section>
 
     <section className="search-section" aria-label="Tìm chuyến theo tuyến và ngày">
@@ -108,7 +88,7 @@ export function TripsPage() {
             <button key={place} type="button" className={`destination-chip${destination === place ? ' selected' : ''}`}
               aria-pressed={destination === place}
               onClick={() => { setDestination(place); setSearched(false); setError(''); originInput.current?.focus(); }}>
-              {place}<ArrowRight size={13}/>
+              {place}
             </button>
           ))}
         </div>
@@ -139,9 +119,8 @@ export function TripsPage() {
 
     <section className="ride-guide" aria-labelledby="guide-title">
       <div className="guide-intro">
-        <div className="guide-icon"><ShieldCheck size={26}/></div>
-        <h2 id="guide-title">Một chuyến đi.<br/>Một người đồng hành.</h2>
-        <p>Chọn tuyến phù hợp, kiểm tra khoảng cách từng chặng và đợi tài xế xác nhận trước khi lên đường.</p>
+        <h2 id="guide-title">Đi cùng hoạt động thế nào</h2>
+        <p>Mỗi chuyến chở một người đi cùng. Chọn tuyến phù hợp, kiểm tra khoảng cách từng chặng và đợi tài xế xác nhận trước khi lên đường.</p>
       </div>
       <div className="guide-details">
         <details open><summary>Không cần đi hết cả tuyến <ChevronDown size={18}/></summary><p>Bạn có thể chọn điểm đón và xuống tại bất kỳ điểm dừng nào dọc tuyến xe máy tài xế đã đăng.</p></details>
