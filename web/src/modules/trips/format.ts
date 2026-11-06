@@ -14,6 +14,19 @@ export function distanceText(meters: number): string {
   return (meters / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' km';
 }
 
+export function tripStopParts(label: string, { abbreviate = true } = {}): { name: string; address: string } {
+  const [first, ...remaining] = label.split(',').map(part => part.trim());
+  // VietMap có thể ghép tên địa điểm và tên đường trước dấu phẩy đầu tiên.
+  const street = /\s+(?=(?:[Đđ]ường|Phố)\s)/u.exec(first);
+  const prefix = street ? first.slice(0, street.index) : '';
+  const place = /\p{L}/u.test(prefix) && !/\bthành$/iu.test(prefix) ? prefix : first;
+  const area = /^(?:phường|xã|quận|huyện|tỉnh)\s+/iu;
+  const name = abbreviate ? place.replace(area, '').replace(/^đại học\s+/iu, 'ĐH ') : place;
+  const address = [area.test(place) ? first : first.slice(place.length).trim(), ...remaining]
+    .filter(Boolean).join(', ');
+  return { name: name || label, address };
+}
+
 export function estimatedPointsText(meters: number): string {
   const points = Math.max(0, Math.round((meters / 1000) * 5000));
   return points.toLocaleString('vi-VN') + ' điểm';

@@ -18,7 +18,7 @@ export function TripOwnerActions({ trip, canDrive, busy, onStatusChange }: TripO
   return <div className="trip-panel">
     <h2>Quản lý chuyến</h2>
     <p className="trip-muted">Bạn là tài xế đăng chuyến này. Cập nhật trạng thái đúng thời điểm thực tế.</p>
-    <div className="trip-actions">
+    <div className="trip-actions trip-owner-actions">
       {trip.status === 'OPEN' && <>
         <button className="button primary" type="button" disabled={busy || !canDrive} onClick={() => void onStatusChange('start')}>
           Bắt đầu chuyến
@@ -26,7 +26,7 @@ export function TripOwnerActions({ trip, canDrive, busy, onStatusChange }: TripO
         {canDrive && !trip.confirmedBookingId && !trip.hasServedPassenger && !busy && (
           <Link className="button secondary" to={'/chuyen-di/' + trip.id + '/sua'}>Sửa chuyến</Link>
         )}
-        <button className="button danger-outline" type="button" disabled={busy} onClick={() => setShowCancel(true)}>
+        <button className="button danger-outline trip-owner-cancel" type="button" disabled={busy} onClick={() => setShowCancel(true)}>
           Hủy chuyến
         </button>
       </>}

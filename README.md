@@ -25,7 +25,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
 
 Thay phần `YOUR_…` bằng giá trị lead cung cấp. URL là địa chỉ server; publishable key là key được phép dùng ở frontend. Không điền secret/service-role key. File env là file cấu hình; không đưa `.env.local` lên Git.
 
-Server dev cần bật đăng ký Email/password; frontend hỗ trợ cả server có hoặc không yêu cầu xác minh email. Khi có phiên đăng nhập hợp lệ, web tự mở `https://feat-auth.it3180.pages.dev/chuyen-di`, kể cả từ form localhost; link xác minh trả về website Pages đã chốt. Bảng `public.users`, RPC và trigger tạo hồ sơ phải được lead cập nhật từ migration đã review. Xem [hướng dẫn đăng ký, đăng nhập và callback](web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
+Server dev cần bật đăng ký Email/password; frontend hỗ trợ cả server có hoặc không yêu cầu xác minh email. Khi có phiên đăng nhập hợp lệ, web tự mở `/chuyen-di` trên chính website đang dùng (preview, production hoặc localhost); link xác minh trả về `/tai-khoan` trên cùng website, cần được cho phép trong Supabase Redirect URLs. Bảng `public.users`, RPC và trigger tạo hồ sơ phải được lead cập nhật từ migration đã review. Xem [hướng dẫn đăng ký, đăng nhập và callback](web/src/modules/auth/SUPABASE_SIGNUP_FIX.md).
 
 4. Chạy:
 

@@ -27,6 +27,7 @@ beforeAll(async () => {
   await db.query("insert into public.users(id,roles,student_verification_status,driver_verification_status,vehicle_model,vehicle_plate) values ($1,array['USER','DRIVER'],'VERIFIED','VERIFIED','Xe Demo','DEMO-001')", [legacyDriver]);
   await db.exec(readFileSync('supabase/migrations/20261022000200_auth_signup_existing_schema.sql', 'utf8'));
   await db.exec(readFileSync('supabase/migrations/20261026000100_auth_default_verified.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261027000100_auth_default_driver_role.sql', 'utf8'));
 });
 afterAll(async () => { await db.close(); });
 async function read(id: string) {
@@ -35,20 +36,20 @@ async function read(id: string) {
 }
 describe('Tạo public.users khi Auth đăng ký tài khoản', () => {
   it('backfill hồ sơ còn thiếu trước migration mà không cần phiên hoặc xác minh email', async () => {
-    expect(await read(legacyMissing)).toMatchObject({ uid: legacyMissing, roles: ['USER'], status: 'ACTIVE',
+    expect(await read(legacyMissing)).toMatchObject({ uid: legacyMissing, roles: ['USER', 'DRIVER'], status: 'ACTIVE',
       studentVerificationStatus: 'VERIFIED', driverVerificationStatus: 'VERIFIED', eligibility: { canBook: true, canDrive: false } });
     expect((await db.query<{ confirmed: string | null }>('select email_confirmed_at as confirmed from auth.users where id=$1', [legacyMissing])).rows[0].confirmed).toBeNull();
   });
-  it('backfill giữ tên, LOCKED, ADMIN và chỉ cấp DRIVER khi hồ sơ đã có thông tin xe', async () => {
-    expect(await read(legacyLocked)).toMatchObject({ displayName: 'Hồ sơ bị khóa', status: 'LOCKED', roles: ['USER'] });
-    expect((await read(legacyAdmin)).roles).toEqual(['USER', 'ADMIN']);
+  it('backfill cấp DRIVER cả khi chưa có xe, giữ tên, LOCKED và ADMIN', async () => {
+    expect(await read(legacyLocked)).toMatchObject({ displayName: 'Hồ sơ bị khóa', status: 'LOCKED', roles: ['USER', 'DRIVER'] });
+    expect((await read(legacyAdmin)).roles).toEqual(['USER', 'ADMIN', 'DRIVER']);
     expect(await read(legacyDriver)).toMatchObject({ roles: ['USER', 'DRIVER'], driverVerificationStatus: 'VERIFIED', vehiclePlate: 'DEMO-001' });
   });
   it('Auth insert tạo hồ sơ ngay, không tin quyền/trạng thái từ metadata', async () => {
     const id = crypto.randomUUID();
     await db.query('insert into auth.users(id,raw_user_meta_data) values ($1,$2::jsonb)', [id,
       JSON.stringify({ roles: ['ADMIN', 'DRIVER'], status: 'LOCKED', student_verification_status: 'VERIFIED', display_name: 'Admin tự khai' })]);
-    expect(await read(id)).toMatchObject({ uid: id, displayName: 'Thành viên Về Cùng', roles: ['USER'], status: 'ACTIVE',
+    expect(await read(id)).toMatchObject({ uid: id, displayName: 'Thành viên Về Cùng', roles: ['USER', 'DRIVER'], status: 'ACTIVE',
       studentVerificationStatus: 'VERIFIED', driverVerificationStatus: 'VERIFIED' });
   });
   it('Auth service không có quyền đọc bảng users vẫn tạo được hồ sơ qua trigger', async () => {

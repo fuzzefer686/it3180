@@ -23,7 +23,7 @@ export function RouteSummary({ stops, route }: { stops: RouteStop[]; route: Rout
         return <li key={stop.id}>
           <span className="trip-stop-badge" aria-hidden="true">{code}</span>
           <div className="trip-stop-info">
-            <strong>{code}. {stop.label}</strong>
+            <strong><span className="trip-stop-prefix" aria-hidden="true">{code}. </span>{stop.label}</strong>
             <span>{stop.order === 0 ? 'Điểm xuất phát (0 km)' : `Cách điểm đầu ${distanceText(stop.distanceFromStartMeters)}`}</span>
           </div>
         </li>;

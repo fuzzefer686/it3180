@@ -13,7 +13,7 @@ import { profileFixture, profileInputFixture } from '../fixtures/auth';
 import { useSession } from '../../web/src/modules/auth/SessionProvider';
 import { callFunction } from '../../web/src/lib/callable';
 import { supabase } from '../../web/src/lib/supabase';
-import { AUTH_SUCCESS_URL, authBrowser } from '../../web/src/modules/auth/auth-redirect';
+import { authBrowser } from '../../web/src/modules/auth/auth-redirect';
 
 vi.mock('../../web/src/lib/supabase', () => ({ supabase: { auth: { signInWithPassword: vi.fn(), signUp: vi.fn(), signOut: vi.fn(), resend: vi.fn(), getSession: vi.fn() } } }));
 vi.mock('../../web/src/modules/auth/SessionProvider', () => ({ useSession: vi.fn() }));
@@ -42,48 +42,34 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 describe('Giao diện Auth', () => {
   it.each([
     ['đăng nhập', 'http://localhost:5173'], ['đăng ký', 'http://localhost:5173'],
-    ['đăng nhập', 'https://preview.example.invalid'], ['đăng ký', 'https://preview.example.invalid'],
-  ])('%s từ %s trở về đúng domain Pages và chuyển phiên cho SDK đích', async (action, origin) => {
+    ['đăng nhập', 'https://feat-4-booking.it3180.pages.dev'], ['đăng ký', 'https://feat-4-booking.it3180.pages.dev'],
+    ['đăng nhập', 'https://it3180.pages.dev'],
+  ])('%s từ %s giữ nguyên website và chuyển nội bộ tới chuyến đi', async (action, origin) => {
     vi.spyOn(authBrowser, 'origin').mockReturnValue(origin);
-    const replace = vi.spyOn(authBrowser, 'replace').mockImplementation(() => {});
     const result = { data: { user: authUser, session: authSession }, error: null };
     vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue(result);
     vi.mocked(supabase.auth.signUp).mockResolvedValue(result);
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: authSession }, error: null });
     const view = account(); const user = userEvent.setup();
     if (action === 'đăng ký') await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
     await fillLogin();
     if (action === 'đăng ký') await user.type(screen.getByLabelText('Nhập lại mật khẩu'), 'Password!2026');
     await user.click(screen.getByRole('button', { name: action === 'đăng ký' ? 'Đăng ký' : 'Đăng nhập' }));
-    expect(replace).not.toHaveBeenCalled();
-    session({ user: authUser, profile: profileFixture }); view.rerender(accountRoutes());
-    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
-    const url = new URL(replace.mock.calls[0][0]);
-    expect(`${url.origin}${url.pathname}`).toBe(AUTH_SUCCESS_URL);
-    expect(url.search).toBe('');
-    const fragment = new URLSearchParams(url.hash.slice(1));
-    expect(fragment.get('access_token')).toBe(authSession.access_token);
-    expect(fragment.get('refresh_token')).toBe(authSession.refresh_token);
-    expect(url.href).not.toContain('Password!2026');
     expect(screen.queryByText('Trang chủ chuyến đi')).toBeNull();
+    session({ user: authUser, profile: profileFixture }); view.rerender(accountRoutes());
+    expect(await screen.findByText('Trang chủ chuyến đi')).toBeTruthy();
+    if (action === 'đăng ký') expect(supabase.auth.signUp).toHaveBeenCalledWith({
+      email: 'demo@example.com', password: 'Password!2026', options: { emailRedirectTo: `${origin}/tai-khoan` },
+    });
+    expect(supabase.auth.getSession).not.toHaveBeenCalled();
   });
-  it.each(['missing', 'different-user', 'sdk-error'])('không chuyển phiên sang domain Pages khi SDK trả %s', async problem => {
-    vi.spyOn(authBrowser, 'origin').mockReturnValue('http://localhost:5173');
-    const replace = vi.spyOn(authBrowser, 'replace').mockImplementation(() => {});
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: problem === 'different-user'
-      ? { ...authSession, user: { ...authUser, id: 'different-user' } } : null },
-      error: problem === 'sdk-error' ? { code: 'auth_session_missing' } : null } as never);
-    session({ user: authUser }); render(accountRoutes('/tai-khoan#access_token=callback-token&type=signup'));
-    expect((await screen.findByRole('alert')).textContent).toContain('Chưa nhận được phiên đăng nhập');
-    expect(replace).not.toHaveBeenCalled();
-  });
-  it('callback trên localhost đã được SDK nhận phiên vẫn trở về domain Pages', async () => {
-    vi.spyOn(authBrowser, 'origin').mockReturnValue('http://localhost:5173');
-    const replace = vi.spyOn(authBrowser, 'replace').mockImplementation(() => {});
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: authSession }, error: null });
-    session({ user: authUser }); render(accountRoutes('/tai-khoan#access_token=callback-token&type=signup'));
-    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
-    expect(new URL(replace.mock.calls[0][0]).origin).toBe('https://it3180.pages.dev');
+  it('callback trên preview chỉ chuyển nội bộ sau khi SDK nhận phiên', async () => {
+    vi.spyOn(authBrowser, 'origin').mockReturnValue('https://feat-4-booking.it3180.pages.dev');
+    const callback = '/tai-khoan#access_token=callback-token&type=signup';
+    const view = render(accountRoutes(callback));
+    expect(screen.queryByText('Trang chủ chuyến đi')).toBeNull();
+    session({ user: authUser, profile: profileFixture }); view.rerender(accountRoutes(callback));
+    expect(await screen.findByText('Trang chủ chuyến đi')).toBeTruthy();
+    expect(supabase.auth.getSession).not.toHaveBeenCalled();
   });
   it('chặn email sai trước khi gọi SDK', async () => {
     account(); fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sai-email' } });
@@ -145,6 +131,7 @@ describe('Giao diện Auth', () => {
     expect((screen.getByLabelText('Mật khẩu') as HTMLInputElement).value).toBe('');
   });
   it('gửi lại email dùng email đã đăng ký và cùng callback website, không lấy email vừa sửa trên form', async () => {
+    vi.spyOn(authBrowser, 'origin').mockReturnValue('https://feat-4-booking.it3180.pages.dev');
     vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: authUser, session: null }, error: null });
     vi.mocked(supabase.auth.resend).mockResolvedValue({ data: { user: null, session: null }, error: null });
     account(); const user = userEvent.setup(); await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
@@ -153,7 +140,7 @@ describe('Giao diện Auth', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'other@example.com' } });
     await user.click(screen.getByRole('button', { name: 'Gửi lại email xác minh' }));
     expect(supabase.auth.resend).toHaveBeenCalledWith({ type: 'signup', email: 'demo@example.com',
-      options: { emailRedirectTo: 'https://it3180.pages.dev/tai-khoan' } });
+      options: { emailRedirectTo: 'https://feat-4-booking.it3180.pages.dev/tai-khoan' } });
     expect(await screen.findByText('Vui lòng kiểm tra hộp thư và thư rác để tìm email xác minh mới nhất.')).toBeTruthy();
   });
   it('xác minh ở tab khác xong nhận phiên thì tự mở trang chủ', async () => {

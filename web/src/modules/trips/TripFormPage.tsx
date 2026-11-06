@@ -76,17 +76,6 @@ export function TripFormPage() {
   }
   function changeStops(next: DraftStop[]) { setStops(next); setPreview(null); setError(''); }
 
-  // Nút "Bây giờ": điền mốc 5 phút kế tiếp (luôn ở tương lai) và đẩy giờ đến theo nếu đang thiếu/cũ.
-  function fillFromNow() {
-    const departureTimeMs = ceilToSlot(Date.now() + MINUTE_MS, 5);
-    const arrivalTimeMs = fromVietnamInput(arrival);
-    setDeparture(toVietnamInput(departureTimeMs));
-    if (!Number.isFinite(arrivalTimeMs) || arrivalTimeMs <= departureTimeMs) {
-      setArrival(toVietnamInput(departureTimeMs + 2 * 60 * MINUTE_MS));
-    }
-    setError('');
-  }
-
   async function previewRoute() {
     setError('');
     let selected: TripStopInput[];
@@ -143,7 +132,6 @@ export function TripFormPage() {
   return <section className="trip-page">
     <div className="trip-top-bar">
       <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
-      <span className="status-pill teal">Từ 2 đến 8 điểm dừng xe máy</span>
     </div>
     <div className="trip-page-header">
       <div><h1>{tripId ? 'Sửa chuyến đi' : 'Đăng chuyến đi'}</h1><p className="trip-muted">Chọn lộ trình xe máy và các điểm bạn có thể đón, trả người đi cùng dọc đường.</p></div>
@@ -184,10 +172,7 @@ export function TripFormPage() {
               <span className="trip-muted">Điểm A là nơi xuất phát, điểm cuối là nơi kết thúc.</span>
             </div>
             <div className="trip-form-grid">
-              <div className="trip-datetime-field">
-                <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
-                <button type="button" className="trip-mini-btn" onClick={fillFromNow}>Bây giờ</button>
-              </div>
+              <label className="trip-field"><span>Giờ đi (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={departure} onChange={event => { setDeparture(event.target.value); setError(''); }} /></label>
               {/* min chỉ chặn quá khứ. Không dùng departure làm min vì khi giờ đi bị nhập sai (quá xa),
                   trình duyệt sẽ khoá luôn các ngày sớm hơn ở ô giờ đến và người dùng không sửa lại được. */}
               <label className="trip-field"><span>Giờ đến dự kiến (giờ Việt Nam)</span><input type="datetime-local" required min={minNow} value={arrival} onChange={event => { setArrival(event.target.value); setError(''); }} /></label>
