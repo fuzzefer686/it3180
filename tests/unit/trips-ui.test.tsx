@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({ api: vi.fn(), session: vi.fn() }));
 vi.mock('../../web/src/lib/callable', async () => ({ callFunction: mocks.api, ...await import('../../web/src/lib/errors') }));
 vi.mock('../../web/src/modules/auth/SessionProvider', () => ({ useSession: mocks.session }));
 vi.mock('../../web/src/modules/trips/RouteMap', () => ({ RouteMap: () => <div>Bản đồ kết quả</div> }));
+vi.mock('../../web/src/modules/bookings/booking-api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../web/src/modules/bookings/booking-api')>(),
+  listMyBookings: async () => ({ items: [], nextCursor: null }),
+}));
 
 const places = [
   { label: 'Điểm A demo', latitude: 21.01, longitude: 105.81 },
@@ -122,30 +126,14 @@ describe('Frontend Trip kết hợp hồ sơ Auth', () => {
 
   it('chuyến mới điền sẵn giờ đi và giờ đến hợp lệ', async () => {
     mount();
+    expect(screen.queryByText('Từ 2 đến 8 điểm dừng xe máy')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Bây giờ' })).toBeNull();
     await selectStops();
     const departureValue = (screen.getByLabelText('Giờ đi (giờ Việt Nam)') as HTMLInputElement).value;
     const arrivalValue = (screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)') as HTMLInputElement).value;
     expect(departureValue).not.toBe('');
     expect(fromVietnamInput(departureValue)).toBeGreaterThan(Date.now());
     expect(fromVietnamInput(arrivalValue)).toBeGreaterThan(fromVietnamInput(departureValue));
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
-    expect(await screen.findByText('Đã mở chuyến vừa lưu')).toBeTruthy();
-  });
-
-  it('nút Bây giờ sửa giờ đi đã qua và đẩy giờ đến theo', async () => {
-    mount();
-    await selectStops();
-    fireEvent.change(screen.getByLabelText('Giờ đi (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() - 3600000) } });
-    fireEvent.change(screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)'), { target: { value: toVietnamInput(Date.now() - 1800000) } });
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('Giờ đi đã qua');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Bây giờ' }));
-    expect(screen.queryByRole('alert')).toBeNull();
-    const departureValue = (screen.getByLabelText('Giờ đi (giờ Việt Nam)') as HTMLInputElement).value;
-    const arrivalValue = (screen.getByLabelText('Giờ đến dự kiến (giờ Việt Nam)') as HTMLInputElement).value;
-    expect(fromVietnamInput(departureValue)).toBeGreaterThan(Date.now());
-    expect(fromVietnamInput(arrivalValue) - fromVietnamInput(departureValue)).toBe(120 * 60000);
     fireEvent.click(screen.getByRole('button', { name: 'Lưu chuyến' }));
     expect(await screen.findByText('Đã mở chuyến vừa lưu')).toBeTruthy();
   });
@@ -178,12 +166,13 @@ describe('Frontend Trip kết hợp hồ sơ Auth', () => {
     expect(screen.getByRole('group').hasAttribute('disabled')).toBe(false);
   });
 
-  it('mục Tôi cầm lái mở danh sách chuyến thật thay cho màn hình chưa sẵn sàng', async () => {
+  it('mở được danh sách chuyến đã đăng từ mục Tôi cầm lái', async () => {
     render(<MemoryRouter initialEntries={['/dat-chuyen']}><Routes>
       <Route path="/dat-chuyen" element={<BookingsPage />} />
       <Route path="/chuyen-di/cua-toi" element={<p>Danh sách chuyến tài xế</p>} />
     </Routes></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Tôi cầm lái' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Xem tất cả chuyến tôi đăng' }));
     expect(await screen.findByText('Danh sách chuyến tài xế')).toBeTruthy();
   });
 });

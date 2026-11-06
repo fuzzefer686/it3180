@@ -13,6 +13,7 @@ export function BookingsPage() {
   const { user, loading } = useSession();
   const [driverView, setDriverView] = useState(false);
   const [filter, setFilter] = useState<typeof filters[number]>('Đang chờ');
+  const historyView = !driverView && filter === 'Lịch sử';
 
   return <div className="inner-page">
     <header className="page-heading">
@@ -24,15 +25,15 @@ export function BookingsPage() {
     </header>
 
     <div className="journey-toolbar">
-      <div className="segmented-control" aria-label="Vai trò đi xe">
+      <div className="segmented-control" role="group" aria-label="Vai trò đi xe">
         <button type="button" aria-pressed={!driverView} className={!driverView ? 'selected' : ''} onClick={() => setDriverView(false)}><Ticket size={17}/> Tôi đi cùng</button>
         <button type="button" aria-pressed={driverView} className={driverView ? 'selected' : ''} onClick={() => setDriverView(true)}><Bike size={17}/> Tôi cầm lái</button>
       </div>
     </div>
 
-    <div className="journey-layout">
+    <div className={historyView ? 'journey-layout journey-layout-history' : 'journey-layout'}>
       <section className="journey-panel" aria-label={driverView ? 'Yêu cầu gửi tới chuyến của tôi' : 'Yêu cầu đi cùng'}>
-        <div className="filter-bar" aria-label="Lọc trạng thái chuyến">
+        <div className="filter-bar" role="group" aria-label="Lọc trạng thái chuyến">
           {filters.map(value => (
             <button key={value} type="button" aria-pressed={filter === value}
               className={filter === value ? 'selected' : ''} onClick={() => setFilter(value)}>
@@ -70,19 +71,18 @@ export function BookingsPage() {
         )}
       </section>
 
-      <aside className="journey-aside">
+      <aside className="journey-aside" aria-label="Hướng dẫn đi cùng">
         <div className="journey-help">
           <span className="help-icon"><Clock3 size={20}/></span>
-          <h2>Chờ xác nhận rồi hãy đi</h2>
+          <h2>{historyView && <Clock3 size={17} aria-hidden="true"/>} Chờ xác nhận rồi hãy đi</h2>
           <p>Gửi yêu cầu chưa có nghĩa là bạn đã có chỗ. Hãy kiểm tra xác nhận từ tài xế trước giờ khởi hành ít nhất 30 phút.</p>
           <div className="help-divider"/>
           <h3>Đổi kế hoạch đột xuất?</h3>
           <p>Bạn được rút yêu cầu đang chờ miễn phí. Nếu đã được nhận, hãy hủy sớm trước khi lên xe và ghi rõ lý do.</p>
         </div>
-
         <div className="journey-help">
           <span className="help-icon"><ShieldAlert size={20}/></span>
-          <h3>Lưu ý an toàn khi đi cùng</h3>
+          <h3>{historyView && <ShieldAlert size={17} aria-hidden="true"/>} Lưu ý an toàn khi đi cùng</h3>
           <ul className="etiquette-list">
             <li><CheckCircle2 size={15}/><span>Kiểm tra đúng biển số xe thử nghiệm và tên tài xế trên ứng dụng.</span></li>
             <li><CheckCircle2 size={15}/><span>Luôn đội mũ bảo hiểm đạt chuẩn suốt chặng đường.</span></li>

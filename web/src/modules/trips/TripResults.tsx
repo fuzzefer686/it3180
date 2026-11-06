@@ -1,10 +1,56 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Clock3, MapPin, Route } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import type { ListTripsInput, TripCursor, TripListItem } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
-import { distanceText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
+import { distanceText, toVietnamInput, tripErrorText, tripStatusText, tripStatusTone, tripStopParts } from './format';
+
+function TripCard({ trip }: { trip: TripListItem }) {
+  const originLabel = trip.stopLabels[0] || 'Điểm đi';
+  const destinationLabel = trip.stopLabels.at(-1) || 'Điểm đến';
+  const origin = tripStopParts(originLabel);
+  const destination = tripStopParts(destinationLabel);
+  const stops = trip.stopLabels.slice(1, -1);
+  const [date, hour] = toVietnamInput(trip.departureTimeMs).split('T');
+  const isToday = date === toVietnamInput(Date.now()).slice(0, 10);
+  const availability = trip.hasPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách';
+  const status = trip.status === 'OPEN' ? availability : tripStatusText[trip.status];
+  const tone = trip.status === 'OPEN' && trip.hasPassenger ? 'amber' : tripStatusTone[trip.status];
+
+  return <Link className="trip-card" to={'/chuyen-di/' + trip.id}>
+    <div className="trip-card-top">
+      <time className="trip-card-time" dateTime={new Date(trip.departureTimeMs).toISOString()}>
+        <strong>{hour}</strong><span>{isToday && 'Hôm nay · '}{date.split('-').reverse().join('/')}</span>
+      </time>
+      <div className="trip-card-availability">
+        <span className={`status-pill ${tone}`}><span className="trip-status-dot" aria-hidden="true"/>{status}</span>
+        <span>{distanceText(trip.totalDistanceMeters)}</span>
+      </div>
+    </div>
+    <div className="trip-timeline">
+      <div className="trip-timeline-track" aria-hidden="true"><span/><span/><span/></div>
+      <div className="trip-timeline-place" title={originLabel}>
+        <strong>{origin.name}</strong><span>{origin.address || 'Điểm xuất phát'}</span>
+      </div>
+      {stops.length > 0 ? (
+        <p className="trip-timeline-stops" title={stops.join(' · ')}>
+          +{stops.length} điểm đón · {stops.map(label => tripStopParts(label).name).join(' · ')}
+        </p>
+      ) : <p className="trip-timeline-direct">Đi thẳng, không dừng giữa đường</p>}
+      <div className="trip-timeline-place" title={destinationLabel}>
+        <strong>{destination.name}</strong><span>{destination.address || 'Điểm đến'}</span>
+      </div>
+    </div>
+    <div className="trip-card-footer">
+      <span className="trip-driver-chip" title={trip.driverName}>
+        <span className="trip-driver-avatar" aria-hidden="true">{trip.driverName.slice(0, 1).toUpperCase()}</span>
+        <span>{trip.driverName}</span>
+      </span>
+      <span className="trip-card-link">Xem chi tiết <ArrowRight size={15}/></span>
+    </div>
+  </Link>;
+}
 
 export function TripResults({ filters }: { filters: ListTripsInput }) {
   const { user, loading: sessionLoading } = useSession();
@@ -58,33 +104,7 @@ export function TripResults({ filters }: { filters: ListTripsInput }) {
       </p>
     )}
     <div className="trip-cards">
-      {items.map(trip => {
-        const midCount = Math.max(0, trip.stopLabels.length - 2);
-        return <Link className="trip-card" key={trip.id} to={'/chuyen-di/' + trip.id}>
-          <div className="trip-card-top">
-            <span className={`status-pill ${tripStatusTone[trip.status]}`}>{tripStatusText[trip.status]}</span>
-            <span className={`status-pill ${trip.hasPassenger ? 'amber' : 'teal'}`}>
-              {trip.hasPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách'}
-            </span>
-          </div>
-          <h3>{trip.stopLabels[0]} → {trip.stopLabels[trip.stopLabels.length - 1]}</h3>
-          <p className="trip-card-stops">
-            <MapPin size={14}/>
-            {midCount > 0 ? `Qua ${midCount} điểm dừng trung gian (${trip.stopLabels.slice(1, -1).join(' · ')})` : 'Lộ trình trực tiếp 2 điểm A → B'}
-          </p>
-          <div className="trip-card-meta">
-            <span><Clock3 size={15}/> {tripTime(trip.departureTimeMs)}</span>
-            <span><Route size={15}/> {distanceText(trip.totalDistanceMeters)}</span>
-          </div>
-          <div className="trip-card-footer">
-            <span className="trip-driver-chip">
-              <span className="trip-driver-avatar" aria-hidden="true">{trip.driverName.slice(0, 1).toUpperCase()}</span>
-              <span>{trip.driverName}</span>
-            </span>
-            <span className="trip-card-link">Xem chi tiết <ArrowRight size={15}/></span>
-          </div>
-        </Link>;
-      })}
+      {items.map(trip => <TripCard key={trip.id} trip={trip}/>)}
     </div>
     {(cursor || nextCursor) && (
       <div className="trip-actions">

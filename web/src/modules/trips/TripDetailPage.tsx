@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, Clock3, RefreshCw, UserCheck } from 'lucide-react';
+import { ArrowLeft, Clock3, Flag, RefreshCw, UserRound } from 'lucide-react';
 import type { TripDetails } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
@@ -8,7 +8,7 @@ import { BookingList } from '../bookings/BookingList';
 import { BookingSubmit } from '../bookings/BookingSubmit';
 import { RouteSummary } from './RouteSummary';
 import { TripOwnerActions } from './TripOwnerActions';
-import { distanceText, estimatedPointsText, tripErrorText, tripStatusText, tripStatusTone, tripTime } from './format';
+import { distanceText, estimatedPointsText, tripErrorText, tripStatusText, tripStatusTone, tripStopParts, tripTime } from './format';
 
 const preloadRouteMap = () => import('./RouteMap');
 const RouteMap = lazy(() => preloadRouteMap().then(module => ({ default: module.RouteMap })));
@@ -90,7 +90,7 @@ export function TripDetailPage() {
   if (sessionLoading) return <p role="status">Đang tải tài khoản…</p>;
   if (!user) return <p className="notice"><Link to="/tai-khoan">Đăng nhập để xem chuyến đi.</Link></p>;
 
-  return <section className="trip-page">
+  return <section className="trip-page trip-detail-page">
     <div className="trip-top-bar">
       <Link className="trip-back-link" to="/chuyen-di"><ArrowLeft size={16}/> Tìm chuyến</Link>
       <button className="button secondary compact" type="button" disabled={busy || loading || bookingPending} onClick={() => setRefresh(refresh + 1)}>
@@ -104,23 +104,23 @@ export function TripDetailPage() {
     {trip && <>
       <header className="trip-heading-card">
         <div className="trip-heading-badges">
-          <span className={`status-pill ${tripStatusTone[trip.status]}`}>{tripStatusText[trip.status]}</span>
+          <span className={`status-pill ${tripStatusTone[trip.status]}`}><span className="trip-status-dot" aria-hidden="true"/>{tripStatusText[trip.status]}</span>
           <span className={`status-pill ${trip.confirmedBookingId || trip.hasServedPassenger ? 'amber' : 'teal'}`}>
             {trip.confirmedBookingId || trip.hasServedPassenger ? 'Đã có người đồng hành' : 'Chưa nhận khách'}
           </span>
         </div>
-        <h1>{trip.stops[0].label} → {trip.stops[trip.stops.length - 1].label}</h1>
+        <h1>{tripStopParts(trip.stops[0].label, { abbreviate: false }).name} → {tripStopParts(trip.stops[trip.stops.length - 1].label, { abbreviate: false }).name}</h1>
         <div className="trip-meta-grid">
-          <div className="trip-meta-item"><span><UserCheck size={14}/> Tài xế</span><strong>{trip.driverName}</strong></div>
-          <div className="trip-meta-item"><span><CalendarClock size={14}/> Khởi hành</span><strong>{tripTime(trip.departureTimeMs)}</strong></div>
-          <div className="trip-meta-item"><span><Clock3 size={14}/> Đến dự kiến</span><strong>{trip.arrivalTimeMs === null ? 'Chưa có thông tin' : tripTime(trip.arrivalTimeMs)}</strong></div>
+          <div className="trip-meta-item"><UserRound size={17} aria-hidden="true"/><div><span>Tài xế</span><strong>{trip.driverName}</strong></div></div>
+          <div className="trip-meta-item"><Clock3 size={17} aria-hidden="true"/><div><span>Khởi hành</span><strong>{tripTime(trip.departureTimeMs)}</strong></div></div>
+          <div className="trip-meta-item"><Flag size={17} aria-hidden="true"/><div><span>Đến dự kiến</span><strong>{trip.arrivalTimeMs === null ? 'Chưa có thông tin' : tripTime(trip.arrivalTimeMs)}</strong></div></div>
         </div>
         {trip.note && <div className="trip-note-card"><strong>Ghi chú từ tài xế</strong><p className="trip-note">{trip.note}</p></div>}
         {trip.cancellationReason && <p className="notice">Lý do hủy: {trip.cancellationReason}</p>}
       </header>
 
       <div className="trip-detail-layout">
-        <div className="trip-panel">
+        <div className="trip-panel trip-route-panel">
           <h2>Bản đồ & lộ trình chi tiết</h2>
           <Suspense fallback={<p role="status">Đang tải bản đồ…</p>}>
             <RouteMap stops={trip.stops} route={trip.route} highlightOrders={isOwner ? undefined : [pickup, dropoff]} />

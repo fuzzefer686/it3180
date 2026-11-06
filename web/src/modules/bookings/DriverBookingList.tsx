@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import type { TripCursor, TripListItem } from '../../../../shared/trips';
 import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
+import { distanceText, tripStatusText, tripTime } from '../trips/format';
 import { BookingList } from './BookingList';
+import { MyTripCard } from './MyTripCard';
 import { bookingError, listTripBookings, type BookingAction, type BookingGroup } from './booking-api';
 import { useBookingRefresh } from './useBookingRefresh';
 
@@ -47,7 +49,7 @@ export function DriverBookingList({ group }: { group: BookingGroup }) {
     else setNotice('Đã cập nhật yêu cầu.');
     reload();
   }
-  return <section className="journey-help" aria-label="Chuyến có yêu cầu đi cùng" aria-busy={busy}>
+  return <section className="my-booking-list" aria-label="Chuyến có yêu cầu đi cùng" aria-busy={busy}>
     <div className="trip-actions">
       <Link className="button primary compact" to="/chuyen-di/dang">Đăng chuyến</Link>
       <button className="button secondary compact" type="button" disabled={busy} onClick={reload}>Tải lại danh sách</button>
@@ -58,24 +60,36 @@ export function DriverBookingList({ group }: { group: BookingGroup }) {
     {busy && <p role="status">Đang kiểm tra yêu cầu của các chuyến…</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {!busy && !error && visibleRows.length === 0 && <p className="notice">Chưa có chuyến có yêu cầu trong mục này ở trang hiện tại.{next ? ' Hãy xem trang tiếp theo.' : ''}</p>}
-    {visibleRows.map(({ trip, error: rowError, hasRequests }) => <article className="trip-panel" key={trip.id}>
-      <h3>{trip.stopLabels[0]} → {trip.stopLabels[trip.stopLabels.length - 1]}</h3>
-      <p>Khởi hành: {new Date(trip.departureTimeMs).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</p>
-      <div className="trip-actions">
-        {hasRequests && <span className={'status-pill ' + (group === 'WAITING' ? 'amber' : 'teal')}>
-          {group === 'WAITING' ? 'Có yêu cầu chờ' : group === 'UPCOMING' ? 'Đã nhận khách' : 'Có yêu cầu trong lịch sử'}
-        </span>}
-        {hasRequests && group === 'WAITING' && trip.hasPassenger && <span className="status-pill teal">Đã nhận khách · còn yêu cầu dự phòng</span>}
-        {hasRequests && <button type="button" className="button secondary compact" aria-expanded={openTrip === trip.id}
-          onClick={() => setOpenTrip(openTrip === trip.id ? null : trip.id)}>{openTrip === trip.id ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}</button>}
-        <Link to={'/chuyen-di/' + trip.id}>Xem tuyến / quản lý chuyến</Link>
-      </div>
-      {rowError && <p className="form-error" role="alert">Chưa kiểm tra được yêu cầu: {rowError}</p>}
-      {openTrip === trip.id && hasRequests && <BookingList tripId={trip.id} group={group} embedded onChanged={changed} />}
-    </article>)}
-    <div className="trip-actions">
+    {visibleRows.map(({ trip, error: rowError, hasRequests }) => {
+      const expanded = openTrip === trip.id;
+      return <div className="my-booking-list" key={trip.id}>
+        <MyTripCard from={trip.stopLabels[0] || 'Điểm đi'} to={trip.stopLabels.at(-1) || 'Điểm đến'}
+          status={hasRequests && <span className={'status-pill ' + (group === 'WAITING' ? 'amber' : 'teal')}>
+            {group === 'WAITING' ? 'Có yêu cầu chờ' : group === 'UPCOMING' ? 'Đã nhận khách' : 'Có yêu cầu trong lịch sử'}
+          </span>}
+          facts={<>
+            <div><dt>Tài xế</dt><dd>{trip.driverName}</dd></div>
+            <div><dt>Khởi hành</dt><dd>{tripTime(trip.departureTimeMs)}</dd></div>
+            {trip.arrivalTimeMs !== null && <div><dt>Đến dự kiến</dt><dd>{tripTime(trip.arrivalTimeMs)}</dd></div>}
+            <div><dt>Trạng thái chuyến</dt><dd>{tripStatusText[trip.status]}</dd></div>
+            <div><dt>Tổng lộ trình</dt><dd>{distanceText(trip.totalDistanceMeters)}</dd></div>
+          </>}
+          actions={<>
+            {hasRequests && <button type="button" className="button secondary" aria-expanded={expanded}
+              onClick={() => setOpenTrip(expanded ? null : trip.id)}>{expanded ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}</button>}
+            <Link className="button secondary" to={'/chuyen-di/' + trip.id}>Xem tuyến / quản lý chuyến</Link>
+          </>}>
+          {hasRequests && group === 'WAITING' && trip.hasPassenger && <p className="trip-muted">Đã nhận khách · còn yêu cầu dự phòng</p>}
+          {rowError && <p className="form-error" role="alert">Chưa kiểm tra được yêu cầu: {rowError}</p>}
+        </MyTripCard>
+        {expanded && hasRequests && <div className="my-booking-requests">
+          <BookingList tripId={trip.id} group={group} embedded onChanged={changed} />
+        </div>}
+      </div>;
+    })}
+    {(cursor || next) && <div className="trip-actions">
       {cursor && <button className="button secondary" type="button" disabled={busy} onClick={() => { setCursor(null); setRows([]); setOpenTrip(null); }}>Về trang đầu</button>}
       {next && <button className="button secondary" type="button" disabled={busy} onClick={() => { setCursor(next); setRows([]); setOpenTrip(null); }}>Trang tiếp theo</button>}
-    </div>
+    </div>}
   </section>;
 }

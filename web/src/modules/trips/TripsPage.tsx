@@ -42,7 +42,7 @@ export function TripsPage() {
     requestAnimationFrame(() => result.current?.focus());
   }
 
-  return <>
+  return <div className="trip-discovery">
     <section className="search-hero" aria-labelledby="search-title">
       <div className="hero-copy">
         <span className="eyebrow"><Bike size={16}/> Ghép xe máy cho sinh viên</span>
@@ -149,5 +149,5 @@ export function TripsPage() {
         <details><summary>Khi nào hàng chờ đóng? <ChevronDown size={18}/></summary><p>Chuyến ngừng nhận yêu cầu mới trước giờ đi 30 phút. Bạn có thể rút yêu cầu đang chờ mà không mất điểm.</p></details>
       </div>
     </section>
-  </>;
+  </div>;
 }
