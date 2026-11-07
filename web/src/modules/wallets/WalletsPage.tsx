@@ -17,6 +17,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import type { LedgerEntry, Wallet } from '../../../../shared/contracts';
 import { callFunction, errorMessage } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
+import { listMyBookings, type Booking } from '../bookings/booking-api';
 
 export function WalletsPage() {
   const { user, loading: authLoading } = useSession();
@@ -24,6 +25,7 @@ export function WalletsPage() {
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
+  const [unpaidBookings, setUnpaidBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -35,72 +37,45 @@ export function WalletsPage() {
   const [paymentMsg, setPaymentMsg] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // Khóa lưu trữ riêng biệt theo ID của từng tài khoản người dùng
-  const getStorageKeys = (userId: string) => ({
-    balanceKey: `mock_balance_${userId}`,
-    ledgerKey: `mock_ledger_${userId}`,
-  });
-
-  const getMockData = (userId: string) => {
-    const { balanceKey, ledgerKey } = getStorageKeys(userId);
-    const rawBalance = localStorage.getItem(balanceKey);
-    const balance = rawBalance ? parseInt(rawBalance, 10) : 1000000;
-    const rawLedger = localStorage.getItem(ledgerKey);
-    let ledger: LedgerEntry[] = [];
-
-    if (rawLedger) {
-      try {
-        ledger = JSON.parse(rawLedger);
-      } catch {
-        ledger = [];
-      }
-    } else {
-      // Mỗi người dùng có một ví khởi tạo 1.000.000 điểm riêng biệt và dòng lịch sử ban đầu riêng
-      ledger = [
-        {
-          id: `initial_${userId}`,
-          walletId: userId,
-          deltaPoints: 1000000,
-          kind: 'INITIAL_GRANT',
-          referenceId: userId,
-          createdAtMs: Date.now(),
-        },
-      ];
-      localStorage.setItem(ledgerKey, JSON.stringify(ledger));
-      localStorage.setItem(balanceKey, '1000000');
-    }
-    return { balance, ledger };
-  };
-
   const fetchWallet = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
 
-    // Dọn dẹp key dùng chung cũ nếu có
-    localStorage.removeItem('mock_balance');
-    localStorage.removeItem('mock_ledger');
-
     try {
       const data = await callFunction('getMyWallet', {});
       setWallet(data.wallet);
       setLedgerEntries(data.ledgerEntries);
-    } catch {
-      // Nếu server Supabase của nhóm chưa nạp RPC get_my_wallet, lưu ví độc lập theo từng user.id
-      const { balance, ledger } = getMockData(user.id);
-      setWallet({ uid: user.id, balancePoints: balance });
-      setLedgerEntries(ledger);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const history = await listMyBookings({ group: 'HISTORY' });
+      setUnpaidBookings(
+        history.items.filter(
+          (item) => item.status === 'COMPLETED' && !item.paymentId && item.passengerId === user.id,
+        ),
+      );
+    } catch {
+      // Bỏ qua nếu danh sách booking chưa tải được
     }
   };
 
   useEffect(() => {
+    const paramId = searchParams.get('payBookingId');
+    if (paramId) setBookingIdInput(paramId);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (user) {
-      fetchWallet();
+      void fetchWallet();
     } else {
       setWallet(null);
       setLedgerEntries([]);
+      setUnpaidBookings([]);
     }
   }, [user?.id]);
 
@@ -111,7 +86,6 @@ export function WalletsPage() {
     setError(null);
     setSuccessMsg(null);
 
-    // Sinh requestId ngẫu nhiên duy nhất cho mỗi lần click
     const requestId =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
@@ -119,39 +93,21 @@ export function WalletsPage() {
 
     try {
       const res = await callFunction('topUpDemo', { requestId });
-      setWallet((prev) => (prev ? { ...prev, balancePoints: res.balancePoints } : { uid: user.id, balancePoints: res.balancePoints }));
+      setWallet((prev) =>
+        prev ? { ...prev, balancePoints: res.balancePoints } : { uid: user.id, balancePoints: res.balancePoints },
+      );
       setLedgerEntries((prev) => [res.entry, ...prev.filter((e) => e.id !== res.entry.id)]);
       setSuccessMsg('Đã cộng thành công 100.000 điểm thử nghiệm vào ví!');
       setTimeout(() => setSuccessMsg(null), 4000);
-    } catch {
-      // Lưu riêng vào ví của tài khoản đang đăng nhập
-      const { balanceKey, ledgerKey } = getStorageKeys(user.id);
-      const { balance, ledger } = getMockData(user.id);
-      const newBalance = balance + 100000;
-      const newEntry: LedgerEntry = {
-        id: `topup_${user.id}_${requestId}`,
-        walletId: user.id,
-        deltaPoints: 100000,
-        kind: 'DEMO_TOP_UP',
-        referenceId: requestId,
-        createdAtMs: Date.now(),
-      };
-      const updatedLedger = [newEntry, ...ledger];
-      localStorage.setItem(balanceKey, newBalance.toString());
-      localStorage.setItem(ledgerKey, JSON.stringify(updatedLedger));
-      setWallet({ uid: user.id, balancePoints: newBalance });
-      setLedgerEntries(updatedLedger);
-      setSuccessMsg('Đã cộng thành công 100.000 điểm thử nghiệm vào ví!');
-      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setIsToppingUp(false);
     }
   };
 
-  // Xử lý thanh toán chuyến đi COMPLETED
-  const handlePayBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = bookingIdInput.trim();
+  const executePayBooking = async (bookingId: string) => {
+    const id = bookingId.trim();
     if (!id || isPaying || !user) return;
 
     setIsPaying(true);
@@ -160,37 +116,21 @@ export function WalletsPage() {
 
     try {
       const res = await callFunction('payBooking', { bookingId: id });
-      setPaymentMsg(`Thanh toán thành công ${res.payment.farePoints.toLocaleString('vi-VN')} điểm cho chuyến đi #${res.payment.bookingId}!`);
-      await fetchWallet();
+      setPaymentMsg(
+        `Thanh toán thành công ${res.payment.farePoints.toLocaleString('vi-VN')} điểm cho chuyến đi #${res.payment.bookingId}!`,
+      );
       setBookingIdInput('');
-    } catch {
-      // Lưu riêng vào ví của tài khoản đang thanh toán
-      const { balanceKey, ledgerKey } = getStorageKeys(user.id);
-      const { balance, ledger } = getMockData(user.id);
-      const fare = 50000;
-      if (balance < fare) {
-        setPaymentError('Số dư điểm không đủ để thanh toán chuyến đi. Vui lòng thêm điểm thử.');
-      } else {
-        const newBalance = balance - fare;
-        const newEntry: LedgerEntry = {
-          id: `ride_pay_${id}`,
-          walletId: user.id,
-          deltaPoints: -fare,
-          kind: 'RIDE_PAYMENT',
-          referenceId: id,
-          createdAtMs: Date.now(),
-        };
-        const updatedLedger = [newEntry, ...ledger];
-        localStorage.setItem(balanceKey, newBalance.toString());
-        localStorage.setItem(ledgerKey, JSON.stringify(updatedLedger));
-        setWallet({ uid: user.id, balancePoints: newBalance });
-        setLedgerEntries(updatedLedger);
-        setPaymentMsg(`Thanh toán thành công ${fare.toLocaleString('vi-VN')} điểm cho chuyến đi #${id}!`);
-        setBookingIdInput('');
-      }
+      await fetchWallet();
+    } catch (err) {
+      setPaymentError(errorMessage(err));
     } finally {
       setIsPaying(false);
     }
+  };
+
+  const handlePayBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executePayBooking(bookingIdInput);
   };
 
   const getKindLabel = (kind: LedgerEntry['kind']) => {
@@ -213,123 +153,191 @@ export function WalletsPage() {
   return (
     <div className="inner-page">
       <header className="page-heading">
-        <h1>Ví điểm</h1>
-        <p>Điểm cho chuyến đi cùng, lịch sử cho mỗi lần sử dụng.</p>
+        <div>
+          <h1>Ví điểm</h1>
+          <p>Điểm mô phỏng cho các chuyến đi cùng sinh viên, minh bạch theo từng ki-lô-mét lộ trình.</p>
+        </div>
+        <span className="status-pill amber">Mô phỏng học phần · Không dùng tiền thật</span>
       </header>
 
       {error && (
-        <div className="notice warning" style={{ marginBottom: 20 }}>
+        <div className="notice warning" style={{ marginBottom: 20 }} role="alert">
           <CircleAlert size={18} />
           <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="notice success" style={{ marginBottom: 20 }}>
+        <div className="notice" style={{ marginBottom: 20 }} role="status">
           <CheckCircle2 size={18} />
           <span>{successMsg}</span>
         </div>
       )}
 
       <div className="wallet-layout">
-        {/* Khối hiển thị số dư và nạp điểm */}
         <section className="balance-panel" aria-labelledby="balance-title">
-          <div className="balance-top">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <WalletCards size={28} />
-              <span>Điểm mô phỏng</span>
+          <div>
+            <div className="balance-top">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="balance-icon-box">
+                  <WalletCards size={24} />
+                </span>
+                <span className="balance-badge">Điểm mô phỏng</span>
+              </div>
+              {user && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => void fetchWallet()}
+                  disabled={loading}
+                  title="Làm mới số dư"
+                  aria-label="Làm mới số dư"
+                  style={{ color: '#ffffff' }}
+                >
+                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
+              )}
             </div>
-            {user && (
-              <button
-                type="button"
-                className="icon-button"
-                onClick={fetchWallet}
-                disabled={loading}
-                title="Làm mới số dư"
-              >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              </button>
+
+            <h2 id="balance-title">Số điểm của bạn</h2>
+
+            {authLoading || (loading && !wallet) ? (
+              <p className="balance-value">Đang tải...</p>
+            ) : !user ? (
+              <>
+                <p className="balance-value">Chưa đăng nhập</p>
+                <p className="balance-caption">
+                  Đăng nhập tài khoản để nhận 1.000.000 điểm khởi tạo và quản lý ví.
+                </p>
+                <Link className="button primary" to="/tai-khoan">
+                  Đăng nhập ngay <ArrowRight size={17} />
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="balance-value">
+                  {wallet ? `${wallet.balancePoints.toLocaleString('vi-VN')} điểm` : '0 điểm'}
+                </p>
+                <p className="balance-caption">
+                  Tài khoản: <strong>{user.email || user.id}</strong>. Mỗi thành viên có một ví điểm riêng biệt.
+                </p>
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => void handleTopUp()}
+                  disabled={isToppingUp}
+                >
+                  {isToppingUp ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} />}
+                  Thêm 100.000 điểm thử
+                </button>
+              </>
             )}
           </div>
-
-          <h2 id="balance-title">Số điểm của bạn</h2>
-
-          {authLoading || (loading && !wallet) ? (
-            <p className="balance-value">Đang tải...</p>
-          ) : !user ? (
-            <>
-              <p className="balance-value">Chưa đăng nhập</p>
-              <p className="balance-caption">Đăng nhập tài khoản để nhận 1.000.000 điểm khởi tạo và quản lý ví.</p>
-              <Link className="button primary" to="/tai-khoan">
-                Đăng nhập ngay <ArrowRight size={18} />
-              </Link>
-            </>
-          ) : (
-            <>
-              <p className="balance-value">
-                {wallet ? `${wallet.balancePoints.toLocaleString('vi-VN')} điểm` : '1.000.000 điểm'}
-              </p>
-              <p className="balance-caption">
-                Ví hoạt động bình thường. Tài khoản: <strong>{user.email || user.id}</strong>. Mỗi người dùng có một ví riêng biệt.
-              </p>
-              <button
-                type="button"
-                className="button primary"
-                onClick={handleTopUp}
-                disabled={isToppingUp}
-              >
-                {isToppingUp ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                Thêm 100.000 điểm thử
-              </button>
-            </>
-          )}
-
-          <p className="wallet-footnote">Điểm không có giá trị tiền và không thể quy đổi.</p>
+          <p className="wallet-footnote">
+            Điểm chỉ phục vụ mô phỏng môn học, không có giá trị tiền tệ và không thể quy đổi.
+          </p>
         </section>
 
-        {/* Khối quy tắc và giải thích */}
         <section className="wallet-explainer">
-          <CircleHelp size={24} />
-          <h2>Chỉ dùng điểm thử</h2>
-          <p>Ví mô phỏng cách trả phí chuyến đi. Bạn không cần liên kết ngân hàng hay dùng tiền thật.</p>
-
-          <div className="wallet-rule">
-            <span>Thời điểm trả điểm</span>
-            <strong>Sau khi bạn xuống xe (COMPLETED)</strong>
+          <div className="wallet-explainer-head">
+            <CircleHelp size={22} />
+            <h2>Nguyên tắc tính điểm minh bạch</h2>
           </div>
-          <div className="wallet-rule">
-            <span>Cách tính điểm dự kiến</span>
-            <strong>5.000 điểm / km</strong>
+          <p>
+            Ví mô phỏng cách chia sẻ chi phí xăng xe giữa sinh viên cùng trường, không liên kết ngân hàng hay ví điện tử thật.
+          </p>
+          <div className="wallet-rules">
+            <div className="wallet-rule">
+              <span>Đơn giá tham khảo</span>
+              <strong>5.000 điểm / km</strong>
+            </div>
+            <div className="wallet-rule">
+              <span>Thời điểm đối soát</span>
+              <strong>Sau khi bạn xuống xe (COMPLETED)</strong>
+            </div>
+            <div className="wallet-rule">
+              <span>Phí hệ thống mô phỏng</span>
+              <strong>10% làm tròn xuống</strong>
+            </div>
           </div>
-          <div className="wallet-rule">
-            <span>Phí hệ thống mô phỏng</span>
-            <strong>10% làm tròn xuống</strong>
-          </div>
-
           {!user && (
             <Link className="text-link" to="/tai-khoan">
-              Đăng nhập <ArrowRight size={18} />
+              Đăng nhập để liên kết tài khoản
+              <ArrowRight size={17} />
             </Link>
           )}
         </section>
       </div>
 
-      {/* Form thanh toán chuyến đi khi khách xuống xe */}
+      {/* Khối thanh toán chuyến đi đã hoàn thành */}
       {user && (
-        <section className="payment-box" style={{ marginTop: 36, padding: '24px 28px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <section
+          className="payment-box"
+          style={{
+            marginTop: 32,
+            padding: '24px 28px',
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+            borderRadius: 20,
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
             <CreditCard size={22} color="var(--accent-text)" />
-            <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Thanh toán chuyến đi bằng điểm</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Thanh toán chuyến đi bằng điểm</h2>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-            Hành khách nhập mã đặt chỗ (Booking ID) của chuyến đã hoàn thành để trừ điểm và trả cho tài xế.
+          <p style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 18 }}>
+            Sau khi tài xế đánh dấu đã trả khách (COMPLETED), bạn có thể chọn chuyến cần thanh toán bên dưới hoặc nhập mã Booking ID.
           </p>
 
-          <form onSubmit={handlePayBooking} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div className="form-input" style={{ flex: '1 1 260px', minHeight: 46 }}>
+          {unpaidBookings.length > 0 && (
+            <div style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
+              {unpaidBookings.map((b) => (
+                <div
+                  key={b.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    padding: '12px 16px',
+                    borderRadius: 14,
+                    background: 'var(--soft)',
+                    border: '1px solid var(--line-subtle)',
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: 14 }}>
+                      {b.pickupLabel} → {b.dropoffLabel}
+                    </strong>
+                    <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                      Tài xế: {b.driverName} · Cần thanh toán:{' '}
+                      <strong>{(b.farePoints ?? 0).toLocaleString('vi-VN')} điểm</strong> · Mã: {b.id}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button primary compact"
+                    disabled={isPaying}
+                    onClick={() => void executePayBooking(b.id)}
+                  >
+                    {isPaying ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                    Thanh toán {(b.farePoints ?? 0).toLocaleString('vi-VN')} điểm
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => void handlePayBooking(e)}
+            style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}
+          >
+            <div className="form-input" style={{ flex: '1 1 260px', minHeight: 48 }}>
               <input
                 type="text"
-                placeholder="Nhập mã đặt chuyến (ví dụ: booking-123)"
+                placeholder="Nhập mã đặt chuyến (Booking UUID)"
                 value={bookingIdInput}
                 onChange={(e) => setBookingIdInput(e.target.value)}
                 required
@@ -339,22 +347,22 @@ export function WalletsPage() {
               type="submit"
               className="button primary"
               disabled={isPaying || !bookingIdInput.trim()}
-              style={{ minHeight: 46 }}
+              style={{ minHeight: 48 }}
             >
-              {isPaying ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+              {isPaying ? <Loader2 size={17} className="animate-spin" /> : <CreditCard size={17} />}
               Thanh toán ngay
             </button>
           </form>
 
           {paymentError && (
-            <div className="notice warning" style={{ marginTop: 14 }}>
+            <div className="notice warning" style={{ marginTop: 14 }} role="alert">
               <CircleAlert size={16} />
               <span>{paymentError}</span>
             </div>
           )}
 
           {paymentMsg && (
-            <div className="notice success" style={{ marginTop: 14 }}>
+            <div className="notice" style={{ marginTop: 14 }} role="status">
               <CheckCircle2 size={16} />
               <span>{paymentMsg}</span>
             </div>
@@ -368,7 +376,9 @@ export function WalletsPage() {
 
         {!user ? (
           <div className="transaction-empty">
-            <ArrowUpDown size={25} />
+            <span className="transaction-empty-icon">
+              <ArrowUpDown size={22} />
+            </span>
             <div>
               <h3>Vui lòng đăng nhập để xem lịch sử</h3>
               <p>Lịch sử biến động điểm ví của bạn sẽ xuất hiện tại đây.</p>
@@ -376,7 +386,9 @@ export function WalletsPage() {
           </div>
         ) : ledgerEntries.length === 0 ? (
           <div className="transaction-empty">
-            <ArrowUpDown size={25} />
+            <span className="transaction-empty-icon">
+              <ArrowUpDown size={22} />
+            </span>
             <div>
               <h3>Chưa có giao dịch nào</h3>
               <p>Khi bạn nhận điểm khởi tạo, nạp thử hoặc thanh toán chuyến đi, lịch sử sẽ xuất hiện tại đây.</p>
@@ -395,14 +407,17 @@ export function WalletsPage() {
                     <div className="transaction-text">
                       <h3>{getKindLabel(entry.kind)}</h3>
                       <p>
-                        {new Date(entry.createdAtMs).toLocaleString('vi-VN')} &bull; Mã: {entry.referenceId}
+                        {new Date(entry.createdAtMs).toLocaleString('vi-VN')} &bull; Mã tham chiếu: {entry.referenceId}
                       </p>
                     </div>
                   </div>
 
                   <div className="transaction-amount">
                     <div className={`delta ${isPositive ? 'positive' : 'negative'}`}>
-                      {isPositive ? `+${entry.deltaPoints.toLocaleString('vi-VN')}` : entry.deltaPoints.toLocaleString('vi-VN')} điểm
+                      {isPositive
+                        ? `+${entry.deltaPoints.toLocaleString('vi-VN')}`
+                        : entry.deltaPoints.toLocaleString('vi-VN')}{' '}
+                      điểm
                     </div>
                   </div>
                 </div>

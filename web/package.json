@@ -16,7 +16,8 @@
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4",
     "zod": "4.6.5",
-    "@supabase/supabase-js": "2.117.2"
+    "@supabase/supabase-js": "2.117.2",
+    "@vietmap/vietmap-gl-js": "6.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
