@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { inputSchemas, responseSchemas, ledgerEntrySchema, walletSchema, paymentSchema } from '../../shared/api';
+import { walletError } from '../../web/src/modules/wallets/wallet-errors';
 
 describe('Người 5 — Quy tắc ví điểm và thanh toán Supabase (Unit Tests)', () => {
   describe('Cấu hình và quy tắc tính toán điểm demo', () => {
@@ -210,6 +211,39 @@ describe('Người 5 — Quy tắc ví điểm và thanh toán Supabase (Unit Te
         await rpc(driver, 'get_booking_payment', { bookingId }),
       );
       expect(lookup.payment).toEqual(paid.payment);
+    });
+
+    it('pay_booking báo lỗi rõ ràng khi không đủ điểm và walletError hiển thị chi tiết số điểm thiếu', async () => {
+      await db.query(
+        `insert into public.trips(id,driver_id,departure_time,status,route_polyline,route_distance_meters,has_served_passenger)
+         values($1,$2,now(),'COMPLETED','_p~iF~ps|U_ulLnnqC_mqNvxq\u0060@',300000,true)`,
+        [tripId, driver],
+      );
+      await db.query(
+        `insert into public.trip_stops(id,trip_id,stop_order,label,latitude,longitude,distance_from_start_meters)
+         values($1,$3,0,'Bách Khoa',21.004,105.843,0),($2,$3,1,'Giáp Bát',20.98,105.841,300000)`,
+        [stopA, stopB, tripId],
+      );
+      await db.query(
+        `insert into public.bookings(id,trip_id,driver_id,passenger_id,pickup_stop_id,dropoff_stop_id,
+          request_id,status,distance_meters,fare_points,fee_points,driver_points,confirmed_at,picked_up_at,completed_at)
+         values($1,$2,$3,$4,$5,$6,'req-book-2','COMPLETED',300000,1500000,150000,1350000,now(),now(),now())`,
+        [bookingId, tripId, driver, passenger, stopA, stopB],
+      );
+
+      let caught: unknown;
+      try {
+        await rpc(passenger, 'pay_booking', { bookingId });
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeDefined();
+
+      const msg = walletError(caught, { balancePoints: 1_000_000, farePoints: 1_500_000 });
+      expect(msg).toContain('Không đủ điểm thanh toán');
+      expect(msg).toContain('1.500.000');
+      expect(msg).toContain('1.000.000');
+      expect(msg).toContain('500.000');
     });
   });
 });

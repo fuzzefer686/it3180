@@ -15,9 +15,16 @@ import {
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { LedgerEntry, Wallet } from '../../../../shared/contracts';
-import { callFunction, errorMessage } from '../../lib/callable';
+import { callFunction } from '../../lib/callable';
 import { useSession } from '../auth/SessionProvider';
 import { listMyBookings, type Booking } from '../bookings/booking-api';
+import { walletError } from './wallet-errors';
+
+type FeedbackNotice = {
+  scope: 'wallet' | 'payment';
+  tone: 'success' | 'warning';
+  text: string;
+};
 
 export function WalletsPage() {
   const { user, loading: authLoading } = useSession();
@@ -27,27 +34,24 @@ export function WalletsPage() {
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [unpaidBookings, setUnpaidBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isToppingUp, setIsToppingUp] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackNotice | null>(null);
 
   // Thanh toán chuyến đi qua bookingId
   const [bookingIdInput, setBookingIdInput] = useState(searchParams.get('payBookingId') || '');
   const [isPaying, setIsPaying] = useState(false);
-  const [paymentMsg, setPaymentMsg] = useState<string | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  const fetchWallet = async () => {
+  const fetchWallet = async (preserveFeedback = false) => {
     if (!user) return;
     setLoading(true);
-    setError(null);
+    if (!preserveFeedback) setFeedback(null);
 
     try {
       const data = await callFunction('getMyWallet', {});
       setWallet(data.wallet);
       setLedgerEntries(data.ledgerEntries);
     } catch (err) {
-      setError(errorMessage(err));
+      setFeedback({ scope: 'wallet', tone: 'warning', text: walletError(err) });
     } finally {
       setLoading(false);
     }
@@ -76,6 +80,7 @@ export function WalletsPage() {
       setWallet(null);
       setLedgerEntries([]);
       setUnpaidBookings([]);
+      setFeedback(null);
     }
   }, [user?.id]);
 
@@ -83,8 +88,7 @@ export function WalletsPage() {
   const handleTopUp = async () => {
     if (!user || isToppingUp) return;
     setIsToppingUp(true);
-    setError(null);
-    setSuccessMsg(null);
+    setFeedback(null);
 
     const requestId =
       typeof crypto !== 'undefined' && crypto.randomUUID
@@ -97,10 +101,13 @@ export function WalletsPage() {
         prev ? { ...prev, balancePoints: res.balancePoints } : { uid: user.id, balancePoints: res.balancePoints },
       );
       setLedgerEntries((prev) => [res.entry, ...prev.filter((e) => e.id !== res.entry.id)]);
-      setSuccessMsg('Đã cộng thành công 100.000 điểm thử nghiệm vào ví!');
-      setTimeout(() => setSuccessMsg(null), 4000);
+      setFeedback({
+        scope: 'wallet',
+        tone: 'success',
+        text: 'Đã cộng thành công 100.000 điểm thử nghiệm vào ví!',
+      });
     } catch (err) {
-      setError(errorMessage(err));
+      setFeedback({ scope: 'wallet', tone: 'warning', text: walletError(err) });
     } finally {
       setIsToppingUp(false);
     }
@@ -110,19 +117,45 @@ export function WalletsPage() {
     const id = bookingId.trim();
     if (!id || isPaying || !user) return;
 
+    const matchedBooking = unpaidBookings.find((b) => b.id === id);
+    if (
+      wallet &&
+      matchedBooking &&
+      typeof matchedBooking.farePoints === 'number' &&
+      wallet.balancePoints < matchedBooking.farePoints
+    ) {
+      setFeedback({
+        scope: 'payment',
+        tone: 'warning',
+        text: walletError(
+          { message: 'Insufficient balance' },
+          { balancePoints: wallet.balancePoints, farePoints: matchedBooking.farePoints },
+        ),
+      });
+      return;
+    }
+
     setIsPaying(true);
-    setPaymentMsg(null);
-    setPaymentError(null);
+    setFeedback(null);
 
     try {
       const res = await callFunction('payBooking', { bookingId: id });
-      setPaymentMsg(
-        `Thanh toán thành công ${res.payment.farePoints.toLocaleString('vi-VN')} điểm cho chuyến đi #${res.payment.bookingId}!`,
-      );
       setBookingIdInput('');
-      await fetchWallet();
+      await fetchWallet(true);
+      setFeedback({
+        scope: 'payment',
+        tone: 'success',
+        text: `Thanh toán thành công ${res.payment.farePoints.toLocaleString('vi-VN')} điểm cho chuyến đi #${res.payment.bookingId}!`,
+      });
     } catch (err) {
-      setPaymentError(errorMessage(err));
+      setFeedback({
+        scope: 'payment',
+        tone: 'warning',
+        text: walletError(err, {
+          balancePoints: wallet?.balancePoints,
+          farePoints: matchedBooking?.farePoints,
+        }),
+      });
     } finally {
       setIsPaying(false);
     }
@@ -160,17 +193,17 @@ export function WalletsPage() {
         <span className="status-pill amber">Mô phỏng học phần · Không dùng tiền thật</span>
       </header>
 
-      {error && (
-        <div className="notice warning" style={{ marginBottom: 20 }} role="alert">
-          <CircleAlert size={18} />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="notice" style={{ marginBottom: 20 }} role="status">
-          <CheckCircle2 size={18} />
-          <span>{successMsg}</span>
+      {feedback?.scope === 'wallet' && (
+        <div
+          className={`notice ${feedback.tone === 'warning' ? 'warning' : 'success'}`}
+          style={{ marginBottom: 20 }}
+          role={feedback.tone === 'warning' ? 'alert' : 'status'}
+        >
+          {feedback.tone === 'warning' ? <CircleAlert size={18} /> : <CheckCircle2 size={18} />}
+          <span>{feedback.text}</span>
+          <button type="button" className="text-button" onClick={() => setFeedback(null)}>
+            Đóng
+          </button>
         </div>
       )}
 
@@ -192,7 +225,6 @@ export function WalletsPage() {
                   disabled={loading}
                   title="Làm mới số dư"
                   aria-label="Làm mới số dư"
-                  style={{ color: '#ffffff' }}
                 >
                   <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
@@ -282,31 +314,25 @@ export function WalletsPage() {
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-            <CreditCard size={22} color="var(--accent-text)" />
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Thanh toán chuyến đi bằng điểm</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CreditCard size={22} color="var(--accent-text)" />
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Thanh toán chuyến đi bằng điểm</h2>
+            </div>
+            {unpaidBookings.length > 0 && (
+              <span className="status-pill teal">
+                {unpaidBookings.length} chuyến chờ thanh toán
+              </span>
+            )}
           </div>
           <p style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 18 }}>
-            Sau khi tài xế đánh dấu đã trả khách (COMPLETED), bạn có thể chọn chuyến cần thanh toán bên dưới hoặc nhập mã Booking ID.
+            Sau khi tài xế đánh dấu đã trả khách (COMPLETED), bạn có thể chọn chuyến cần thanh toán trong danh sách cuộn bên dưới hoặc nhập mã Booking ID.
           </p>
 
           {unpaidBookings.length > 0 && (
-            <div style={{ display: 'grid', gap: 10, marginBottom: 18 }}>
+            <div className="unpaid-booking-list" role="region" aria-label="Danh sách chuyến cần thanh toán">
               {unpaidBookings.map((b) => (
-                <div
-                  key={b.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    flexWrap: 'wrap',
-                    padding: '12px 16px',
-                    borderRadius: 14,
-                    background: 'var(--soft)',
-                    border: '1px solid var(--line-subtle)',
-                  }}
-                >
+                <div key={b.id} className="unpaid-booking-item">
                   <div>
                     <strong style={{ fontSize: 14 }}>
                       {b.pickupLabel} → {b.dropoffLabel}
@@ -354,17 +380,17 @@ export function WalletsPage() {
             </button>
           </form>
 
-          {paymentError && (
-            <div className="notice warning" style={{ marginTop: 14 }} role="alert">
-              <CircleAlert size={16} />
-              <span>{paymentError}</span>
-            </div>
-          )}
-
-          {paymentMsg && (
-            <div className="notice" style={{ marginTop: 14 }} role="status">
-              <CheckCircle2 size={16} />
-              <span>{paymentMsg}</span>
+          {feedback?.scope === 'payment' && (
+            <div
+              className={`notice ${feedback.tone === 'warning' ? 'warning' : 'success'}`}
+              style={{ marginTop: 14 }}
+              role={feedback.tone === 'warning' ? 'alert' : 'status'}
+            >
+              {feedback.tone === 'warning' ? <CircleAlert size={16} /> : <CheckCircle2 size={16} />}
+              <span>{feedback.text}</span>
+              <button type="button" className="text-button" onClick={() => setFeedback(null)}>
+                Đóng
+              </button>
             </div>
           )}
         </section>
@@ -372,7 +398,12 @@ export function WalletsPage() {
 
       {/* Lịch sử điểm (Ledger Entries) */}
       <section className="transactions" aria-labelledby="transactions-title">
-        <h2 id="transactions-title">Lịch sử điểm</h2>
+        <div className="transactions-head">
+          <h2 id="transactions-title">Lịch sử điểm</h2>
+          {user && ledgerEntries.length > 0 && (
+            <span className="status-pill neutral">{ledgerEntries.length} giao dịch gần nhất</span>
+          )}
+        </div>
 
         {!user ? (
           <div className="transaction-empty">
@@ -395,7 +426,7 @@ export function WalletsPage() {
             </div>
           </div>
         ) : (
-          <div className="transaction-list">
+          <div className="transaction-list" role="region" aria-label="Lịch sử giao dịch điểm">
             {ledgerEntries.map((entry) => {
               const isPositive = entry.deltaPoints > 0;
               return (
