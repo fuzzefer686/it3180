@@ -47,10 +47,15 @@ function BookingCard({ booking, driverView, layout, trip, tripError, onChanged, 
   const price = booking.farePoints === null ? 'Chưa chốt giá' : booking.farePoints.toLocaleString('vi-VN') + ' điểm demo';
   const address = booking.pickupLabel + ' → ' + booking.dropoffLabel;
   const paymentNotice = booking.paymentId ? 'Đã có giao dịch thanh toán.'
-    : 'Chưa có thanh toán được ghi nhận. Module này không cộng/trừ ví; cần backend ví của người 5.';
+    : 'Chưa có thanh toán được ghi nhận. Hành khách có thể thanh toán tại mục Ví điểm.';
   const tripLink = <Link className={myRides ? 'button secondary' : undefined} to={'/chuyen-di/' + booking.tripId}>
     Xem tuyến / quản lý trạng thái Trip
   </Link>;
+  const payLink = !driverView && booking.status === 'COMPLETED' && !booking.paymentId ? (
+    <Link className="button primary" to={'/vi-diem?payBookingId=' + booking.id}>
+      Thanh toán điểm chuyến đi
+    </Link>
+  ) : null;
   const actions: BookingAction[] = queueView && booking.actions.includes('confirmBooking')
     ? [...booking.actions.filter(action => action !== 'confirmBooking'), 'confirmBooking'] : booking.actions;
   const actionButtons = actions.map(action => <button type="button" key={action}
@@ -68,7 +73,7 @@ function BookingCard({ booking, driverView, layout, trip, tripError, onChanged, 
 
   if (myRides) {
     return <MyTripCard from={booking.pickupLabel} to={booking.dropoffLabel} status={status} busy={busy}
-      actions={<>{tripLink}{actionButtons}</>} footerNote={booking.status === 'COMPLETED' ? paymentNotice : undefined}
+      actions={<>{tripLink}{payLink}{actionButtons}</>} footerNote={booking.status === 'COMPLETED' ? paymentNotice : undefined}
       facts={<>
         <div><dt>{driverView ? 'Khách' : 'Tài xế'}</dt><dd>{driverView ? booking.passengerName : booking.driverName}</dd></div>
         <div><dt>Khởi hành</dt><dd>{time(booking.departureTimeMs)}</dd></div>
