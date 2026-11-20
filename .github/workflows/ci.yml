@@ -1,36 +1,55 @@
 name: CI
+
 on:
   pull_request:
-    branches: [dev, main]
   push:
-    branches: [dev, main]
-permissions:
-  contents: read
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+    branches: [main]
+
 jobs:
-  checks:
-    name: checks
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run check
+
+    services:
+      postgres:
+        image: postgres:16
         env:
-          CI: 'true'
-          SUPABASE_TELEMETRY_DISABLED: '1'
-          SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
-          # Chỉ để kiểm tra build; .invalid không gọi server cloud thật.
-          # Integration tự lấy URL/key Supabase local, không dùng hai biến này.
-          VITE_SUPABASE_URL: https://supabase-ci.invalid
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
-      - name: Stop local Supabase
-        if: always()
-        run: npx --no-install supabase stop
-# GitHub Actions chỉ kiểm tra; frontend Pages deploy qua kết nối Git trên Dashboard.
+          POSTGRES_USER: medbook
+          POSTGRES_PASSWORD: medbook
+          POSTGRES_DB: medbook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U medbook -d medbook_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 4300
+      DATABASE_URL: postgres://medbook:medbook@localhost:5432/medbook_test
+      DEMO_AUTH_ENABLED: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Migrate and seed
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Test
+        run: npm test
